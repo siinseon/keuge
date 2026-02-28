@@ -8,40 +8,22 @@
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
 
   :root {
-    --bg: #FFFFFF;
-    --text: #111111;
-    --sub: #444444;
-    --border: #222222;
-    --accent: #0055CC;
-    --accent2: #CC3300;
-    --card: #F5F5F5;
-    --card-border: #CCCCCC;
-    --btn-bg: #111111;
-    --btn-text: #FFFFFF;
-    --fav: #FF6600;
-    --tag-bg: #EEEEEE;
-    --tag-text: #222222;
-    --input-bg: #FFFFFF;
-    --input-border: #111111;
-    --shadow: rgba(0,0,0,0.15);
-  }
-  body.dark {
     --bg: #111111;
     --text: #FFEE00;
-    --sub: #FFDD44;
+    --sub: #FFCC00;
     --border: #FFEE00;
     --accent: #FFEE00;
     --accent2: #FF9944;
-    --card: #222222;
+    --card: #1E1E1E;
     --card-border: #FFEE00;
     --btn-bg: #FFEE00;
     --btn-text: #111111;
     --fav: #FF9944;
-    --tag-bg: #333333;
+    --tag-bg: #2A2800;
     --tag-text: #FFEE00;
-    --input-bg: #222222;
+    --input-bg: #2A2800;
     --input-border: #FFEE00;
-    --shadow: rgba(255,238,0,0.2);
+    --shadow: rgba(255,238,0,0.15);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -66,8 +48,8 @@
   .top-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px 10px;
+    justify-content: center;
+    padding: 16px 20px 12px;
     border-bottom: 3px solid var(--border);
     background: var(--bg);
     position: sticky;
@@ -75,18 +57,23 @@
     z-index: 100;
     min-height: 70px;
   }
+  #screen-results .top-bar,
+  #screen-detail .top-bar,
+  #screen-camera .top-bar {
+    justify-content: space-between;
+  }
   .back-btn {
     background: none;
-    border: 3px solid var(--border);
+    border: 4px solid var(--border);
     color: var(--text);
-    font-size: 22px;
+    font-size: 30px;
     font-weight: 900;
-    padding: 10px 18px;
-    border-radius: 12px;
+    padding: 14px 24px;
+    border-radius: 16px;
     cursor: pointer;
-    min-width: 100px;
-    min-height: 54px;
-    display: flex; align-items: center; gap: 6px;
+    min-width: 130px;
+    min-height: 72px;
+    display: flex; align-items: center; gap: 8px;
     transition: background 0.15s;
   }
   .back-btn:active { background: var(--card); }
@@ -117,11 +104,14 @@
     font-size: 44px;
     font-weight: 900;
     letter-spacing: -1.5px;
+    flex: none;
+    text-align: center;
+    width: 100%;
   }
 
   /* ─── HOME: SEARCH ZONE (top 40%) ─── */
   .home-search-zone {
-    padding: 20px 16px 16px;
+    padding: 24px 20px 20px;
     border-bottom: 4px solid var(--border);
     background: var(--bg);
     min-height: 40vh;
@@ -129,6 +119,9 @@
     flex-direction: column;
     justify-content: center;
     gap: 14px;
+    box-sizing: border-box;
+    width: 100%;
+    overflow: hidden;
   }
   .home-search-label {
     font-size: 22px;
@@ -140,26 +133,36 @@
     display: flex;
     gap: 10px;
     align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
   }
   .search-input {
     flex: 1;
+    min-width: 0;
     font-size: 28px;
     font-weight: 700;
     font-family: 'Noto Sans KR', sans-serif;
     padding: 18px 20px;
-    border: 4px solid var(--input-border);
+    border: 6px solid var(--input-border);
     border-radius: 16px;
     background: var(--input-bg);
     color: var(--text);
     outline: none;
-    min-height: 76px;
-    transition: border-color 0.2s;
+    min-height: 82px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
   }
-  .search-input::placeholder { color: var(--card-border); }
-  .search-input:focus { border-color: var(--accent); }
+  .search-input {
+    background: #2A2800;
+    color: var(--text);
+  }
+  .search-input::placeholder { color: #888855; }
+
+  .search-input:focus { border-color: #FFEE00; box-shadow: 0 0 0 4px rgba(255,238,0,0.3); }
   .mic-btn {
     background: var(--accent);
-    color: #fff;
+    color: #111111;
     border: none;
     border-radius: 16px;
     width: 76px;
@@ -171,7 +174,6 @@
     box-shadow: 0 4px 16px var(--shadow);
     transition: transform 0.15s;
   }
-  body.dark .mic-btn { color: #111; }
   .mic-btn:active { transform: scale(0.92); }
   .mic-btn.listening { background: var(--accent2); animation: pulse 0.8s infinite; }
   @keyframes pulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(204,51,0,0.5); } 50%{ box-shadow: 0 0 0 14px rgba(204,51,0,0); } }
@@ -182,19 +184,19 @@
     padding: 0 4px;
   }
   .search-execute-btn {
-    background: var(--btn-bg);
-    color: var(--btn-text);
+    background: #FF6600;
+    color: #111111;
     border: none;
     border-radius: 16px;
-    padding: 18px;
-    font-size: 32px;
+    padding: 18px 20px;
+    font-size: 34px;
     font-weight: 900;
     font-family: 'Noto Sans KR', sans-serif;
     cursor: pointer;
     width: 100%;
-    min-height: 82px;
+    min-height: 86px;
     letter-spacing: -0.5px;
-    box-shadow: 0 4px 14px var(--shadow);
+    box-shadow: 0 5px 20px rgba(255,102,0,0.45);
     transition: transform 0.15s, opacity 0.15s;
   }
   .search-execute-btn:active { transform: scale(0.97); opacity: 0.85; }
@@ -202,7 +204,7 @@
   /* ─── HOME: MENU ZONE (bottom 60%) ─── */
   .home-menu-zone {
     flex: 1;
-    padding: 20px 16px 30px;
+    padding: 20px 20px 30px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -242,17 +244,16 @@
   .home-cat-btn.fav-btn {
     grid-column: 1 / -1;
     background: var(--fav);
-    color: #fff;
+    color: #111111;
     border-color: var(--fav);
     font-size: 34px;
-    min-height: 86px;
+    min-height: 90px;
     border-radius: 20px;
   }
-  body.dark .home-cat-btn.fav-btn { color: #111; }
 
   .camera-shortcut-btn {
     background: var(--accent);
-    color: #fff;
+    color: #111111;
     border: none;
     border-radius: 20px;
     padding: 20px 14px;
@@ -265,10 +266,9 @@
     justify-content: center;
     gap: 12px;
     box-shadow: 0 4px 16px var(--shadow);
-    min-height: 86px;
+    min-height: 90px;
     transition: transform 0.15s;
   }
-  body.dark .camera-shortcut-btn { color: #111; }
   .camera-shortcut-btn:active { transform: scale(0.97); }
 
   /* ─── RESULTS SCREEN ─── */
@@ -318,12 +318,33 @@
     color: var(--btn-text);
     border: none;
     border-radius: 16px;
-    width: 68px; height: 68px;
-    font-size: 30px;
+    width: 90px;
+    min-height: 90px;
     cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
     flex-shrink: 0;
     transition: transform 0.15s;
+    padding: 6px 4px;
+    font-family: 'Noto Sans KR', sans-serif;
+    line-height: 1.15;
+  }
+  .tts-btn .tts-line1 {
+    font-size: 26px;
+    font-weight: 900;
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
+  .tts-btn .tts-line2 {
+    font-size: 26px;
+    font-weight: 900;
+    display: block;
+    width: 100%;
+    text-align: center;
   }
   .tts-btn:active { transform: scale(0.88); }
   .tts-btn.speaking { background: var(--accent2); }
@@ -367,8 +388,7 @@
     min-height: 52px;
     transition: background 0.15s;
   }
-  .fav-toggle-btn.active { background: var(--fav); color: #fff; }
-  body.dark .fav-toggle-btn.active { color: #111; }
+  .fav-toggle-btn.active { color: #111111; background: var(--fav); color: #fff; }
 
   /* ─── CAMERA SCREEN ─── */
   .camera-view {
@@ -510,7 +530,6 @@
     box-shadow: 0 5px 20px var(--shadow);
     transition: transform 0.1s;
   }
-  body.dark .capture-btn { color: #111; }
   .capture-btn:active { transform: scale(0.95); }
   .contrast-btn {
     background: #333;
@@ -560,7 +579,6 @@
     font-family: 'Noto Sans KR', sans-serif;
     cursor: pointer;
   }
-  body.dark .close-capture-btn { color: #111; }
 
   /* ─── TOAST ─── */
   .toast {
@@ -598,9 +616,7 @@
 
   <!-- Top bar -->
   <div class="top-bar">
-    <button class="theme-btn" id="themeBtn" aria-label="테마 전환">🌙</button>
     <span class="top-title home-title">크게 크게</span>
-    <div style="width:58px"></div>
   </div>
 
   <!-- Search zone (top ~40%) -->
@@ -614,8 +630,8 @@
         inputmode="search"
         autocomplete="off"
       >
+      <button class="mic-btn" id="micBtn" aria-label="음성 검색">🎤</button>
     </div>
-    <div style="display:none"><button class="mic-btn" id="micBtn" aria-label="음성 검색">🎤</button></div>
     <button class="search-execute-btn" id="homeSearchBtn">검색하기</button>
   </div>
 
@@ -643,12 +659,12 @@
         </span>
         <span>식당</span>
       </button>
-      <button class="home-cat-btn fav-btn" onclick="goCat('즐겨찾기')">
-        즐겨찾기
-      </button>
     </div>
     <button class="camera-shortcut-btn" onclick="gotoScreen('camera')">
       돋보기 카메라 열기
+    </button>
+    <button class="home-cat-btn fav-btn" onclick="goCat('즐겨찾기')">
+      즐겨찾기
     </button>
   </div>
 
@@ -859,7 +875,6 @@ const BRANDS = {
 //   STATE
 // ═══════════════════════════════════════════
 let screenHistory = ['home'];
-let isDark = false;
 let favorites = JSON.parse(localStorage.getItem('fav') || '[]');
 let cameraStream = null;
 let zoomScale = 1;
@@ -912,13 +927,7 @@ function showToast(msg) {
 // ═══════════════════════════════════════════
 //   THEME
 // ═══════════════════════════════════════════
-document.getElementById('themeBtn').addEventListener('click', () => {
-  vib();
-  isDark = !isDark;
-  document.body.classList.toggle('dark', isDark);
-  document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
-  showToast(isDark ? '🌑 다크 모드' : '☀️ 라이트 모드');
-});
+// 테마 고정: 다크 모드 전용
 
 // ═══════════════════════════════════════════
 //   CHOSUNG MAP
@@ -947,10 +956,16 @@ function doSearch(query) {
   const qLower = q.toLowerCase();
   const allBrands = [...BRANDS.카페.map(b => ({...b, cat:'카페'})), ...BRANDS.식당.map(b => ({...b, cat:'식당'}))];
 
+  // 쿼리 초성 추출 (사용자가 한글 초성만 입력했는지 검사)
+  const qChosung = getChosung(q);
+  const isChosungQuery = [...q].every(ch => 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'.includes(ch));
+
   allBrands.forEach(brand => {
-    const nameMatch = brand.name.includes(qLower) || brand.name.includes(q);
-    const chosungMatch = brand.chosung.includes(q);
-    const menuMatch = brand.menus.some(m => m.includes(q));
+    const nameMatch = brand.name.includes(q);
+    // 초성 검색: 브랜드명의 초성이 쿼리를 포함하는지 (양방향 매칭)
+    const brandChosung = getChosung(brand.name);
+    const chosungMatch = brand.chosung.includes(q) || brandChosung.includes(q) || (isChosungQuery && brandChosung.startsWith(qChosung));
+    const menuMatch = brand.menus.some(m => m.includes(q) || getChosung(m).includes(q));
     if (nameMatch || chosungMatch || menuMatch) results.push(brand);
   });
 
@@ -1009,7 +1024,7 @@ function renderResults(items, title) {
         <div class="result-card-name">${brand.name}</div>
         ${favorites.includes(brand.name) ? '<span class="result-card-tag">⭐ 즐겨찾기</span>' : ''}
       </div>
-      <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 읽기">🔊</button>
+      <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
     </div>
   `).join('');
 }
@@ -1039,7 +1054,7 @@ function openBrand(name, cat) {
         <div class="result-card-name">${menu}</div>
         <span class="result-card-tag">${i + 1}번째 메뉴</span>
       </div>
-      <button class="tts-btn" onclick="speak('${menu}')" aria-label="${menu} 읽기">🔊</button>
+      <button class="tts-btn" onclick="speak('${menu}')" aria-label="${menu} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
     </div>
   `).join('');
 
@@ -1076,7 +1091,7 @@ function speak(text) {
   utter.rate = 0.85;
   utter.pitch = 1.0;
   window.speechSynthesis.speak(utter);
-  showToast(`🔊 "${text}" 읽는 중...`);
+  showToast(`"${text}" 읽는 중...`);
 }
 
 // ═══════════════════════════════════════════
@@ -1194,8 +1209,26 @@ function stopCamera() {
   updateCameraUI();
 }
 
-function applyZoom() {
+async function applyZoom() {
   const video = document.getElementById('cameraVideo');
+  // 네이티브 카메라 zoom 우선 (선명도 유지)
+  if (cameraStream) {
+    const track = cameraStream.getVideoTracks()[0];
+    if (track) {
+      const caps = track.getCapabilities ? track.getCapabilities() : {};
+      if (caps.zoom) {
+        try {
+          const min = caps.zoom.min || 1;
+          const max = caps.zoom.max || 4;
+          const nativeZoom = Math.min(max, Math.max(min, zoomScale));
+          await track.applyConstraints({ advanced: [{ zoom: nativeZoom }] });
+          video.style.transform = '';  // CSS 확대 해제
+          return;
+        } catch(e) { /* 네이티브 미지원 → CSS fallback */ }
+      }
+    }
+  }
+  // CSS fallback (네이티브 미지원 시)
   video.style.transform = `scale(${zoomScale})`;
   video.style.transformOrigin = 'center center';
 }
