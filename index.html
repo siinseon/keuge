@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>크게보기 - 메뉴 도우미</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #FFFFFF;
+    --text: #111111;
+    --sub: #444444;
+    --border: #222222;
+    --accent: #0055CC;
+    --accent2: #CC3300;
+    --card: #F5F5F5;
+    --card-border: #CCCCCC;
+    --btn-bg: #111111;
+    --btn-text: #FFFFFF;
+    --fav: #FF6600;
+    --tag-bg: #EEEEEE;
+    --tag-text: #222222;
+    --input-bg: #FFFFFF;
+    --input-border: #111111;
+    --shadow: rgba(0,0,0,0.15);
+  }
+  body.dark {
+    --bg: #111111;
+    --text: #FFEE00;
+    --sub: #FFDD44;
+    --border: #FFEE00;
+    --accent: #FFEE00;
+    --accent2: #FF9944;
+    --card: #222222;
+    --card-border: #FFEE00;
+    --btn-bg: #FFEE00;
+    --btn-text: #111111;
+    --fav: #FF9944;
+    --tag-bg: #333333;
+    --tag-text: #FFEE00;
+    --input-bg: #222222;
+    --input-border: #FFEE00;
+    --shadow: rgba(255,238,0,0.2);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    max-width: 500px;
+    margin: 0 auto;
+    transition: background 0.25s, color 0.25s;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ─── SCREEN MANAGEMENT ─── */
+  .screen { display: none; flex-direction: column; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* ─── HEADER BAR ─── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 3px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    min-height: 70px;
+  }
+  .back-btn {
+    background: none;
+    border: 3px solid var(--border);
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 900;
+    padding: 10px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    min-width: 100px;
+    min-height: 54px;
+    display: flex; align-items: center; gap: 6px;
+    transition: background 0.15s;
+  }
+  .back-btn:active { background: var(--card); }
+
+  .theme-btn {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 50%;
+    width: 58px; height: 58px;
+    font-size: 28px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 3px 10px var(--shadow);
+    transition: transform 0.15s;
+  }
+  .theme-btn:active { transform: scale(0.92); }
+
+  .top-title {
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--text);
+    flex: 1;
+    text-align: center;
+  }
+  .top-title.home-title {
+    font-size: 44px;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+  }
+
+  /* ─── HOME: SEARCH ZONE (top 40%) ─── */
+  .home-search-zone {
+    padding: 20px 16px 16px;
+    border-bottom: 4px solid var(--border);
+    background: var(--bg);
+    min-height: 40vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 14px;
+  }
+  .home-search-label {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--sub);
+    letter-spacing: -0.5px;
+  }
+  .search-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .search-input {
+    flex: 1;
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 18px 20px;
+    border: 4px solid var(--input-border);
+    border-radius: 16px;
+    background: var(--input-bg);
+    color: var(--text);
+    outline: none;
+    min-height: 76px;
+    transition: border-color 0.2s;
+  }
+  .search-input::placeholder { color: var(--card-border); }
+  .search-input:focus { border-color: var(--accent); }
+  .mic-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    width: 76px;
+    min-height: 76px;
+    font-size: 34px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px var(--shadow);
+    transition: transform 0.15s;
+  }
+  body.dark .mic-btn { color: #111; }
+  .mic-btn:active { transform: scale(0.92); }
+  .mic-btn.listening { background: var(--accent2); animation: pulse 0.8s infinite; }
+  @keyframes pulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(204,51,0,0.5); } 50%{ box-shadow: 0 0 0 14px rgba(204,51,0,0); } }
+  .search-hint {
+    font-size: 17px;
+    color: var(--sub);
+    font-weight: 400;
+    padding: 0 4px;
+  }
+  .search-execute-btn {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    padding: 18px;
+    font-size: 32px;
+    font-weight: 900;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    width: 100%;
+    min-height: 82px;
+    letter-spacing: -0.5px;
+    box-shadow: 0 4px 14px var(--shadow);
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  .search-execute-btn:active { transform: scale(0.97); opacity: 0.85; }
+
+  /* ─── HOME: MENU ZONE (bottom 60%) ─── */
+  .home-menu-zone {
+    flex: 1;
+    padding: 20px 16px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .home-menu-zone-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--sub);
+  }
+  .home-cat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .home-cat-btn {
+    background: var(--card);
+    border: 4px solid var(--border);
+    color: var(--text);
+    border-radius: 20px;
+    padding: 26px 14px;
+    font-size: 34px;
+    font-weight: 900;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 4px 16px var(--shadow);
+    min-height: 140px;
+    justify-content: center;
+  }
+  .home-cat-btn:active { transform: scale(0.95); }
+  .home-cat-btn .cat-icon { line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .home-cat-btn.fav-btn {
+    grid-column: 1 / -1;
+    background: var(--fav);
+    color: #fff;
+    border-color: var(--fav);
+    font-size: 34px;
+    min-height: 86px;
+    border-radius: 20px;
+  }
+  body.dark .home-cat-btn.fav-btn { color: #111; }
+
+  .camera-shortcut-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 20px 14px;
+    font-size: 30px;
+    font-weight: 900;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: 0 4px 16px var(--shadow);
+    min-height: 86px;
+    transition: transform 0.15s;
+  }
+  body.dark .camera-shortcut-btn { color: #111; }
+  .camera-shortcut-btn:active { transform: scale(0.97); }
+
+  /* ─── RESULTS SCREEN ─── */
+  .results-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 16px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .result-card {
+    background: var(--card);
+    border: 4px solid var(--card-border);
+    border-radius: 20px;
+    padding: 22px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    box-shadow: 0 4px 14px var(--shadow);
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    min-height: 110px;
+  }
+  .result-card:active { transform: scale(0.98); border-color: var(--accent); }
+  .result-card-info { flex: 1; min-width: 0; }
+  .result-card-name {
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1.25;
+    word-break: keep-all;
+    margin-bottom: 4px;
+  }
+  .result-card-tag {
+    display: inline-block;
+    font-size: 17px;
+    font-weight: 700;
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    border-radius: 8px;
+    padding: 3px 10px;
+    margin-top: 4px;
+  }
+  .tts-btn {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    width: 68px; height: 68px;
+    font-size: 30px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .tts-btn:active { transform: scale(0.88); }
+  .tts-btn.speaking { background: var(--accent2); }
+
+  .no-results {
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--sub);
+    line-height: 1.8;
+  }
+
+  /* Sub detail screen */
+  .detail-header {
+    padding: 20px 16px 10px;
+    border-bottom: 3px solid var(--card-border);
+  }
+  .detail-brand-name {
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 6px;
+  }
+  .detail-brand-sub {
+    font-size: 18px;
+    color: var(--sub);
+    font-weight: 400;
+  }
+  .fav-toggle-btn {
+    background: none;
+    border: 3px solid var(--fav);
+    color: var(--fav);
+    font-size: 20px;
+    font-weight: 900;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 10px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 12px;
+    min-height: 52px;
+    transition: background 0.15s;
+  }
+  .fav-toggle-btn.active { background: var(--fav); color: #fff; }
+  body.dark .fav-toggle-btn.active { color: #111; }
+
+  /* ─── CAMERA SCREEN ─── */
+  .camera-view {
+    flex: 1;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+  }
+  #cameraVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: filter 0.3s;
+  }
+  .camera-no-support {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: #FFEE00;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    padding: 40px;
+  }
+  .camera-no-support .big-icon { font-size: 72px; }
+
+  /* capture flash */
+  .flash-overlay {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 10;
+    transition: opacity 0.1s;
+  }
+  .flash-overlay.flash { opacity: 1; }
+
+  /* zoom indicator */
+  .zoom-indicator {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    color: #FFEE00;
+    font-size: 22px;
+    font-weight: 900;
+    padding: 8px 20px;
+    border-radius: 30px;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .zoom-indicator.show { opacity: 1; }
+
+  /* contrast indicator */
+  .contrast-indicator {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    color: #FFEE00;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 30px;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .contrast-indicator.show { opacity: 1; }
+
+  /* camera controls */
+  .camera-controls {
+    background: var(--bg);
+    padding: 18px 16px 32px;
+    border-top: 4px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .camera-zoom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .zoom-btn {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    width: 90px; height: 90px;
+    font-size: 48px;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 14px var(--shadow);
+    transition: transform 0.1s;
+    flex-shrink: 0;
+  }
+  .zoom-btn:active { transform: scale(0.9); }
+  .zoom-label {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--sub);
+    text-align: center;
+    flex: 1;
+    line-height: 1.4;
+  }
+  .capture-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+  }
+  .capture-btn {
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    height: 90px;
+    width: 60%;
+    font-size: 26px;
+    font-weight: 900;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px;
+    box-shadow: 0 5px 20px var(--shadow);
+    transition: transform 0.1s;
+  }
+  body.dark .capture-btn { color: #111; }
+  .capture-btn:active { transform: scale(0.95); }
+  .contrast-btn {
+    background: #333;
+    color: #FFEE00;
+    border: 3px solid #FFEE00;
+    border-radius: 16px;
+    height: 90px;
+    flex: 1;
+    font-size: 16px;
+    font-weight: 900;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px;
+    line-height: 1.3;
+    text-align: center;
+    padding: 8px;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .contrast-btn:active { transform: scale(0.94); }
+  .contrast-btn.active-contrast { background: #FFEE00; color: #111; }
+  .contrast-btn .c-icon { font-size: 28px; }
+
+  /* captured image overlay */
+  .captured-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: #000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+  }
+  .captured-overlay.show { display: flex; }
+  #capturedCanvas { max-width: 100%; border-radius: 12px; }
+  .close-capture-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 16px 40px;
+    font-size: 24px;
+    font-weight: 900;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+  }
+  body.dark .close-capture-btn { color: #111; }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 14px 28px;
+    border-radius: 50px;
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     SCREEN 1: HOME
+════════════════════════════════════════════ -->
+<div id="screen-home" class="screen active">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <button class="theme-btn" id="themeBtn" aria-label="테마 전환">🌙</button>
+    <span class="top-title home-title">크게 크게</span>
+    <div style="width:58px"></div>
+  </div>
+
+  <!-- Search zone (top ~40%) -->
+  <div class="home-search-zone">
+    <div class="search-row">
+      <input
+        class="search-input"
+        id="homeSearchInput"
+        type="search"
+        placeholder="초성으로 검색 가능"
+        inputmode="search"
+        autocomplete="off"
+      >
+    </div>
+    <div style="display:none"><button class="mic-btn" id="micBtn" aria-label="음성 검색">🎤</button></div>
+    <button class="search-execute-btn" id="homeSearchBtn">검색하기</button>
+  </div>
+
+  <!-- Menu zone (bottom ~60%) -->
+  <div class="home-menu-zone">
+    <div class="home-cat-grid">
+      <button class="home-cat-btn" data-cat="카페" onclick="goCat('카페')">
+        <span class="cat-icon">
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="6" y="14" width="30" height="24" rx="4" stroke="currentColor" stroke-width="3.5" fill="none"/>
+            <path d="M36 20 C40 20 44 22 44 27 C44 32 40 34 36 34" stroke="currentColor" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <path d="M12 38 C12 41 40 41 40 38" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span>카페</span>
+      </button>
+      <button class="home-cat-btn" data-cat="식당" onclick="goCat('식당')">
+        <span class="cat-icon">
+          <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="16" y1="8" x2="16" y2="44" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M10 8 L10 22 C10 26 22 26 22 22 L22 8" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+            <line x1="36" y1="8" x2="36" y2="44" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M29 8 C29 8 29 20 36 20 C43 20 43 8 43 8" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+          </svg>
+        </span>
+        <span>식당</span>
+      </button>
+      <button class="home-cat-btn fav-btn" onclick="goCat('즐겨찾기')">
+        즐겨찾기
+      </button>
+    </div>
+    <button class="camera-shortcut-btn" onclick="gotoScreen('camera')">
+      돋보기 카메라 열기
+    </button>
+  </div>
+
+</div>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 2: RESULTS
+════════════════════════════════════════════ -->
+<div id="screen-results" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goBack()">◀ 뒤로</button>
+    <span class="top-title" id="resultsTitle">검색 결과</span>
+    <div style="width:80px"></div>
+  </div>
+  <div class="results-list" id="resultsList"></div>
+</div>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 3: BRAND DETAIL
+════════════════════════════════════════════ -->
+<div id="screen-detail" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goBack()">◀ 뒤로</button>
+    <span class="top-title" id="detailTitle">메뉴</span>
+    <div style="width:80px"></div>
+  </div>
+  <div class="detail-header" id="detailHeader"></div>
+  <div class="results-list" id="detailList"></div>
+</div>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 4: CAMERA
+════════════════════════════════════════════ -->
+<div id="screen-camera" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goBack()">◀ 뒤로</button>
+    <span class="top-title">🔬 돋보기</span>
+    <div style="width:80px"></div>
+  </div>
+
+  <div class="camera-view" id="cameraView">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <div class="flash-overlay" id="flashOverlay"></div>
+    <div class="zoom-indicator" id="zoomIndicator">확대 1×</div>
+    <div class="contrast-indicator" id="contrastIndicator">대비 강화 ON</div>
+
+    <!-- No support fallback -->
+    <div class="camera-no-support" id="cameraNoSupport">
+      <span class="big-icon">📷</span>
+      <span>카메라를 사용할 수 없습니다.<br>권한을 허용해 주세요.</span>
+    </div>
+
+    <!-- Captured image overlay -->
+    <div class="captured-overlay" id="capturedOverlay">
+      <canvas id="capturedCanvas"></canvas>
+      <button class="close-capture-btn" onclick="closeCaptured()">✕ 닫기</button>
+    </div>
+  </div>
+
+  <div class="camera-controls">
+    <div class="camera-zoom-row">
+      <button class="zoom-btn" id="zoomOutBtn" aria-label="축소">−</button>
+      <div class="zoom-label" id="zoomLabel">확대/축소<br><strong id="zoomValue">1×</strong></div>
+      <button class="zoom-btn" id="zoomInBtn" aria-label="확대">＋</button>
+    </div>
+    <div class="capture-row">
+      <button class="contrast-btn" id="contrastBtn">
+        <span class="c-icon">🎨</span>
+        <span>글씨<br>뚜렷하게</span>
+      </button>
+      <button class="capture-btn" id="captureBtn">
+        📸 찍기
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+
+<script>
+// ═══════════════════════════════════════════
+//   DATA
+// ═══════════════════════════════════════════
+const BRANDS = {
+  카페: [
+    { name: '스타벅스', chosung: 'ㅅㅌㅂㅅ', menus: ['아메리카노', '카페라떼', '자몽허니블랙티', '프라푸치노', '콜드브루', '생크림카스테라'] },
+    { name: '이디야커피', chosung: 'ㅇㄷㅇㅋㅍ', menus: ['아메리카노', '바닐라라떼', '토피넛라떼', '꿀복숭아플랫치노', '허니카라멜브레드', '유자차'] },
+    { name: '메가MGC커피', chosung: 'ㅁㄱMGCㅋㅍ', menus: ['아메리카노', '큐브라떼', '메가에이드', '퐁크러쉬', '딸기라떼', '감자빵'] },
+    { name: '컴포즈커피', chosung: 'ㅋㅍㅈㅋㅍ', menus: ['아메리카노', '카페라떼', '리얼초코자바칩', '딸기스무디', '흑당라떼', '크로플'] },
+    { name: '빽다방', chosung: 'ㅂㄷㅂ', menus: ['앗!메리카노', '원조커피', '달달연유라떼', '피스타치오빽스치노', '사라다빵', '노말한소프트'] },
+    { name: '투썸플레이스', chosung: 'ㅌㅆㅍㄹㅇㅅ', menus: ['아메리카노', '카페라떼', '스트로베리초코생크림', '아이스박스', '티라미수', '밀크티'] },
+    { name: '할리스', chosung: 'ㅎㄹㅅ', menus: ['아메리카노', '바닐라딜라이트', '딸기치즈케익할리치노', '밀크티라떼', '크로크무슈', '에스프레소'] },
+    { name: '파스쿠찌', chosung: 'ㅍㅅㅋㅉ', menus: ['아메리카노', '카페라떼', '젤라또', '파니니', '그라니따', '티라미수'] },
+    { name: '엔제리너스', chosung: 'ㅇㅈㄹㄴㅅ', menus: ['아메리카노', '카페라떼', '반미샌드위치', '아메리치노', '바닐라라떼', '스무디'] },
+    { name: '폴바셋', chosung: 'ㅍㅂㅅ', menus: ['아메리카노', '카페라떼', '아이스크림라떼', '밀크아이스크림', '에그타르트', '롱블랙'] },
+    { name: '커피빈', chosung: 'ㅋㅍㅂ', menus: ['아메리카노', '바닐라라떼', '헤이즐넛아메리카노', '블랙다이몬', '시카고치즈케이크', '모카블렌디드'] },
+    { name: '탐앤탐스', chosung: 'ㅌㅇㅌㅅ', menus: ['아메리카노', '카페라떼', '프레즐', '허니버터브레드', '탐앤치노', '고구마프레즐'] },
+    { name: '더벤티', chosung: 'ㄷㅂㅌ', menus: ['아메리카노', '카페라떼', '멜팅초코', '딸기라떼', '아인슈페너', '코코초코프라페'] },
+    { name: '매머드커피', chosung: 'ㅁㅁㄷㅋㅍ', menus: ['아메리카노', '카페라떼', '꿀라떼', '아몬드라떼', '딸기스무디', '헤이즐넛커피'] },
+    { name: '하삼동커피', chosung: 'ㅎㅅㄷㅋㅍ', menus: ['아메리카노', '히말라야', '구름라떼', '흑당구름라떼', '돌체라떼', '달고나라떼'] },
+    { name: '텐퍼센트커피', chosung: 'ㅌㅍㅅㅌㅋㅍ', menus: ['아메리카노', '텐라떼', '바닐라빈라떼', '아인슈페너', '플랫화이트', '말차라떼'] },
+    { name: '공차', chosung: 'ㄱㅊ', menus: ['블랙밀크티', '타로밀크티', '우롱티', '제주그린밀크티', '딸기쥬얼리밀크티', '망고스무디'] },
+    { name: '아마스빈', chosung: 'ㅇㅁㅅㅂ', menus: ['아메리카노', '오레오쉐이크', '딸기요거트', '타로밀크티', '하동녹차버블티', '사하라'] },
+    { name: '감성커피', chosung: 'ㄱㅅㅋㅍ', menus: ['아메리카노', '달구나커피', '믹스커피', '딸기구름스무디', '헤이즐넛라떼', '크로플'] },
+    { name: '카페봄봄', chosung: 'ㅋㅍㅂㅂ', menus: ['아메리카노', '폭탄초코', '딸기라떼', '달고나라떼', '쿠키프라페', '고구마라떼'] },
+    { name: '블루샥', chosung: 'ㅂㄹㅅ', menus: ['아메리카노', '샥라떼', '피넛라떼', '바닐라빈라떼', '애플망고아이스티', '까눌레'] },
+    { name: '읍천리382', chosung: 'ㅇㅊㄹ382', menus: ['아메리카노', '미숫가루', '딸기밭라떼', '불고기샌드위치', '페스츄리와플', '샐러드'] },
+    { name: '커피베이', chosung: 'ㅋㅍㅂㅇ', menus: ['아메리카노', '카페라떼', '카야토스트', '딸기뿅뿅프라노베', '달고나라떼', '베이글'] },
+    { name: '드롭탑', chosung: 'ㄷㄹㅌ', menus: ['아메리카노', '카페라떼', '블랙슈가밀크티', '젤라또', '허니브레드', '스무디'] },
+    { name: '바나프레소', chosung: 'ㅂㄴㅍㄹㅅ', menus: ['아메리카노', '바닐라라떼', '크리미라떼', '헤이즐넛라떼', '얼그레이밀크티', '마카롱'] },
+    { name: '만랩커피', chosung: 'ㅁㄹㅋㅍ', menus: ['아메리카노', '과테말라안티구아', '케냐AA', '플랫화이트', '얼그레이멜랑주', '크로플'] },
+    { name: '하이오커피', chosung: 'ㅎㅇㅇㅋㅍ', menus: ['아메리카노', '바다소금라떼', '딸기라떼', '흑당밀크티', '코코넛커피', '크로플'] },
+    { name: '커스텀커피', chosung: 'ㅋㅅㅌㅋㅍ', menus: ['아메리카노', '카페라떼', '흑임자크림라떼', '피스타치오크림라떼', '쑥크림라떼', '캔커피'] },
+    { name: '셀렉토커피', chosung: 'ㅅㄹㅌㅋㅍ', menus: ['아메리카노', '디카페인아메리카노', '바닐라라떼', '흑당라떼', '딸기스무디', '크로플'] },
+    { name: '댄싱컵', chosung: 'ㄷㅅㅋ', menus: ['아메리카노', '댄싱커피', '바닐라빈라떼', '딥초코라떼', '플랫화이트', '크로플'] },
+  ],
+  식당: [
+    { name: '맥도날드', chosung: 'ㅁㄷㄴㄷ', menus: ['빅맥', '맥스파이시상하이버거', '1955버거', '베이컨토마토디럭스', '맥너겟', '불고기버거'] },
+    { name: '롯데리아', chosung: 'ㄹㄷㄹㅇ', menus: ['불고기버거', '새우버거', '데리버거', '모짜렐라인더버거', '한우불고기버거', '양념감자'] },
+    { name: '버거킹', chosung: 'ㅂㄱㅋ', menus: ['와퍼', '와퍼주니어', '콰트로치즈와퍼', '통새우와퍼', '치즈버거', '어니언링'] },
+    { name: '맘스터치', chosung: 'ㅁㅅㅌㅊ', menus: ['싸이버거', '불싸이버거', '인크레더블버거', '언빌리버블버거', '케이준양념감자', '치킨'] },
+    { name: '써브웨이', chosung: 'ㅆㅂㅇㅇ', menus: ['이탈리안비엠티', '에그마요', '스테이크앤치즈', '로스트치킨', '서브웨이클럽', '쿠키'] },
+    { name: 'KFC', chosung: 'KFC', menus: ['징거버거', '타워버거', '오리지널치킨', '핫크리스피치킨', '비스켓', '에그타르트'] },
+    { name: '노브랜드버거', chosung: 'ㄴㅂㄹㄷㅂㄱ', menus: ['NBB시그니처', 'NBB어메이징', '미트마니아', '코울슬로치킨버거', '감자튀김', '어니언링'] },
+    { name: '이삭토스트', chosung: 'ㅇㅅㅌㅅㅌ', menus: ['햄스페셜토스트', '베이컨베스트토스트', '딥치즈베이컨토스트', '불고기토스트', '피자토스트', '딸기주스'] },
+    { name: '교촌치킨', chosung: 'ㄱㅊㅊㅋ', menus: ['교촌오리지날', '허니콤보', '레드콤보', '반반오리지날', '교촌윙', '웨지감자'] },
+    { name: 'BBQ치킨', chosung: 'BBQㅊㅋ', menus: ['황금올리브치킨', '양념치킨', '자메이카통다리구이', '황금올리브핫윙', '치즈볼', '스모크치킨'] },
+    { name: 'BHC치킨', chosung: 'BHCㅊㅋ', menus: ['뿌링클', '맛초킹', '골드킹', '후라이드치킨', '치즈볼', '소떡소떡'] },
+    { name: '굽네치킨', chosung: 'ㄱㄴㅊㅋ', menus: ['고추바사삭', '볼케이노', '오리지널', '갈비천왕', '시카고피자', '바게트볼'] },
+    { name: '홍콩반점0410', chosung: 'ㅎㅋㅂㅈ', menus: ['짬뽕', '짜장면', '탕수육', '군만두', '고추짬뽕', '짜장밥'] },
+    { name: '역전우동0410', chosung: 'ㅇㅈㅇㄷ', menus: ['옛날우동', '김치우동', '냉모밀', '돈까스덮밥', '명란미니덮밥', '야채튀김'] },
+    { name: '롤링파스타', chosung: 'ㄹㄹㅍㅅㅌ', menus: ['매운우삼겹토마토파스타', '까르보나라', '로제크림스테이크파스타', '고르곤졸라피자', '마르게리따피자', '뇨끼'] },
+    { name: '새마을식당', chosung: 'ㅅㅁㅇㅅㄷ', menus: ['열탄불고기', '7분돼지김치', '소금구이', '양념구이', '껍데기', '냉김치말이국수'] },
+    { name: '본죽', chosung: 'ㅂㅈ', menus: ['전복죽', '쇠고기야채죽', '단호박죽', '낙지김치죽', '참치야채죽', '삼계죽'] },
+    { name: '한솥도시락', chosung: 'ㅎㅅㄷㅅㄹ', menus: ['치킨마요', '돈까스도련님', '참치마요', '동백도시락', '새치고기고기', '빅치킨마요'] },
+    { name: '김밥천국', chosung: 'ㄱㅂㅊㄱ', menus: ['원조김밥', '참치김밥', '치즈김밥', '돈까스', '라볶이', '제육덮밥'] },
+    { name: '고봉민김밥인', chosung: 'ㄱㅂㅁㄱㅂㅇ', menus: ['고봉민김밥', '돈까스김밥', '매운김밥', '새우김밥', '쫄면', '우동'] },
+    { name: '신전떡볶이', chosung: 'ㅅㅈㄷㅂㅇ', menus: ['떡볶이', '치즈떡볶이', '오뎅튀김', '참치마요컵밥', '김말이', '만두튀김'] },
+    { name: '죠스떡볶이', chosung: 'ㅈㅅㄷㅂㅇ', menus: ['죠스떡볶이', '수제튀김', '진짜찰순대', '부산어묵', '치즈떡볶이', '유부주머니'] },
+    { name: '동대문엽기떡볶이', chosung: 'ㄷㄷㅁㅇㄱㄷㅂㅇ', menus: ['엽기떡볶이', '로제떡볶이', '마라떡볶이', '주먹김밥', '모둠튀김', '중국당면'] },
+    { name: '두끼', chosung: 'ㄷㄲ', menus: ['두끼떡볶이', '마라떡볶이', '로제떡볶이', '크림떡볶이', '튀김', '어묵'] },
+    { name: '놀부부대찌개', chosung: 'ㄴㅂㅂㄷㅉㄱ', menus: ['놀부부대찌개', '흥부부대찌개', '김치부대찌개', '쭈곱새', '보쌈', '막국수'] },
+    { name: '명륜진사갈비', chosung: 'ㅁㄹㅈㅅㄱㅂ', menus: ['돼지갈비', '삼겹살', '숯불닭갈비', '프렌치랙', '벌집쥐포', '냉면'] },
+    { name: '아웃백스테이크하우스', chosung: 'ㅇㅇㅂㅅㅌㅇㅋㅎㅇㅅ', menus: ['투움바파스타', '블랙라벨스테이크', '베이비백립', '오지치즈후라이즈', '양송이스프', '부시맨브레드'] },
+    { name: '빕스', chosung: 'ㅂㅅ', menus: ['샐러드바', '얌스톤스테이크', '바비큐폭립', '훈제연어', '치즈케이크', '마카롱'] },
+    { name: '애슐리퀸즈', chosung: 'ㅇㅅㄹㅋㅈ', menus: ['샐러드바', '스테이크', '치킨', '파스타', '피자', '크로플'] },
+    { name: '매드포갈릭', chosung: 'ㅁㄷㅍㄱㄹ', menus: ['갈릭스노잉피자', '갈릭페뇨파스타', '댄싱살사라이스', '스테이크', '빠네', '에이드'] },
+    { name: '피자헛', chosung: 'ㅍㅈㅎ', menus: ['수퍼슈프림', '페페로니', '치즈킹', '베이컨포테이토', '리치골드', '치즈크러스트'] },
+    { name: '도미노피자', chosung: 'ㄷㅁㄴㅍㅈ', menus: ['블랙타이거슈림프', '포테이토', '슈퍼디럭스', '페페로니', '리얼불고기', '치즈피자'] },
+    { name: '미스터피자', chosung: 'ㅁㅅㅌㅍㅈ', menus: ['쉬림프골드', '포테이토골드', '불고기피자', '시카고딥', '하프앤하프', '오븐스파게티'] },
+    { name: '파파존스', chosung: 'ㅍㅍㅈㅅ', menus: ['수퍼파파스', '존스페이버릿', '아이리쉬포테이토', '스파이시치킨랜치', '브라우니', '치즈스틱'] },
+    { name: '피자스쿨', chosung: 'ㅍㅈㅅㅋ', menus: ['고구마피자', '포테이토피자', '불고기피자', '치즈피자', '페페로니피자', '까르보네피자'] },
+    { name: '푸라닭치킨', chosung: 'ㅍㄹㄷㅊㅋ', menus: ['블랙알리오', '고추마요치킨', '푸라닭치킨', '투움바치킨', '매드갈릭치킨', '기름떡볶이'] },
+    { name: '처갓집양념치킨', chosung: 'ㅊㄱㅈㅇㄴㅊㅋ', menus: ['슈프림양념치킨', '후라이드치킨', '와락치킨', '치즈슈프림', '핫슈프림', '순살치킨'] },
+    { name: '페리카나', chosung: 'ㅍㄹㅋㄴ', menus: ['양념치킨', '후라이드치킨', '반반치킨', '매운양념치킨', '마늘치킨', '파닭'] },
+    { name: '지코바치킨', chosung: 'ㅈㅋㅂㅊㅋ', menus: ['순살양념구이', '순살소금구이', '뼈양념구이', '뼈소금구이', '떡사리', '햇반'] },
+    { name: '노랑통닭', chosung: 'ㄴㄹㅌㄷ', menus: ['엄청큰후라이드', '알싸한마늘치킨', '깐풍치킨', '순살3종세트', '떡볶이', '치즈볼'] },
+    { name: '60계치킨', chosung: '60ㄱㅊㅋ', menus: ['고추치킨', '간지치킨', '호랑이치킨', '장스치킨', '후라이드', '치즈볼'] },
+    { name: '호식이두마리치킨', chosung: 'ㅎㅅㅇㄷㅁㄹㅊㅋ', menus: ['간장치킨', '양념치킨', '후라이드치킨', '매운간장치킨', '땡초불꽃치킨', '치즈볼'] },
+    { name: '유가네닭갈비', chosung: 'ㅇㄱㄴㄷㄱㅂ', menus: ['유가네닭갈비', '치즈퐁닭', '숯불닭갈비', '철판볶음밥', '막국수', '우동사리'] },
+    { name: '채선당', chosung: 'ㅊㅅㄷ', menus: ['소고기샤브샤브', '월남쌈샤브', '해물샤브샤브', '불고기전골', '고기추가', '죽'] },
+    { name: '등촌샤브칼국수', chosung: 'ㄷㅊㅅㅂㅋㄱㅅ', menus: ['버섯칼국수', '소고기샤브', '볶음밥', '물만두', '야채추가', '면사리'] },
+    { name: '쿠우쿠우', chosung: 'ㅋㅇㅋㅇ', menus: ['초밥', '롤', '샐러드바', '디저트', '와플', '육회'] },
+    { name: '국수나무', chosung: 'ㄱㅅㄴㅁ', menus: ['생면국수', '잔치국수', '비빔국수', '왕돈까스', '치즈돈까스', '제육덮밥'] },
+    { name: '미소야', chosung: 'ㅁㅅㅇ', menus: ['로스카츠', '히레카츠', '치즈돈까스', '냉모밀', '알밥정식', '우동'] },
+    { name: '바르다김선생', chosung: 'ㅂㄹㄷㄱㅅㅅ', menus: ['바른김밥', '참치김밥', '크림치즈호두김밥', '갈비만두', '쫄면', '우동'] },
+    { name: '얌샘김밥', chosung: 'ㅇㅅㄱㅂ', menus: ['얌샘김밥', '참치살사김밥', '모다기', '라돈모다기', '물쫄면', '돈까스'] },
+    { name: '싸다김밥', chosung: 'ㅆㄷㄱㅂ', menus: ['싸다김밥', '참치김밥', '치즈김밥', '국물떡볶이', '돈까스', '오므라이스'] },
+    { name: '청년다방', chosung: 'ㅊㄴㄷㅂ', menus: ['차돌떡볶이', '오짱떡볶이', '치즈폭포순살떡볶이', '버터갈릭감자튀김', '날치알볶음밥', '에이드'] },
+    { name: '신불떡볶이', chosung: 'ㅅㅂㄷㅂㅇ', menus: ['떡볶이', '치즈떡볶이', '오뎅튀김', '참치마요컵밥', '만두튀김', '치즈스틱'] },
+    { name: '배떡', chosung: 'ㅂㄷ', menus: ['로제떡볶이', '국물떡볶이', '분모자떡볶이', '짜장떡볶이', '참치마요밥', '튀김세트'] },
+    { name: '이바돔감자탕', chosung: 'ㅇㅂㄷㄱㅈㅌ', menus: ['명품감자탕', '묵은지감자탕', '뼈해장국', '등뼈찜', '볶음밥', '라면사리'] },
+    { name: '조마루감자탕', chosung: 'ㅈㅁㄹㄱㅈㅌ', menus: ['감자탕', '뼈다귀해장국', '간장뼈찜', '볶음밥', '당면사리', '수제비사리'] },
+    { name: '원할머니보쌈', chosung: 'ㅇㅎㅁㄴㅂㅆ', menus: ['모둠보쌈', '맛보쌈', '솜씨보쌈', '족발', '막국수', '부대찌개'] },
+    { name: '가장맛있는족발', chosung: 'ㄱㅈㅁㅇㄴㅈㅂ', menus: ['족발', '불족발', '보쌈', '냉채족발', '쟁반국수', '주먹밥'] },
+    { name: '백채김치찌개', chosung: 'ㅂㅊㄱㅊㅉㄱ', menus: ['김치찌개', '계란말이', '라면사리', '햄구이', '대접밥', '두부사리'] },
+    { name: '하남돼지집', chosung: 'ㅎㄴㄷㅈㅈ', menus: ['생삼겹살', '특목살', '갈매기살', '항정살', '도시락김치볶음밥', '김치찌개'] },
+    { name: '한촌설렁탕', chosung: 'ㅎㅊㅅㄹㅌ', menus: ['설렁탕', '얼큰설렁탕', '수만두설렁탕', '도가니탕', '꼬리곰탕', '수육'] },
+    { name: '신선설농탕', chosung: 'ㅅㅅㅅㄴㅌ', menus: ['설농탕', '마늘설농탕', '백세설농탕', '도가니탕', '수육', '찐만두'] },
+    { name: '본설렁탕', chosung: 'ㅂㅅㄹㅌ', menus: ['백설렁탕', '홍설렁탕', '황설렁탕', '만두설렁탕', '양곱창뚝배기', '수육'] },
+    { name: '인생설렁탕', chosung: 'ㅇㅅㅅㄹㅌ', menus: ['설렁탕', '인생설렁탕', '스지설렁탕', '모듬수육', '만두', '육쌈밀면'] },
+    { name: '명가원설농탕', chosung: 'ㅁㄱㅇㅅㄴㅌ', menus: ['설농탕', '영양갈비탕', '도가니탕', '꼬리곰탕', '수육', '만두'] },
+    { name: '효자동설렁탕', chosung: 'ㅎㅈㄷㅅㄹㅌ', menus: ['설렁탕', '특설렁탕', '도가니탕', '꼬리곰탕', '수육', '왕만두'] },
+    { name: '명인설렁탕', chosung: 'ㅁㅇㅅㄹㅌ', menus: ['설렁탕', '얼큰설렁탕', '특설렁탕', '수육', '갈비탕', '만두'] },
+    { name: '큰맘할매순대국', chosung: 'ㅋㅁㅎㅁㅅㄷㄱ', menus: ['순대국', '얼큰순대국', '수육국밥', '뼈해장국', '순대소곱창전골', '토종순대'] },
+    { name: '무봉리토종순대국', chosung: 'ㅁㅂㄹㅌㅈㅅㄷㄱ', menus: ['토종순대국', '얼큰순대국', '내장탕', '뼈해장국', '모듬순대', '수육'] },
+    { name: '신의주찹쌀순대', chosung: 'ㅅㅇㅈㅊㅆㅅㄷ', menus: ['순대국', '얼큰순대국', '뼈해장국', '신의주정식', '모듬순대', '순대곱창철판볶음'] },
+    { name: '담소소사골순대육개장', chosung: 'ㄷㅅㅅㅅㄱㅅㄷㅇㄱㅈ', menus: ['일반순대국', '우마골순대국', '돈순대국', '육개장', '순대볶음', '편육'] },
+    { name: '보승회관', chosung: 'ㅂㅅㅎㄱ', menus: ['순대항정수육정식', '수육국밥', '순대국', '뼈해장국', '오소리국밥', '모둠수육'] },
+    { name: '육수당', chosung: 'ㅇㅅㄷ', menus: ['서울식국밥', '순대국밥', '수육국밥', '소고기국밥', '육개장', '막국수'] },
+    { name: '더진국', chosung: 'ㄷㅈㄱ', menus: ['수육국밥', '순대국밥', '얼큰국밥', '직화물냉면', '직화비빔냉면', '감자만두'] },
+    { name: '돈수백', chosung: 'ㄷㅅㅂ', menus: ['돈탕반', '오소리탕반', '섞어탕반', '수육백반', '만두국', '수육'] },
+    { name: '열정국밥', chosung: 'ㅇㅈㄱㅂ', menus: ['돼지국밥', '순대국밥', '섞어국밥', '모듬국밥', '수육', '함박스테이크'] },
+    { name: '현대옥', chosung: 'ㅎㄷㅇ', menus: ['남부시장식콩나물국밥', '끓이는식콩나물국밥', '돼지국밥', '오징어사리', '편육', '메밀전병'] },
+    { name: '삼백집', chosung: 'ㅅㅂㅈ', menus: ['콩나물국밥', '해온반', '고추닭튀김', '삼겹간장조림', '모주', '만두'] },
+    { name: '일품양평해장국', chosung: 'ㅇㅍㅇㅍㅎㅈㄱ', menus: ['양평해장국', '얼큰순대국', '뼈다귀해장국', '내장탕', '선지해장국', '편육'] },
+    { name: '이화수전통육개장', chosung: 'ㅇㅎㅅㅈㅌㅇㄱㅈ', menus: ['전통육개장', '차돌육개장', '육개장칼국수', '보쌈', '메밀전병', '만두'] },
+  ]
+};
+
+// ═══════════════════════════════════════════
+//   STATE
+// ═══════════════════════════════════════════
+let screenHistory = ['home'];
+let isDark = false;
+let favorites = JSON.parse(localStorage.getItem('fav') || '[]');
+let cameraStream = null;
+let zoomScale = 1;
+let contrastOn = false;
+let zoomTimer = null;
+let contrastTimer = null;
+let currentSpeaking = null;
+
+// ═══════════════════════════════════════════
+//   NAVIGATION
+// ═══════════════════════════════════════════
+function gotoScreen(name) {
+  vib();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  screenHistory.push(name);
+  if (name === 'camera') startCamera();
+  else stopCamera();
+}
+
+function goBack() {
+  vib();
+  if (screenHistory.length <= 1) return;
+  screenHistory.pop();
+  const prev = screenHistory[screenHistory.length - 1];
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + prev).classList.add('active');
+  if (prev !== 'camera') stopCamera();
+}
+
+// ═══════════════════════════════════════════
+//   VIBRATION
+// ═══════════════════════════════════════════
+function vib(pattern = [30]) {
+  if (navigator.vibrate) navigator.vibrate(pattern);
+}
+
+// ═══════════════════════════════════════════
+//   TOAST
+// ═══════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════
+//   THEME
+// ═══════════════════════════════════════════
+document.getElementById('themeBtn').addEventListener('click', () => {
+  vib();
+  isDark = !isDark;
+  document.body.classList.toggle('dark', isDark);
+  document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
+  showToast(isDark ? '🌑 다크 모드' : '☀️ 라이트 모드');
+});
+
+// ═══════════════════════════════════════════
+//   CHOSUNG MAP
+// ═══════════════════════════════════════════
+const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function getChosung(str) {
+  return [...str].map(c => {
+    const code = c.charCodeAt(0) - 0xAC00;
+    if (code < 0 || code > 11171) return c;
+    return CHO[Math.floor(code / 28 / 21)];
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//   SEARCH
+// ═══════════════════════════════════════════
+function doSearch(query) {
+  const q = query.trim();
+  if (!q) { showToast('검색어를 입력해 주세요'); return; }
+  vib();
+
+  // category check
+  if (q === '카페' || q === '식당' || q === '즐겨찾기') { goCat(q); return; }
+
+  const results = [];
+  const qLower = q.toLowerCase();
+  const allBrands = [...BRANDS.카페.map(b => ({...b, cat:'카페'})), ...BRANDS.식당.map(b => ({...b, cat:'식당'}))];
+
+  allBrands.forEach(brand => {
+    const nameMatch = brand.name.includes(qLower) || brand.name.includes(q);
+    const chosungMatch = brand.chosung.includes(q);
+    const menuMatch = brand.menus.some(m => m.includes(q));
+    if (nameMatch || chosungMatch || menuMatch) results.push(brand);
+  });
+
+  renderResults(results, `"${q}" 검색 결과`);
+  gotoScreen('results');
+}
+
+document.getElementById('homeSearchBtn').addEventListener('click', () => {
+  doSearch(document.getElementById('homeSearchInput').value);
+});
+document.getElementById('homeSearchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch(e.target.value);
+});
+
+// ═══════════════════════════════════════════
+//   CATEGORY
+// ═══════════════════════════════════════════
+function goCat(cat) {
+  vib();
+  let items = [];
+  let title = '';
+
+  if (cat === '즐겨찾기') {
+    const all = [...BRANDS.카페.map(b => ({...b, cat:'카페'})), ...BRANDS.식당.map(b => ({...b, cat:'식당'}))];
+    items = all.filter(b => favorites.includes(b.name));
+    title = '⭐ 즐겨찾기';
+    if (items.length === 0) {
+      renderResults([], '⭐ 즐겨찾기');
+      gotoScreen('results');
+      return;
+    }
+  } else {
+    items = (BRANDS[cat] || []).map(b => ({...b, cat}));
+    title = cat === '카페' ? '카페' : '식당';
+  }
+
+  renderResults(items, title);
+  gotoScreen('results');
+}
+
+// ═══════════════════════════════════════════
+//   RENDER RESULTS (brand list)
+// ═══════════════════════════════════════════
+function renderResults(items, title) {
+  document.getElementById('resultsTitle').textContent = title;
+  const list = document.getElementById('resultsList');
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="no-results">😥 결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.</div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(brand => `
+    <div class="result-card" onclick="openBrand('${brand.name}','${brand.cat}')">
+      <div class="result-card-info">
+        <div class="result-card-name">${brand.name}</div>
+        ${favorites.includes(brand.name) ? '<span class="result-card-tag">⭐ 즐겨찾기</span>' : ''}
+      </div>
+      <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 읽기">🔊</button>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+//   BRAND DETAIL (menu list)
+// ═══════════════════════════════════════════
+function openBrand(name, cat) {
+  vib();
+  const brand = BRANDS[cat].find(b => b.name === name);
+  if (!brand) return;
+
+  document.getElementById('detailTitle').textContent = name;
+
+  const isFav = favorites.includes(name);
+  document.getElementById('detailHeader').innerHTML = `
+    <div class="detail-brand-name">${brand.name}</div>
+    <div class="detail-brand-sub">메뉴 ${brand.menus.length}종</div>
+    <button class="fav-toggle-btn ${isFav ? 'active' : ''}" id="favToggleBtn" onclick="toggleFav('${name}')">
+      ${isFav ? '⭐ 즐겨찾기 해제' : '☆ 즐겨찾기 추가'}
+    </button>
+  `;
+
+  document.getElementById('detailList').innerHTML = brand.menus.map((menu, i) => `
+    <div class="result-card">
+      <div class="result-card-info">
+        <div class="result-card-name">${menu}</div>
+        <span class="result-card-tag">${i + 1}번째 메뉴</span>
+      </div>
+      <button class="tts-btn" onclick="speak('${menu}')" aria-label="${menu} 읽기">🔊</button>
+    </div>
+  `).join('');
+
+  gotoScreen('detail');
+}
+
+function toggleFav(name) {
+  vib([30, 20, 30]);
+  const idx = favorites.indexOf(name);
+  if (idx === -1) {
+    favorites.push(name);
+    showToast(`⭐ ${name} 즐겨찾기 추가!`);
+  } else {
+    favorites.splice(idx, 1);
+    showToast(`${name} 즐겨찾기 해제`);
+  }
+  localStorage.setItem('fav', JSON.stringify(favorites));
+  const btn = document.getElementById('favToggleBtn');
+  if (btn) {
+    btn.className = 'fav-toggle-btn' + (favorites.includes(name) ? ' active' : '');
+    btn.textContent = favorites.includes(name) ? '⭐ 즐겨찾기 해제' : '☆ 즐겨찾기 추가';
+  }
+}
+
+// ═══════════════════════════════════════════
+//   TTS
+// ═══════════════════════════════════════════
+function speak(text) {
+  vib();
+  if (!('speechSynthesis' in window)) { showToast('음성 기능 미지원'); return; }
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'ko-KR';
+  utter.rate = 0.85;
+  utter.pitch = 1.0;
+  window.speechSynthesis.speak(utter);
+  showToast(`🔊 "${text}" 읽는 중...`);
+}
+
+// ═══════════════════════════════════════════
+//   VOICE SEARCH (Web Speech API)
+// ═══════════════════════════════════════════
+const micBtn = document.getElementById('micBtn');
+let recognition = null;
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'ko-KR';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => { micBtn.classList.add('listening'); showToast('🎤 말씀해 주세요...'); };
+  recognition.onend = () => { micBtn.classList.remove('listening'); };
+  recognition.onerror = () => { micBtn.classList.remove('listening'); showToast('음성 인식 실패'); };
+  recognition.onresult = (e) => {
+    const t = e.results[0][0].transcript;
+    document.getElementById('homeSearchInput').value = t;
+    doSearch(t);
+  };
+
+  micBtn.addEventListener('click', () => {
+    vib();
+    if (micBtn.classList.contains('listening')) { recognition.stop(); return; }
+    recognition.start();
+  });
+} else {
+  micBtn.addEventListener('click', () => { vib(); showToast('이 브라우저는 음성 인식 미지원'); });
+}
+
+// ═══════════════════════════════════════════
+//   CAMERA
+// ═══════════════════════════════════════════
+async function startCamera() {
+  const video = document.getElementById('cameraVideo');
+  const noSupport = document.getElementById('cameraNoSupport');
+
+  // HTTPS check
+  if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    video.style.display = 'none';
+    noSupport.style.display = 'flex';
+    noSupport.innerHTML = '<span class="big-icon">🔒</span><span>보안 연결(HTTPS)이 필요합니다.<br>HTTPS 주소로 접속해 주세요.</span>';
+    showToast('⚠️ HTTPS 연결이 필요합니다');
+    return;
+  }
+
+  // API support check
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    video.style.display = 'none';
+    noSupport.style.display = 'flex';
+    noSupport.innerHTML = '<span class="big-icon">📷</span><span>이 브라우저는 카메라를<br>지원하지 않습니다.</span>';
+    return;
+  }
+
+  // Show loading toast immediately
+  showToast('📷 카메라를 준비 중입니다...');
+  vib([30]);
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    video.srcObject = cameraStream;
+    video.style.display = 'block';
+    noSupport.style.display = 'none';
+    applyZoom();
+    showToast('✅ 카메라 준비 완료!');
+  } catch (err) {
+    video.style.display = 'none';
+    noSupport.style.display = 'flex';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      noSupport.innerHTML = '<span class="big-icon">🚫</span><span>카메라 권한이 거부되어 있습니다.<br><br>브라우저 주소창 옆 🔒 아이콘을 눌러<br><strong>카메라 권한을 허용</strong>해 주세요.</span>';
+      showCameraPermissionModal();
+    } else if (err.name === 'NotFoundError') {
+      noSupport.innerHTML = '<span class="big-icon">📷</span><span>카메라를 찾을 수 없습니다.<br>기기에 카메라가 연결되어 있는지<br>확인해 주세요.</span>';
+      showToast('카메라를 찾을 수 없습니다');
+    } else {
+      noSupport.innerHTML = '<span class="big-icon">⚠️</span><span>카메라를 사용할 수 없습니다.<br>잠시 후 다시 시도해 주세요.</span>';
+      showToast('카메라 오류: ' + (err.message || err.name));
+    }
+  }
+}
+
+function showCameraPermissionModal() {
+  let modal = document.getElementById('cameraPermModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cameraPermModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.innerHTML = `
+      <div style="background:var(--bg);color:var(--text);border-radius:20px;padding:32px 24px;max-width:400px;width:100%;text-align:center;border:4px solid var(--border);">
+        <div style="font-size:60px;margin-bottom:16px;">🚫</div>
+        <div style="font-size:28px;font-weight:900;margin-bottom:16px;line-height:1.4;">카메라 권한이<br>거부되어 있습니다</div>
+        <div style="font-size:20px;color:var(--sub);line-height:1.7;margin-bottom:28px;">브라우저 주소창 옆<br>🔒 아이콘 → <strong>카메라 허용</strong><br>으로 설정 후 다시 눌러주세요.</div>
+        <button onclick="document.getElementById('cameraPermModal').remove()" style="background:var(--btn-bg);color:var(--btn-text);border:none;border-radius:14px;padding:18px 40px;font-size:24px;font-weight:900;font-family:inherit;cursor:pointer;width:100%;">확인</button>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const video = document.getElementById('cameraVideo');
+  video.srcObject = null;
+  zoomScale = 1;
+  contrastOn = false;
+  updateCameraUI();
+}
+
+function applyZoom() {
+  const video = document.getElementById('cameraVideo');
+  video.style.transform = `scale(${zoomScale})`;
+  video.style.transformOrigin = 'center center';
+}
+
+function updateCameraUI() {
+  const val = zoomScale.toFixed(1).replace('.0', '') + '×';
+  document.getElementById('zoomValue').textContent = val;
+
+  const ind = document.getElementById('zoomIndicator');
+  ind.textContent = '확대 ' + val;
+  ind.classList.add('show');
+  clearTimeout(zoomTimer);
+  zoomTimer = setTimeout(() => ind.classList.remove('show'), 1800);
+}
+
+document.getElementById('zoomInBtn').addEventListener('click', () => {
+  vib();
+  if (zoomScale < 4) { zoomScale = Math.min(4, parseFloat((zoomScale + 0.5).toFixed(1))); }
+  applyZoom(); updateCameraUI();
+});
+
+document.getElementById('zoomOutBtn').addEventListener('click', () => {
+  vib();
+  if (zoomScale > 1) { zoomScale = Math.max(1, parseFloat((zoomScale - 0.5).toFixed(1))); }
+  applyZoom(); updateCameraUI();
+});
+
+document.getElementById('contrastBtn').addEventListener('click', () => {
+  vib([30, 20, 30]);
+  contrastOn = !contrastOn;
+  const video = document.getElementById('cameraVideo');
+  video.style.filter = contrastOn ? 'contrast(2.5) brightness(1.1)' : '';
+  document.getElementById('contrastBtn').classList.toggle('active-contrast', contrastOn);
+
+  const ind = document.getElementById('contrastIndicator');
+  ind.textContent = contrastOn ? '대비 강화 ON 🎨' : '대비 강화 OFF';
+  ind.classList.add('show');
+  clearTimeout(contrastTimer);
+  contrastTimer = setTimeout(() => ind.classList.remove('show'), 1800);
+  showToast(contrastOn ? '🎨 대비 강화 켜짐' : '대비 강화 꺼짐');
+});
+
+document.getElementById('captureBtn').addEventListener('click', () => {
+  vib([50, 30, 50]);
+  const video = document.getElementById('cameraVideo');
+  if (!cameraStream || video.readyState < 2) {
+    showToast('카메라가 준비 중입니다');
+    return;
+  }
+
+  // Flash
+  const flash = document.getElementById('flashOverlay');
+  flash.classList.add('flash');
+  setTimeout(() => flash.classList.remove('flash'), 200);
+
+  // Draw to canvas
+  const canvas = document.getElementById('capturedCanvas');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  if (contrastOn) {
+    ctx.filter = 'contrast(2.5) brightness(1.1)';
+    ctx.drawImage(canvas, 0, 0);
+  }
+
+  // Scale canvas for display
+  canvas.style.maxWidth = '100%';
+  canvas.style.maxHeight = '55vh';
+  canvas.style.borderRadius = '16px';
+
+  document.getElementById('capturedOverlay').classList.add('show');
+  showToast('📸 캡처 완료!');
+});
+
+function closeCaptured() {
+  vib();
+  document.getElementById('capturedOverlay').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════
+//   All buttons get vibration via delegation
+// ═══════════════════════════════════════════
+document.addEventListener('click', (e) => {
+  if (e.target.closest('button') || e.target.closest('.result-card')) {
+    if (navigator.vibrate) navigator.vibrate(25);
+  }
+}, { passive: true });
+</script>
+</body>
+</html>
