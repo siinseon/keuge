@@ -59,7 +59,8 @@
   }
   #screen-results .top-bar,
   #screen-detail .top-bar,
-  #screen-camera .top-bar {
+  #screen-camera .top-bar,
+  #screen-fav .top-bar {
     justify-content: space-between;
   }
   .back-btn {
@@ -219,6 +220,24 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 14px;
+  }
+  .home-cat-grid-2col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .home-cat-grid-2col .home-cat-btn {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 28px 32px;
+    min-height: 110px;
+    gap: 24px;
+    font-size: 40px;
+  }
+  .home-cat-grid-2col .home-cat-btn .cat-icon svg {
+    width: 60px;
+    height: 60px;
   }
   .home-cat-btn {
     background: var(--card);
@@ -580,10 +599,52 @@
     cursor: pointer;
   }
 
+  /* ─── BOTTOM NAV ─── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 500px;
+    background: #1A1A1A;
+    border-top: 3px solid #FFEE00;
+    display: flex;
+    z-index: 200;
+    height: 88px;
+  }
+  .nav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: #888866;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 8px 4px;
+    transition: color 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-tab:active { background: rgba(255,238,0,0.1); }
+  .nav-tab.active {
+    color: #FFEE00;
+  }
+  .nav-tab svg { transition: stroke 0.15s; }
+  .nav-tab.active svg { stroke: #FFEE00; }
+  .nav-tab:not(.active) svg { stroke: #888866; }
+  /* 모든 screen에 하단 네비 여백 */
+  .screen { padding-bottom: 88px; }
+
   /* ─── TOAST ─── */
   .toast {
     position: fixed;
-    bottom: 30px;
+    bottom: 100px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
     background: rgba(0,0,0,0.85);
@@ -660,12 +721,7 @@
         <span>식당</span>
       </button>
     </div>
-    <button class="camera-shortcut-btn" onclick="gotoScreen('camera')">
-      돋보기 카메라 열기
-    </button>
-    <button class="home-cat-btn fav-btn" onclick="goCat('즐겨찾기')">
-      즐겨찾기
-    </button>
+
   </div>
 
 </div>
@@ -749,6 +805,43 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 5: FAVORITES
+════════════════════════════════════════════ -->
+<div id="screen-fav" class="screen">
+  <div class="top-bar">
+    <span class="top-title" style="flex:1;text-align:center;font-size:32px;">즐겨찾기</span>
+  </div>
+  <div class="results-list" id="favList"></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     BOTTOM NAVIGATION
+════════════════════════════════════════════ -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="nav-tab active" id="nav-home" onclick="navTo('home')">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 14L16 4L28 14V28H20V20H12V28H4V14Z"/>
+    </svg>
+    홈
+  </button>
+  <button class="nav-tab" id="nav-camera" onclick="navTo('camera')">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="8" width="28" height="20" rx="3"/>
+      <circle cx="16" cy="18" r="5"/>
+      <path d="M10 8L12 4H20L22 8"/>
+    </svg>
+    돋보기
+  </button>
+  <button class="nav-tab" id="nav-fav" onclick="navTo('fav')">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 4L19.5 12H28L21.5 17L24 26L16 21L8 26L10.5 17L4 12H12.5Z"/>
+    </svg>
+    즐겨찾기
+  </button>
+</nav>
 
 <script>
 // ═══════════════════════════════════════════
@@ -886,6 +979,31 @@ let currentSpeaking = null;
 // ═══════════════════════════════════════════
 //   NAVIGATION
 // ═══════════════════════════════════════════
+// 네비 탭 루트 (홈/돋보기/즐겨찾기) - 스택 초기화
+function navTo(name) {
+  vib();
+  // 탭 활성화 표시
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const activeTab = document.getElementById('nav-' + name);
+  if (activeTab) activeTab.classList.add('active');
+
+  // 스크린 전환
+  screenHistory = [name === 'home' ? 'home' : name];
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+  if (name === 'camera') {
+    document.getElementById('screen-camera').classList.add('active');
+    startCamera();
+  } else if (name === 'fav') {
+    document.getElementById('screen-fav').classList.add('active');
+    renderFavScreen();
+    stopCamera();
+  } else {
+    document.getElementById('screen-home').classList.add('active');
+    stopCamera();
+  }
+}
+
 function gotoScreen(name) {
   vib();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -897,12 +1015,36 @@ function gotoScreen(name) {
 
 function goBack() {
   vib();
-  if (screenHistory.length <= 1) return;
+  if (screenHistory.length <= 1) {
+    // 루트 탭으로 복귀
+    const root = screenHistory[0] || 'home';
+    navTo(root === 'camera' ? 'camera' : root === 'fav' ? 'fav' : 'home');
+    return;
+  }
   screenHistory.pop();
   const prev = screenHistory[screenHistory.length - 1];
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + prev).classList.add('active');
   if (prev !== 'camera') stopCamera();
+}
+
+function renderFavScreen() {
+  const all = [...BRANDS.카페.map(b => ({...b, cat:'카페'})), ...BRANDS.식당.map(b => ({...b, cat:'식당'}))];
+  const items = all.filter(b => favorites.includes(b.name));
+  const list = document.getElementById('favList');
+  if (items.length === 0) {
+    list.innerHTML = '<div class="no-results">아직 즐겨찾기가 없습니다.<br><br>브랜드 메뉴에서<br>즐겨찾기를 추가해 보세요.</div>';
+    return;
+  }
+  list.innerHTML = items.map(brand => `
+    <div class="result-card" onclick="openBrand('${brand.name}','${brand.cat}')">
+      <div class="result-card-info">
+        <div class="result-card-name">${brand.name}</div>
+        <span class="result-card-tag">${brand.cat === '카페' ? '카페' : '식당'}</span>
+      </div>
+      <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
+    </div>
+  `).join('');
 }
 
 // ═══════════════════════════════════════════
