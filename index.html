@@ -570,7 +570,6 @@
   }
   .contrast-btn:active { transform: scale(0.94); }
   .contrast-btn.active-contrast { background: #FFEE00; color: #111; }
-  .contrast-btn .c-icon { font-size: 28px; }
 
   /* captured image overlay */
   .captured-overlay {
@@ -584,9 +583,15 @@
     justify-content: center;
     gap: 16px;
     padding: 20px;
+    overflow: hidden;
   }
   .captured-overlay.show { display: flex; }
-  #capturedCanvas { max-width: 100%; border-radius: 12px; }
+  #capturedCanvas {
+    max-width: 100%;
+    border-radius: 12px;
+    transform-origin: center center;
+    transition: transform 0.15s;
+  }
   .close-capture-btn {
     background: var(--accent);
     color: #fff;
@@ -791,11 +796,10 @@
     </div>
     <div class="capture-row">
       <button class="contrast-btn" id="contrastBtn">
-        <span class="c-icon">🎨</span>
         <span>글씨<br>뚜렷하게</span>
       </button>
       <button class="capture-btn" id="captureBtn">
-        📸 찍기
+        찍기
       </button>
     </div>
   </div>
@@ -879,6 +883,7 @@ const BRANDS = {
     { name: '커스텀커피', chosung: 'ㅋㅅㅌㅋㅍ', menus: ['아메리카노', '카페라떼', '흑임자크림라떼', '피스타치오크림라떼', '쑥크림라떼', '캔커피'] },
     { name: '셀렉토커피', chosung: 'ㅅㄹㅌㅋㅍ', menus: ['아메리카노', '디카페인아메리카노', '바닐라라떼', '흑당라떼', '딸기스무디', '크로플'] },
     { name: '댄싱컵', chosung: 'ㄷㅅㅋ', menus: ['아메리카노', '댄싱커피', '바닐라빈라떼', '딥초코라떼', '플랫화이트', '크로플'] },
+    { name: '요거프레소', chosung: 'ㅇㄱㅍㄹㅅ', menus: ['메리딸기', '요거트 플레인 요리노', '메리치즈', '메리망고', '아메리카노', '순수 밀크 소프트 아이스크림', '딸기 요거트 스무디', '버블 그린티 라떼', '생크림 와플', '허니 브레드'] },
   ],
   식당: [
     { name: '맥도날드', chosung: 'ㅁㄷㄴㄷ', menus: ['빅맥', '맥스파이시상하이버거', '1955버거', '베이컨토마토디럭스', '맥너겟', '불고기버거'] },
@@ -1106,7 +1111,7 @@ function doSearch(query) {
     const nameMatch = brand.name.includes(q);
     // 초성 검색: 브랜드명의 초성이 쿼리를 포함하는지 (양방향 매칭)
     const brandChosung = getChosung(brand.name);
-    const chosungMatch = brand.chosung.includes(q) || brandChosung.includes(q) || (isChosungQuery && brandChosung.startsWith(qChosung));
+    const chosungMatch = brand.chosung.includes(q) || brandChosung.includes(q) || (isChosungQuery && (brandChosung.includes(q) || brand.chosung.includes(q)));
     const menuMatch = brand.menus.some(m => m.includes(q) || getChosung(m).includes(q));
     if (nameMatch || chosungMatch || menuMatch) results.push(brand);
   });
@@ -1389,13 +1394,15 @@ function updateCameraUI() {
 document.getElementById('zoomInBtn').addEventListener('click', () => {
   vib();
   if (zoomScale < 4) { zoomScale = Math.min(4, parseFloat((zoomScale + 0.5).toFixed(1))); }
-  applyZoom(); updateCameraUI();
+  if (isCaptured) applyCanvasZoom(); else applyZoom();
+  updateCameraUI();
 });
 
 document.getElementById('zoomOutBtn').addEventListener('click', () => {
   vib();
   if (zoomScale > 1) { zoomScale = Math.max(1, parseFloat((zoomScale - 0.5).toFixed(1))); }
-  applyZoom(); updateCameraUI();
+  if (isCaptured) applyCanvasZoom(); else applyZoom();
+  updateCameraUI();
 });
 
 document.getElementById('contrastBtn').addEventListener('click', () => {
@@ -1406,12 +1413,20 @@ document.getElementById('contrastBtn').addEventListener('click', () => {
   document.getElementById('contrastBtn').classList.toggle('active-contrast', contrastOn);
 
   const ind = document.getElementById('contrastIndicator');
-  ind.textContent = contrastOn ? '대비 강화 ON 🎨' : '대비 강화 OFF';
+  ind.textContent = contrastOn ? '대비 강화 ON' : '대비 강화 OFF';
   ind.classList.add('show');
   clearTimeout(contrastTimer);
   contrastTimer = setTimeout(() => ind.classList.remove('show'), 1800);
-  showToast(contrastOn ? '🎨 대비 강화 켜짐' : '대비 강화 꺼짐');
+  showToast(contrastOn ? '대비 강화 켜짐' : '대비 강화 꺼짐');
 });
+
+let isCaptured = false;  // 캡처 상태 플래그
+
+function applyCanvasZoom() {
+  const canvas = document.getElementById('capturedCanvas');
+  canvas.style.transform = `scale(${zoomScale})`;
+  canvas.style.transformOrigin = 'center center';
+}
 
 document.getElementById('captureBtn').addEventListener('click', () => {
   vib([50, 30, 50]);
@@ -1426,28 +1441,31 @@ document.getElementById('captureBtn').addEventListener('click', () => {
   flash.classList.add('flash');
   setTimeout(() => flash.classList.remove('flash'), 200);
 
-  // Draw to canvas
+  // Draw to canvas (현재 배율 그대로 반영)
   const canvas = document.getElementById('capturedCanvas');
   canvas.width = video.videoWidth || 640;
   canvas.height = video.videoHeight || 480;
   const ctx = canvas.getContext('2d');
+  if (contrastOn) ctx.filter = 'contrast(2.5) brightness(1.1)';
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  if (contrastOn) {
-    ctx.filter = 'contrast(2.5) brightness(1.1)';
-    ctx.drawImage(canvas, 0, 0);
-  }
 
-  // Scale canvas for display
+  // 표시 스타일
   canvas.style.maxWidth = '100%';
   canvas.style.maxHeight = '55vh';
   canvas.style.borderRadius = '16px';
+  canvas.style.transition = 'transform 0.15s';
 
+  // 현재 zoomScale로 확대 적용
+  applyCanvasZoom();
+
+  isCaptured = true;
   document.getElementById('capturedOverlay').classList.add('show');
-  showToast('📸 캡처 완료!');
+  showToast('캡처 완료!');
 });
 
 function closeCaptured() {
   vib();
+  isCaptured = false;
   document.getElementById('capturedOverlay').classList.remove('show');
 }
 
