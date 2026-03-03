@@ -319,7 +319,9 @@
     font-size: 30px;
     font-weight: 900;
     line-height: 1.25;
-    word-break: keep-all;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    white-space: normal;
     margin-bottom: 4px;
   }
   .result-card-tag {
@@ -594,7 +596,7 @@
   }
   .close-capture-btn {
     background: var(--accent);
-    color: #fff;
+    color: #111111;
     border: none;
     border-radius: 14px;
     padding: 16px 40px;
@@ -973,7 +975,7 @@ const BRANDS = {
 //   STATE
 // ═══════════════════════════════════════════
 let screenHistory = ['home'];
-let favorites = JSON.parse(localStorage.getItem('fav') || '[]');
+let favorites = (() => { try { return JSON.parse(localStorage.getItem('fav') || '[]'); } catch(e) { return []; } })();
 let cameraStream = null;
 let zoomScale = 1;
 let contrastOn = false;
@@ -1021,9 +1023,9 @@ function gotoScreen(name) {
 function goBack() {
   vib();
   if (screenHistory.length <= 1) {
-    // 루트 탭으로 복귀
+    // 루트 탭으로 복귀 (카메라 루트에서 뒤로가기 시 홈으로 이동)
     const root = screenHistory[0] || 'home';
-    navTo(root === 'camera' ? 'camera' : root === 'fav' ? 'fav' : 'home');
+    navTo(root === 'fav' ? 'fav' : 'home');
     return;
   }
   screenHistory.pop();
@@ -1031,6 +1033,7 @@ function goBack() {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + prev).classList.add('active');
   if (prev !== 'camera') stopCamera();
+  if (prev === 'fav') renderFavScreen();
 }
 
 function renderFavScreen() {
@@ -1047,7 +1050,7 @@ function renderFavScreen() {
         <div class="result-card-name">${brand.name}</div>
         <span class="result-card-tag">${brand.cat === '카페' ? '카페' : '식당'}</span>
       </div>
-      <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
+      <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}', this)" aria-label="${brand.name} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
     </div>
   `).join('');
 }
@@ -1171,7 +1174,7 @@ function renderResults(items, title) {
         <div class="result-card-name">${brand.name}</div>
         ${favorites.includes(brand.name) ? '<span class="result-card-tag">⭐ 즐겨찾기</span>' : ''}
       </div>
-      <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
+      <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}', this)" aria-label="${brand.name} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
     </div>
   `).join('');
 }
@@ -1195,13 +1198,12 @@ function openBrand(name, cat) {
     </button>
   `;
 
-  document.getElementById('detailList').innerHTML = brand.menus.map((menu, i) => `
+  document.getElementById('detailList').innerHTML = brand.menus.map((menu) => `
     <div class="result-card">
       <div class="result-card-info">
         <div class="result-card-name">${menu}</div>
-        <span class="result-card-tag">${i + 1}번째 메뉴</span>
       </div>
-      <button class="tts-btn" onclick="speak('${menu}')" aria-label="${menu} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
+      <button class="tts-btn" onclick="speak('${menu}', this)" aria-label="${menu} 읽기"><span class="tts-line1">소리</span><span class="tts-line2">듣기</span></button>
     </div>
   `).join('');
 
@@ -1218,7 +1220,7 @@ function toggleFav(name) {
     favorites.splice(idx, 1);
     showToast(`${name} 즐겨찾기 해제`);
   }
-  localStorage.setItem('fav', JSON.stringify(favorites));
+  try { localStorage.setItem('fav', JSON.stringify(favorites)); } catch(e) {}
   const btn = document.getElementById('favToggleBtn');
   if (btn) {
     btn.className = 'fav-toggle-btn' + (favorites.includes(name) ? ' active' : '');
@@ -1229,16 +1231,41 @@ function toggleFav(name) {
 // ═══════════════════════════════════════════
 //   TTS
 // ═══════════════════════════════════════════
-function speak(text) {
+let currentTtsBtn = null;
+
+function speak(text, btn) {
   vib();
   if (!('speechSynthesis' in window)) { showToast('음성 기능 미지원'); return; }
+
+  // 이전 버튼 상태 초기화
+  if (currentTtsBtn) { currentTtsBtn.classList.remove('speaking'); currentTtsBtn = null; }
+
   window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = 'ko-KR';
-  utter.rate = 0.85;
-  utter.pitch = 1.0;
-  window.speechSynthesis.speak(utter);
-  showToast(`"${text}" 읽는 중...`);
+
+  // iOS Safari: cancel 직후 바로 speak하면 무시되는 버그 우회
+  setTimeout(() => {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'ko-KR';
+    utter.rate = 0.85;
+    utter.pitch = 1.0;
+
+    if (btn) {
+      btn.classList.add('speaking');
+      currentTtsBtn = btn;
+    }
+
+    utter.onend = () => {
+      if (btn) btn.classList.remove('speaking');
+      if (currentTtsBtn === btn) currentTtsBtn = null;
+    };
+    utter.onerror = () => {
+      if (btn) btn.classList.remove('speaking');
+      if (currentTtsBtn === btn) currentTtsBtn = null;
+    };
+
+    window.speechSynthesis.speak(utter);
+    showToast(`"${text}" 읽는 중...`);
+  }, 50);
 }
 
 // ═══════════════════════════════════════════
