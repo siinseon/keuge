@@ -70,6 +70,7 @@
     -webkit-tap-highlight-color: transparent; 
     letter-spacing: -0.02em;
     line-height: 1.4;
+    color: inherit;
   }
 
   body {
@@ -82,6 +83,11 @@
     transition: background 0.25s, color 0.25s;
     overflow-x: hidden;
     position: relative;
+  }
+
+  button, input, select, textarea {
+    color: inherit;
+    font-family: inherit;
   }
 
   :focus-visible {
@@ -522,13 +528,7 @@
 ════════════════════════════════════════════ -->
 <section id="screen-splash" class="screen active" role="region" aria-label="시작 화면">
   <div class="splash-logo" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-      <line x1="8" y1="6" x2="16" y2="6"></line>
-      <line x1="8" y1="10" x2="16" y2="10"></line>
-      <line x1="8" y1="14" x2="16" y2="14"></line>
-    </svg>
+    <img src="assets/logo.png" alt="로고" style="width: 100%; height: 100%; object-fit: cover; border-radius: 34px;">
   </div>
   <h1 class="splash-title">크게 크게</h1>
   <p class="splash-sub">메뉴가 잘 안 보이세요?<br>크게 보여드릴게요!</p>
@@ -545,7 +545,8 @@
     <nav class="breadcrumb" id="breadcrumb-home" aria-label="현재 위치">
       <span aria-current="location">홈</span>
     </nav>
-    <div class="top-bar-content">
+    <div class="top-bar-content" style="display: flex; align-items: center; gap: 12px;">
+      <img src="assets/logo.png" alt="" style="width: 44px; height: 44px; border-radius: 10px;">
       <h1 class="top-title home-title">크게 크게</h1>
     </div>
   </header>
