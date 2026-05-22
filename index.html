@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>크게보기 - 메뉴 도우미</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+  :root {
+    --bg: #121212;
+    --card: #1E1E1E;
+    --text: #F5F5F5;
+    --sub: #CCCCCC;
+    --accent: #FFD400;
+    --border: #2A2A2A;
+    --card-border: #333333;
+    --btn-bg: #FFD400;
+    --btn-text: #121212;
+    --fav: #FFD400;
+    --tag-bg: #2A2A2A;
+    --tag-text: #F5F5F5;
+    --input-bg: #1E1E1E;
+    --input-border: #333333;
+    --shadow: rgba(0,0,0,0.5);
+    
+    /* Font Sizes (Default) */
+    --fs-title: 40px;
+    --fs-menu: 30px;
+    --fs-body: 22px;
+    --fs-desc: 18px;
+    --fs-btn: 24px;
+  }
+
+  /* Font Size Variations */
+  body.fs-large {
+    --fs-title: 48px;
+    --fs-menu: 36px;
+    --fs-body: 26px;
+    --fs-desc: 22px;
+    --fs-btn: 28px;
+  }
+  body.fs-small {
+    --fs-title: 32px;
+    --fs-menu: 24px;
+    --fs-body: 18px;
+    --fs-desc: 16px;
+    --fs-btn: 20px;
+  }
+
+  /* High Contrast / Grayscale / Invert */
+  body.high-contrast {
+    --bg: #000000;
+    --card: #000000;
+    --text: #FFFFFF;
+    --sub: #FFFFFF;
+    --accent: #FFFF00;
+    --border: #FFFFFF;
+    --card-border: #FFFFFF;
+    --btn-bg: #FFFF00;
+    --btn-text: #000000;
+  }
+  body.grayscale { filter: grayscale(100%); }
+  body.invert { filter: invert(100%) hue-rotate(180deg); }
+
+  * { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    -webkit-tap-highlight-color: transparent; 
+    letter-spacing: -0.02em;
+    line-height: 1.4;
+  }
+
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    max-width: 500px;
+    margin: 0 auto;
+    transition: background 0.25s, color 0.25s;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  :focus-visible {
+    outline: 4px solid var(--accent);
+    outline-offset: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* ─── SCREEN MANAGEMENT ─── */
+  .screen { display: none; flex-direction: column; min-height: 100vh; animation: fadeIn 0.3s ease-out; }
+  .screen.active { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ─── SPLASH SCREEN ─── */
+  #screen-splash {
+    background: var(--bg);
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 40px;
+  }
+  .splash-logo {
+    width: 140px;
+    height: 140px;
+    border: 6px solid var(--accent);
+    border-radius: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 40px;
+    position: relative;
+    background: var(--card);
+  }
+  .splash-logo svg { width: 70px; height: 70px; color: var(--accent); }
+  .splash-title {
+    font-size: 56px;
+    font-weight: 800;
+    margin-bottom: 16px;
+    color: var(--text);
+    letter-spacing: -0.03em;
+  }
+  .splash-sub {
+    font-size: var(--fs-body);
+    font-weight: 500;
+    line-height: 1.6;
+    margin-bottom: 60px;
+    color: var(--sub);
+  }
+  .start-btn {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 24px;
+    padding: 20px 60px;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    transition: transform 0.2s;
+  }
+  .start-btn:active { transform: scale(0.96); }
+
+  /* ─── HEADER BAR ─── */
+  .top-bar {
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .top-bar-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 56px;
+  }
+  .breadcrumb {
+    font-size: 16px;
+    color: var(--sub);
+    margin-bottom: 4px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .breadcrumb span:not(:last-child)::after {
+    content: '>';
+    margin-left: 6px;
+    font-size: 12px;
+    opacity: 0.5;
+  }
+  
+  .back-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 20px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.15s;
+  }
+  .back-btn:active { background: var(--border); }
+
+  .top-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+    text-align: center;
+  }
+  .top-title.home-title {
+    font-size: 32px;
+    font-weight: 800;
+    text-align: left;
+  }
+
+  /* ─── HOME: SEARCH ZONE ─── */
+  .home-search-zone {
+    padding: 24px 20px;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .search-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+  }
+  .search-input {
+    flex: 1;
+    font-size: var(--fs-body);
+    font-weight: 600;
+    padding: 16px 20px;
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    background: var(--card);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input::placeholder { color: var(--sub); opacity: 0.5; }
+  .search-input:focus { border-color: var(--accent); }
+
+  .mic-btn {
+    background: var(--card);
+    color: var(--accent);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    width: 64px;
+    height: 64px;
+    font-size: 28px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .mic-btn:active { transform: scale(0.92); background: var(--border); }
+  .mic-btn.listening { border-color: var(--accent); animation: pulse 1.5s infinite; }
+  
+  .search-execute-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    padding: 18px;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  /* ─── HOME: MENU ZONE ─── */
+  .home-menu-zone {
+    padding: 20px;
+    flex: 1;
+  }
+  .home-cat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .home-cat-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 24px;
+    padding: 24px 16px;
+    font-size: 24px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    transition: all 0.2s;
+  }
+  .home-cat-btn:active { background: var(--border); transform: translateY(2px); }
+  .home-cat-btn .cat-icon svg { width: 48px; height: 48px; color: var(--accent); }
+
+  /* ─── RESULTS SCREEN ─── */
+  .results-list {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    cursor: pointer;
+  }
+  .result-card-name {
+    font-size: var(--fs-menu);
+    font-weight: 700;
+    color: var(--text);
+  }
+  .tts-btn {
+    background: var(--border);
+    color: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ─── DETAIL SCREEN ─── */
+  .detail-card-large {
+    background: var(--card);
+    border-radius: 24px;
+    margin: 20px;
+    padding: 40px 24px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  .detail-menu-name {
+    font-size: var(--fs-title);
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .detail-menu-price {
+    font-size: var(--fs-menu);
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .big-listen-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 20px;
+    margin: 0 20px 12px;
+    padding: 24px;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .add-fav-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 20px;
+    margin: 0 20px 20px;
+    padding: 20px;
+    font-size: 20px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .add-fav-btn.active {
+    background: var(--accent);
+    color: var(--btn-text);
+    border-color: var(--accent);
+  }
+
+  /* ─── CAMERA SCREEN ─── */
+  .camera-view {
+    flex: 1;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+  }
+  .camera-controls {
+    background: var(--bg);
+    padding: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .zoom-btn {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 72px; height: 72px;
+    font-size: 32px;
+    font-weight: 700;
+  }
+  .capture-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 20px;
+    height: 72px;
+    font-size: 24px;
+    font-weight: 700;
+    flex: 1;
+  }
+  .contrast-btn {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 100px;
+    height: 72px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .contrast-btn.active-contrast {
+    background: var(--accent);
+    color: var(--btn-text);
+  }
+
+  /* ─── BOTTOM NAV ─── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 500px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    height: 80px;
+    z-index: 200;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .nav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--sub);
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .nav-tab.active {
+    color: var(--accent);
+  }
+  .nav-tab svg { width: 28px; height: 28px; margin-bottom: 2px; }
+  
+  .screen { padding-bottom: 80px; }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent);
+    color: var(--btn-text);
+    font-size: 18px;
+    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: 12px;
+    z-index: 999;
+    opacity: 0;
+    transition: all 0.3s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- Screen Reader Announcements -->
+<div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ════════════════════════════════════════════
+     SCREEN 0: SPLASH
+════════════════════════════════════════════ -->
+<section id="screen-splash" class="screen active" role="region" aria-label="시작 화면">
+  <div class="splash-logo" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+      <line x1="8" y1="6" x2="16" y2="6"></line>
+      <line x1="8" y1="10" x2="16" y2="10"></line>
+      <line x1="8" y1="14" x2="16" y2="14"></line>
+    </svg>
+  </div>
+  <h1 class="splash-title">크게 크게</h1>
+  <p class="splash-sub">메뉴가 잘 안 보이세요?<br>크게 보여드릴게요!</p>
+  <button class="start-btn" onclick="navTo('home')" aria-label="앱 시작하기">시작하기</button>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SCREEN 1: HOME
+════════════════════════════════════════════ -->
+<main id="screen-home" class="screen" role="main">
+
+  <!-- Top bar -->
+  <header class="top-bar">
+    <nav class="breadcrumb" id="breadcrumb-home" aria-label="현재 위치">
+      <span aria-current="location">홈</span>
+    </nav>
+    <div class="top-bar-content">
+      <h1 class="top-title home-title">크게 크게</h1>
+    </div>
+  </header>
+
+  <!-- Menu zone -->
+  <section class="home-menu-zone" aria-label="메뉴 카테고리">
+    <div class="home-cat-grid">
+      <!-- Dynamic content will be injected here -->
+    </div>
+  </section>
+
+</main>
+
+<!-- ════════════════════════════════════════════
+     SCREEN 1.5: SEARCH
+════════════════════════════════════════════ -->
+<section id="screen-search" class="screen" role="region" aria-label="검색 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" aria-label="현재 위치">
+      <span>홈</span>
+      <span aria-current="location">검색</span>
+    </nav>
+    <div class="top-bar-content">
+      <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
+      <h1 class="top-title">검색하기</h1>
+      <div style="width:80px" aria-hidden="true"></div>
+    </div>
+  </header>
+  
+  <div class="home-search-zone">
+    <div class="search-row">
+      <div style="flex: 1; display: flex; flex-direction: column;">
+        <label for="homeSearchInput" class="sr-only">브랜드 또는 메뉴 검색</label>
+        <input
+          class="search-input"
+          id="homeSearchInput"
+          type="search"
+          placeholder="브랜드 또는 메뉴 입력"
+          inputmode="search"
+          autocomplete="off"
+          aria-describedby="search-hint"
+        >
+        <span id="search-hint" class="sr-only">초성으로도 검색이 가능합니다.</span>
+      </div>
+      <button class="mic-btn" id="micBtn" aria-label="음성으로 검색하기">🎤</button>
+    </div>
+    <button class="search-execute-btn" id="homeSearchBtn" aria-label="검색 실행하기">검색하기</button>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 2: RESULTS
+════════════════════════════════════════════ -->
+<section id="screen-results" class="screen" role="region" aria-label="검색 결과 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" id="resultsBreadcrumb" aria-label="현재 위치">
+      <span>홈</span>
+      <span aria-current="location">검색 결과</span>
+    </nav>
+    <div class="top-bar-content">
+      <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
+      <h1 class="top-title" id="resultsTitle">검색 결과</h1>
+      <div style="width:80px" aria-hidden="true"></div>
+    </div>
+  </header>
+  <div class="results-list" id="resultsList" role="list"></div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 3: BRAND DETAIL
+════════════════════════════════════════════ -->
+<section id="screen-detail" class="screen" role="region" aria-label="상세 메뉴 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" id="detailBreadcrumb" aria-label="현재 위치">
+      <span>홈</span>
+      <span>검색</span>
+      <span aria-current="location">메뉴</span>
+    </nav>
+    <div class="top-bar-content">
+      <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
+      <h1 class="top-title" id="detailTitle">메뉴</h1>
+      <div style="width:80px" aria-hidden="true"></div>
+    </div>
+  </header>
+  
+  <div id="detailContent" style="flex:1; display:flex; flex-direction:column;">
+    <!-- Dynamic content will be injected here -->
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 4: CAMERA
+════════════════════════════════════════════ -->
+<section id="screen-camera" class="screen" role="region" aria-label="돋보기 카메라 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" aria-label="현재 위치">
+      <span aria-current="location">돋보기</span>
+    </nav>
+    <div class="top-bar-content">
+      <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
+      <h1 class="top-title">🔬 돋보기</h1>
+      <div style="width:80px" aria-hidden="true"></div>
+    </div>
+  </header>
+
+  <div class="camera-view" id="cameraView">
+    <video id="cameraVideo" autoplay playsinline muted aria-label="카메라 미리보기"></video>
+    <div class="flash-overlay" id="flashOverlay" aria-hidden="true"></div>
+    <div class="zoom-indicator" id="zoomIndicator" aria-live="polite">확대 1×</div>
+    <div class="contrast-indicator" id="contrastIndicator" aria-live="polite">대비 강화 ON</div>
+
+    <!-- No support fallback -->
+    <div class="camera-no-support" id="cameraNoSupport" role="alert">
+      <span class="big-icon" aria-hidden="true">📷</span>
+      <span>카메라를 사용할 수 없습니다.<br>권한을 허용해 주세요.</span>
+    </div>
+
+    <!-- Captured image overlay -->
+    <div class="captured-overlay" id="capturedOverlay" role="dialog" aria-label="캡처된 사진">
+      <canvas id="capturedCanvas" aria-label="캡처된 이미지 미리보기"></canvas>
+      <button class="close-capture-btn" onclick="closeCaptured()" aria-label="사진 닫기">✕ 닫기</button>
+    </div>
+  </div>
+
+  <footer class="camera-controls">
+    <div class="camera-zoom-row" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <button class="zoom-btn" id="zoomOutBtn" aria-label="축소하기">−</button>
+      <div class="zoom-label" id="zoomLabel" style="font-size:20px; font-weight:700; color:var(--sub); text-align:center; flex:1;">
+        확대/축소<br><strong id="zoomValue" style="font-size:28px; color:var(--text);" aria-live="polite">1×</strong>
+      </div>
+      <button class="zoom-btn" id="zoomInBtn" aria-label="확대하기">＋</button>
+    </div>
+    <div class="capture-row" style="display:flex; align-items:center; gap:12px;">
+      <button class="contrast-btn" id="contrastBtn" aria-label="글씨 뚜렷하게 보기 토글">
+        <span class="c-icon" style="font-size:24px;" aria-hidden="true">🎨</span>
+        <span>글씨 뚜렷하게</span>
+      </button>
+      <button class="capture-btn" id="captureBtn" aria-label="사진 찍기">
+        📸 사진 찍기
+      </button>
+      <button class="contrast-btn" id="ocrBtn" aria-label="글자 읽기">
+        <span class="c-icon" style="font-size:24px;" aria-hidden="true">🔍</span>
+        <span>글자 읽기</span>
+      </button>
+    </div>
+    <div id="ocrResultArea" class="sr-only" aria-live="polite"></div>
+  </footer>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 6: SETTINGS
+════════════════════════════════════════════ -->
+<section id="screen-settings" class="screen" role="region" aria-label="설정 화면">
+  <header class="top-bar">
+    <div class="breadcrumb" aria-label="현재 위치">
+      <span aria-current="location">설정</span>
+    </div>
+    <div class="top-bar-content">
+      <h1 class="top-title" style="text-align:left;">설정</h1>
+    </div>
+  </header>
+  
+  <div class="results-list" style="gap: 24px;">
+    <section aria-labelledby="setting-font-size">
+      <h2 id="setting-font-size" style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">글자 크기</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <button class="result-card" style="justify-content: center; padding: 16px;" onclick="updateSetting('fontSize', 'small')" aria-label="작게">작게</button>
+        <button class="result-card" style="justify-content: center; padding: 16px;" onclick="updateSetting('fontSize', 'medium')" aria-label="보통">보통</button>
+        <button class="result-card" style="justify-content: center; padding: 16px;" onclick="updateSetting('fontSize', 'large')" aria-label="크게">크게</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="setting-voice">
+      <h2 id="setting-voice" style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">음성 안내</h2>
+      <button class="result-card" style="width: 100%;" onclick="toggleVoice()" id="settings-voice-btn">
+        <span>음성 안내 켜짐</span>
+      </button>
+    </section>
+
+    <section aria-labelledby="setting-contrast">
+      <h2 id="setting-contrast" style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">화면 모드</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <button class="result-card" style="justify-content: center;" onclick="updateSetting('displayMode', 'normal')">기본</button>
+        <button class="result-card" style="justify-content: center;" onclick="updateSetting('displayMode', 'high-contrast')">고대비</button>
+        <button class="result-card" style="justify-content: center;" onclick="updateSetting('displayMode', 'grayscale')">흑백</button>
+        <button class="result-card" style="justify-content: center;" onclick="updateSetting('displayMode', 'invert')">색상 반전</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="setting-motion">
+      <h2 id="setting-motion" style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">애니메이션</h2>
+      <button class="result-card" style="width: 100%;" onclick="updateSetting('reducedMotion', !AppState.settings.reducedMotion)" id="settings-motion-btn">
+        <span>애니메이션 사용 중</span>
+      </button>
+    </section>
+  </div>
+</section>
+
+
+<!-- TOAST -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 5: FAVORITES
+════════════════════════════════════════════ -->
+<section id="screen-fav" class="screen" role="region" aria-label="즐겨찾기 목록 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" aria-label="현재 위치">
+      <span aria-current="location">즐겨찾기</span>
+    </nav>
+    <div class="top-bar-content">
+      <h1 class="top-title" style="text-align:left;">즐겨찾기</h1>
+    </div>
+  </header>
+  <div class="results-list" id="favList" role="list"></div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     BOTTOM NAVIGATION
+════════════════════════════════════════════ -->
+<nav class="bottom-nav" id="bottomNav" aria-label="주요 메뉴">
+  <button class="nav-tab active" id="nav-home" onclick="navTo('home')" aria-label="홈 화면으로 이동" aria-current="page">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+      <polyline points="9 22 9 12 15 12 15 22"></polyline>
+    </svg>
+    <span>홈</span>
+  </button>
+  <button class="nav-tab" id="nav-camera" onclick="navTo('camera')" aria-label="돋보기 카메라로 이동">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <span>돋보기</span>
+  </button>
+  <button class="nav-tab" id="nav-fav" onclick="navTo('fav')" aria-label="즐겨찾기 목록으로 이동">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+    </svg>
+    <span>즐겨찾기</span>
+  </button>
+  <button class="nav-tab" id="nav-settings" onclick="navTo('settings')" aria-label="설정 화면으로 이동">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+    <span>설정</span>
+  </button>
+</nav>
+
+<script>
+/**
+ * 크게 크게 - 접근성 중심 메뉴 도우미
+ * Modular Architecture Refactoring
+ */
+
+// ═══════════════════════════════════════════
+//   CORE MODULE: STATE & SETTINGS
+// ═══════════════════════════════════════════
+const AppState = {
+  screenHistory: ['home'],
+  favorites: JSON.parse(localStorage.getItem('fav') || '[]'),
+  recentMenus: JSON.parse(localStorage.getItem('recentMenus') || '[]'),
+  recentSearches: JSON.parse(localStorage.getItem('recentSearches') || '[]'),
+  settings: JSON.parse(localStorage.getItem('settings') || '{"voiceEnabled": true, "fontSize": "medium", "displayMode": "normal", "reducedMotion": false}'),
+  brands: null, // Loaded via fetch
+  
+  save() {
+    localStorage.setItem('fav', JSON.stringify(this.favorites));
+    localStorage.setItem('recentMenus', JSON.stringify(this.recentMenus));
+    localStorage.setItem('recentSearches', JSON.stringify(this.recentSearches));
+    localStorage.setItem('settings', JSON.stringify(this.settings));
+  }
+};
+
+const SettingsManager = {
+  init() {
+    this.applySettings();
+  },
+  
+  update(key, value) {
+    AppState.settings[key] = value;
+    AppState.save();
+    this.applySettings();
+    
+    let msg = '';
+    if (key === 'fontSize') msg = `글자 크기가 ${value === 'small' ? '작게' : value === 'large' ? '크게' : '보통'}로 변경되었습니다.`;
+    if (key === 'displayMode') msg = `화면 모드가 변경되었습니다.`;
+    if (key === 'reducedMotion') msg = value ? '애니메이션이 제한됩니다.' : '애니메이션을 사용합니다.';
+    
+    if (msg) {
+      showToast(msg);
+      NavigationManager.announce(msg);
+    }
+    
+    if (AppState.screenHistory[AppState.screenHistory.length - 1] === 'settings') {
+      UI.renderSettingsScreen();
+    }
+  },
+  
+  applySettings() {
+    const body = document.body;
+    const s = AppState.settings;
+    
+    // Font Size
+    body.classList.remove('fs-small', 'fs-large');
+    if (s.fontSize === 'small') body.classList.add('fs-small');
+    if (s.fontSize === 'large') body.classList.add('fs-large');
+    
+    // Display Mode
+    body.classList.remove('high-contrast', 'grayscale', 'invert');
+    if (s.displayMode !== 'normal') body.classList.add(s.displayMode);
+    
+    // Reduced Motion
+    if (s.reducedMotion) {
+      body.setAttribute('data-reduced-motion', 'true');
+    } else {
+      body.removeAttribute('data-reduced-motion');
+    }
+  }
+};
+
+// ═══════════════════════════════════════════
+//   NAVIGATION MODULE
+// ═══════════════════════════════════════════
+const NavigationManager = {
+  navTo(name) {
+    vib();
+    document.querySelectorAll('.nav-tab').forEach(t => {
+      t.classList.remove('active');
+      t.removeAttribute('aria-current');
+    });
+    const activeTab = document.getElementById('nav-' + name);
+    if (activeTab) {
+      activeTab.classList.add('active');
+      activeTab.setAttribute('aria-current', 'page');
+    }
+
+    AppState.screenHistory = [name === 'home' ? 'home' : name];
+    this.switchScreen(name);
+  },
+
+  gotoScreen(name) {
+    vib();
+    this.switchScreen(name);
+    AppState.screenHistory.push(name);
+  },
+
+  switchScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById('screen-' + name);
+    if (target) {
+      target.classList.add('active');
+      
+      // Screen specific logic
+      if (name === 'home') UI.renderHomeScreen();
+      if (name === 'search') UI.renderSearchScreen();
+      if (name === 'fav') UI.renderFavScreen();
+      if (name === 'settings') UI.renderSettingsScreen();
+      
+      this.announceScreen(name);
+    }
+    
+    if (name === 'camera') CameraManager.start();
+    else CameraManager.stop();
+  },
+
+  goBack() {
+    vib();
+    if (AppState.screenHistory.length <= 1) {
+      const root = AppState.screenHistory[0] || 'home';
+      this.navTo(root === 'camera' ? 'camera' : root === 'fav' ? 'fav' : root === 'settings' ? 'settings' : 'home');
+      return;
+    }
+    AppState.screenHistory.pop();
+    const prev = AppState.screenHistory[AppState.screenHistory.length - 1];
+    this.switchScreen(prev);
+    
+    // Update bottom nav active state
+    const rootTabs = ['home', 'camera', 'fav', 'settings'];
+    if (rootTabs.includes(prev)) {
+      document.querySelectorAll('.nav-tab').forEach(t => {
+        t.classList.remove('active');
+        t.removeAttribute('aria-current');
+      });
+      const tab = document.getElementById('nav-' + prev);
+      if (tab) {
+        tab.classList.add('active');
+        tab.setAttribute('aria-current', 'page');
+      }
+    }
+  },
+
+  announce(msg, forceTTS = false) {
+    const announcer = document.getElementById('sr-announcer');
+    if (announcer) {
+      announcer.textContent = '';
+      setTimeout(() => { announcer.textContent = msg; }, 100);
+    }
+    if (AppState.settings.voiceEnabled || forceTTS) {
+      SpeechManager.speak(msg, true);
+    }
+  },
+
+  announceScreen(name) {
+    const titles = {
+      'home': '홈 화면입니다.',
+      'search': '검색 화면입니다. 브랜드나 메뉴를 입력해 주세요.',
+      'results': '검색 결과 화면입니다.',
+      'detail': '상세 메뉴 화면입니다.',
+      'camera': '돋보기 카메라 화면입니다. 화면을 눌러 사진을 찍을 수 있습니다.',
+      'fav': '즐겨찾기 화면입니다.',
+      'settings': '설정 화면입니다.'
+    };
+    this.announce(titles[name] || '화면이 전환되었습니다.');
+  }
+};
+
+// ═══════════════════════════════════════════
+//   SPEECH MODULE
+// ═══════════════════════════════════════════
+const SpeechManager = {
+  recognition: null,
+
+  init() {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      this.recognition = new SR();
+      this.recognition.lang = 'ko-KR';
+      this.recognition.onstart = () => { 
+        const btn = document.getElementById('micBtn');
+        btn.classList.add('listening'); 
+        btn.setAttribute('aria-label', '음성 인식 중... 다시 누르면 중단');
+        showToast('🎤 말씀해 주세요...'); 
+        NavigationManager.announce('음성 인식을 시작합니다. 말씀해 주세요.');
+      };
+      this.recognition.onend = () => { 
+        const btn = document.getElementById('micBtn');
+        btn.classList.remove('listening'); 
+        btn.setAttribute('aria-label', '음성으로 검색하기');
+      };
+      this.recognition.onerror = () => { 
+        const btn = document.getElementById('micBtn');
+        btn.classList.remove('listening'); 
+        btn.setAttribute('aria-label', '음성으로 검색하기');
+        showToast('음성 인식 실패'); 
+        NavigationManager.announce('음성 인식에 실패했습니다.');
+      };
+      this.recognition.onresult = (e) => {
+        const t = e.results[0][0].transcript;
+        document.getElementById('homeSearchInput').value = t;
+        SearchManager.doSearch(t);
+      };
+    }
+  },
+
+  speak(text, skipToast = false) {
+    vib();
+    if (!('speechSynthesis' in window)) { 
+      if (!skipToast) showToast('음성 기능 미지원'); 
+      return; 
+    }
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'ko-KR';
+    utter.rate = 0.9;
+    window.speechSynthesis.speak(utter);
+    if (!skipToast) showToast(`"${text}" 읽는 중...`);
+  },
+
+  toggle() {
+    AppState.settings.voiceEnabled = !AppState.settings.voiceEnabled;
+    AppState.save();
+    const msg = AppState.settings.voiceEnabled ? '음성 안내를 시작합니다.' : '음성 안내를 종료합니다.';
+    showToast(msg);
+    NavigationManager.announce(msg, true);
+    UI.renderHomeScreen();
+    if (AppState.screenHistory[AppState.screenHistory.length - 1] === 'settings') {
+      UI.renderSettingsScreen();
+    }
+  }
+};
+
+// ═══════════════════════════════════════════
+//   CAMERA & OCR MODULE
+// ═══════════════════════════════════════════
+const CameraManager = {
+  stream: null,
+  zoomScale: 1,
+  contrastOn: false,
+  zoomTimer: null,
+  contrastTimer: null,
+
+  async start() {
+    const video = document.getElementById('cameraVideo');
+    const noSupport = document.getElementById('cameraNoSupport');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      video.style.display = 'none';
+      noSupport.style.display = 'flex';
+      return;
+    }
+
+    showToast('📷 카메라를 준비 중입니다...');
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      video.srcObject = this.stream;
+      video.style.display = 'block';
+      noSupport.style.display = 'none';
+      this.applyZoom();
+    } catch (err) {
+      video.style.display = 'none';
+      noSupport.style.display = 'flex';
+      showToast('카메라 오류');
+    }
+  },
+
+  stop() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(t => t.stop());
+      this.stream = null;
+    }
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = null;
+    this.zoomScale = 1;
+    this.contrastOn = false;
+    this.updateUI();
+  },
+
+  async applyZoom() {
+    const video = document.getElementById('cameraVideo');
+    if (this.stream) {
+      const track = this.stream.getVideoTracks()[0];
+      if (track && track.getCapabilities) {
+        const caps = track.getCapabilities();
+        if (caps.zoom) {
+          try {
+            const nativeZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, this.zoomScale));
+            await track.applyConstraints({ advanced: [{ zoom: nativeZoom }] });
+            video.style.transform = '';
+            return;
+          } catch(e) {}
+        }
+      }
+    }
+    video.style.transform = `scale(${this.zoomScale})`;
+  },
+
+  updateUI() {
+    const val = this.zoomScale.toFixed(1).replace('.0', '') + '×';
+    document.getElementById('zoomValue').textContent = val;
+    const ind = document.getElementById('zoomIndicator');
+    ind.textContent = '확대 ' + val;
+    ind.classList.add('show');
+    clearTimeout(this.zoomTimer);
+    this.zoomTimer = setTimeout(() => ind.classList.remove('show'), 1800);
+  },
+
+  toggleContrast() {
+    vib([30, 20, 30]);
+    this.contrastOn = !this.contrastOn;
+    const video = document.getElementById('cameraVideo');
+    video.style.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : '';
+    const btn = document.getElementById('contrastBtn');
+    btn.classList.toggle('active-contrast', this.contrastOn);
+    btn.setAttribute('aria-pressed', this.contrastOn);
+    
+    const ind = document.getElementById('contrastIndicator');
+    ind.textContent = this.contrastOn ? '대비 강화 ON 🎨' : '대비 강화 OFF';
+    ind.classList.add('show');
+    clearTimeout(this.contrastTimer);
+    this.contrastTimer = setTimeout(() => ind.classList.remove('show'), 1800);
+    showToast(this.contrastOn ? '🎨 대비 강화 켜짐' : '대비 강화 꺼짐');
+  },
+
+  capture() {
+    vib([50, 30, 50]);
+    const video = document.getElementById('cameraVideo');
+    if (!this.stream || video.readyState < 2) return;
+
+    const flash = document.getElementById('flashOverlay');
+    flash.classList.add('flash');
+    setTimeout(() => flash.classList.remove('flash'), 200);
+
+    const canvas = document.getElementById('capturedCanvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    if (this.contrastOn) {
+      ctx.filter = 'contrast(2.5) brightness(1.1)';
+      ctx.drawImage(canvas, 0, 0);
+    }
+
+    document.getElementById('capturedOverlay').classList.add('show');
+    showToast('📸 캡처 완료!');
+  },
+
+  async runOCR() {
+    vib();
+    const video = document.getElementById('cameraVideo');
+    if (!this.stream || video.readyState < 2) return;
+
+    showToast('🔍 글자를 읽는 중입니다...');
+    NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    
+    // OCR Placeholder
+    const text = await this.recognizeText(canvas);
+    
+    if (text) {
+      NavigationManager.announce(`인식된 글자입니다: ${text}`);
+      document.getElementById('ocrResultArea').textContent = text;
+      showToast('인식 완료!');
+    } else {
+      NavigationManager.announce('글자를 인식하지 못했습니다.');
+      showToast('인식 실패');
+    }
+  },
+
+  async recognizeText(canvas) {
+    // 실제 OCR 엔진(Tesseract.js 등) 연결 지점
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve("샘플 메뉴: 아메리카노 4,500원, 카페라떼 5,000원");
+      }, 1500);
+    });
+  }
+};
+
+// ═══════════════════════════════════════════
+//   SEARCH MODULE
+// ═══════════════════════════════════════════
+const SearchManager = {
+  doSearch(query) {
+    const q = query.trim();
+    if (!q) {
+      NavigationManager.announce('검색어를 입력해 주세요');
+      return;
+    }
+    vib();
+
+    AppState.recentSearches = AppState.recentSearches.filter(s => s !== q);
+    AppState.recentSearches.unshift(q);
+    AppState.recentSearches = AppState.recentSearches.slice(0, 5);
+    AppState.save();
+
+    NavigationManager.announce('검색 중입니다.');
+
+    const results = [];
+    const allBrands = [...AppState.brands.카페.map(b => ({...b, cat:'카페'})), ...AppState.brands.식당.map(b => ({...b, cat:'식당'}))];
+
+    const qChosung = this.getChosung(q);
+    const isChosungQuery = [...q].every(ch => 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'.includes(ch));
+
+    allBrands.forEach(brand => {
+      const nameMatch = brand.name.includes(q);
+      const brandChosung = this.getChosung(brand.name);
+      const chosungMatch = (brand.chosung && brand.chosung.includes(q)) || brandChosung.includes(q) || (isChosungQuery && brandChosung.startsWith(qChosung));
+      const menuMatch = brand.menus.some(m => m.includes(q) || this.getChosung(m).includes(q));
+      if (nameMatch || chosungMatch || menuMatch) results.push(brand);
+    });
+
+    UI.renderResults(results, `"${q}" 검색 결과`);
+    
+    const bc = document.getElementById('resultsBreadcrumb');
+    if (bc) bc.innerHTML = `<span>홈</span><span>검색</span><span aria-current="location">결과</span>`;
+
+    NavigationManager.gotoScreen('results');
+  },
+
+  getChosung(str) {
+    const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+    return [...str].map(c => {
+      const code = c.charCodeAt(0) - 0xAC00;
+      if (code < 0 || code > 11171) return c;
+      return CHO[Math.floor(code / 28 / 21)];
+    }).join('');
+  }
+};
+
+// ═══════════════════════════════════════════
+//   UI RENDER MODULE
+// ═══════════════════════════════════════════
+const UI = {
+  renderHomeScreen() {
+    const homeContent = document.querySelector('#screen-home .home-menu-zone');
+    let recentHTML = '';
+    if (AppState.recentMenus.length > 0) {
+      recentHTML = `
+        <section aria-label="최근 본 메뉴" style="margin-bottom: 24px;">
+          <h2 style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">최근 본 메뉴</h2>
+          <div style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;">
+            ${AppState.recentMenus.slice(0, 5).map(item => `
+              <button class="result-card" style="flex: 0 0 auto; width: 160px; padding: 16px; flex-direction: column; align-items: flex-start; gap: 8px;" onclick="openBrand('${item.name}', '${item.cat}')" aria-label="최근 본 ${item.name} 보기">
+                <span style="font-size: 18px; font-weight: 700;">${item.name}</span>
+                <span style="font-size: 14px; color: var(--sub);">${item.cat}</span>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      `;
+    }
+
+    homeContent.innerHTML = `
+      ${recentHTML}
+      <div class="home-cat-grid">
+        <button class="home-cat-btn" onclick="gotoScreen('search')" aria-label="메뉴 검색하기 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+          <span>검색하기</span>
+        </button>
+        <button class="home-cat-btn" onclick="goCat('카페')" aria-label="카페 메뉴 보기 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg></span>
+          <span>카페</span>
+        </button>
+        <button class="home-cat-btn" onclick="goCat('식당')" aria-label="식당 메뉴 보기 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path></svg></span>
+          <span>식당</span>
+        </button>
+        <button class="home-cat-btn" onclick="navTo('settings')" aria-label="설정 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
+          <span>설정</span>
+        </button>
+      </div>
+    `;
+  },
+
+  renderSearchScreen() {
+    const zone = document.querySelector('#screen-search .home-search-zone');
+    const existingRecent = zone.querySelector('.recent-searches');
+    if (existingRecent) existingRecent.remove();
+    if (AppState.recentSearches.length > 0) {
+      const recentDiv = document.createElement('div');
+      recentDiv.className = 'recent-searches';
+      recentDiv.style.marginTop = '12px';
+      recentDiv.innerHTML = `
+        <h2 style="font-size: 18px; color: var(--sub); margin-bottom: 8px; font-weight: 600;">최근 검색어</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          ${AppState.recentSearches.map(s => `<button class="result-card" style="padding: 10px 16px; min-height: auto; border-radius: 30px;" onclick="doSearch('${s}')" aria-label="${s} 검색하기">${s}</button>`).join('')}
+        </div>
+      `;
+      zone.appendChild(recentDiv);
+    }
+  },
+
+  renderResults(items, title) {
+    document.getElementById('resultsTitle').textContent = title;
+    const list = document.getElementById('resultsList');
+    if (items.length === 0) {
+      list.innerHTML = `<div class="no-results" style="font-size:22px; line-height:1.6; color:var(--sub);">😥 결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.</div>`;
+      NavigationManager.announce('검색 결과가 없습니다.');
+      return;
+    }
+    list.innerHTML = items.map(brand => `
+      <div class="result-card" role="listitem" tabindex="0" onclick="openBrand('${brand.name}','${brand.cat}')" aria-label="${brand.name} 메뉴 보기 버튼">
+        <div class="result-card-info"><div class="result-card-name">${brand.name}</div></div>
+        <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 이름 듣기 버튼">듣기</button>
+      </div>
+    `).join('');
+    NavigationManager.announce(`${title} ${items.length}개가 있습니다.`);
+  },
+
+  renderFavScreen() {
+    const all = [...AppState.brands.카페.map(b => ({...b, cat:'카페'})), ...AppState.brands.식당.map(b => ({...b, cat:'식당'}))];
+    const items = all.filter(b => AppState.favorites.includes(b.name));
+    const list = document.getElementById('favList');
+    if (items.length === 0) {
+      list.innerHTML = '<div class="no-results" style="font-size:22px; line-height:1.6; color:var(--sub);">아직 즐겨찾기가 없습니다.<br><br>브랜드 메뉴에서<br>별표를 눌러 추가해 보세요.</div>';
+      return;
+    }
+    list.innerHTML = items.map(brand => `
+      <div class="result-card" role="listitem" tabindex="0" onclick="openBrand('${brand.name}','${brand.cat}')" aria-label="${brand.name} 메뉴 보기 버튼">
+        <div class="result-card-info"><div class="result-card-name">${brand.name}</div></div>
+        <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 이름 듣기 버튼">듣기</button>
+      </div>
+    `).join('');
+  },
+
+  renderSettingsScreen() {
+    const s = AppState.settings;
+    document.getElementById('settings-voice-btn').querySelector('span').textContent = s.voiceEnabled ? '음성 안내 켜짐' : '음성 안내 꺼짐';
+    document.getElementById('settings-motion-btn').querySelector('span').textContent = s.reducedMotion ? '애니메이션 제한됨' : '애니메이션 사용 중';
+  }
+};
+
+// ═══════════════════════════════════════════
+//   GLOBAL HELPERS & EVENT HANDLERS
+// ═══════════════════════════════════════════
+function vib(pattern = [30]) { if (navigator.vibrate) navigator.vibrate(pattern); }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function navTo(name) { NavigationManager.navTo(name); }
+function gotoScreen(name) { NavigationManager.gotoScreen(name); }
+function goBack() { NavigationManager.goBack(); }
+function toggleVoice() { SpeechManager.toggle(); }
+function speak(text, skip) { SpeechManager.speak(text, skip); }
+function doSearch(q) { SearchManager.doSearch(q); }
+function updateSetting(k, v) { SettingsManager.update(k, v); }
+
+function goCat(cat) {
+  vib();
+  const items = (AppState.brands[cat] || []).map(b => ({...b, cat}));
+  UI.renderResults(items, cat);
+  const bc = document.getElementById('resultsBreadcrumb');
+  if (bc) bc.innerHTML = `<span>홈</span><span aria-current="location">${cat}</span>`;
+  NavigationManager.gotoScreen('results');
+}
+
+function openBrand(name, cat) {
+  vib();
+  const brand = AppState.brands[cat].find(b => b.name === name);
+  if (!brand) return;
+
+  AppState.recentMenus = AppState.recentMenus.filter(item => item.name !== name);
+  AppState.recentMenus.unshift({ name, cat });
+  AppState.recentMenus = AppState.recentMenus.slice(0, 10);
+  AppState.save();
+
+  const isFav = AppState.favorites.includes(name);
+  const firstMenu = brand.menus[0] || '메뉴 정보 없음';
+  const price = "4,500원";
+
+  document.getElementById('detailTitle').textContent = name;
+  const bc = document.getElementById('detailBreadcrumb');
+  if (bc) bc.innerHTML = `<span>홈</span><span>${cat}</span><span aria-current="location">${name}</span>`;
+
+  document.getElementById('detailContent').innerHTML = `
+    <div class="detail-card-large" role="region" aria-label="메뉴 상세 정보">
+      <div class="detail-menu-name">${firstMenu}</div>
+      <div class="detail-menu-price">${price}</div>
+    </div>
+    <button class="big-listen-btn" onclick="speak('${firstMenu} ${price}')" aria-label="메뉴 이름과 가격 듣기 버튼">
+      <span>메뉴 크게 듣기</span>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+    </button>
+    <button class="add-fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav('${name}')" aria-label="${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'} 버튼" aria-pressed="${isFav}">
+      <span style="font-size:32px;" aria-hidden="true">${isFav ? '★' : '☆'}</span>
+      <span>${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'}</span>
+    </button>
+  `;
+
+  NavigationManager.gotoScreen('detail');
+  NavigationManager.announce(`${name} 메뉴 화면입니다. ${firstMenu} 가격은 ${price}입니다.`);
+}
+
+function toggleFav(name) {
+  vib([30, 20, 30]);
+  const idx = AppState.favorites.indexOf(name);
+  let msg = '';
+  if (idx === -1) {
+    AppState.favorites.push(name);
+    msg = `${name} 즐겨찾기에 추가되었습니다.`;
+  } else {
+    AppState.favorites.splice(idx, 1);
+    msg = `${name} 즐겨찾기에서 삭제되었습니다.`;
+  }
+  AppState.save();
+  showToast(msg);
+  NavigationManager.announce(msg);
+  
+  const detailTitle = document.getElementById('detailTitle').textContent;
+  if (detailTitle === name) {
+    const all = [...AppState.brands.카페.map(b => ({...b, cat:'카페'})), ...AppState.brands.식당.map(b => ({...b, cat:'식당'}))];
+    const brand = all.find(b => b.name === name);
+    if (brand) openBrand(name, brand.cat);
+  }
+}
+
+function closeCaptured() { vib(); document.getElementById('capturedOverlay').classList.remove('show'); }
+
+// ═══════════════════════════════════════════
+//   INITIALIZATION
+// ═══════════════════════════════════════════
+async function initApp() {
+  // 1. Load Data
+  try {
+    const response = await fetch('./data/brands.json');
+    AppState.brands = await response.json();
+  } catch (e) {
+    console.error("Data load failed", e);
+    showToast("데이터를 불러오지 못했습니다.");
+  }
+
+  // 2. Init Modules
+  SettingsManager.init();
+  SpeechManager.init();
+  
+  // 3. Event Listeners
+  document.getElementById('homeSearchBtn').addEventListener('click', () => doSearch(document.getElementById('homeSearchInput').value));
+  document.getElementById('homeSearchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(e.target.value); });
+  document.getElementById('zoomInBtn').addEventListener('click', () => { vib(); CameraManager.zoomScale = Math.min(4, CameraManager.zoomScale + 0.5); CameraManager.applyZoom(); CameraManager.updateUI(); });
+  document.getElementById('zoomOutBtn').addEventListener('click', () => { vib(); CameraManager.zoomScale = Math.max(1, CameraManager.zoomScale - 0.5); CameraManager.applyZoom(); CameraManager.updateUI(); });
+  document.getElementById('contrastBtn').addEventListener('click', () => CameraManager.toggleContrast());
+  document.getElementById('captureBtn').addEventListener('click', () => CameraManager.capture());
+  document.getElementById('ocrBtn').addEventListener('click', () => CameraManager.runOCR());
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const target = e.target.closest('button, [tabindex="0"]');
+      if (target && !target.disabled) {
+        if (e.key === ' ') e.preventDefault();
+        target.click();
+      }
+    }
+  });
+
+  document.addEventListener('focusin', (e) => {
+    if (!AppState.settings.voiceEnabled) return;
+    const target = e.target.closest('button, input, [tabindex="0"]');
+    if (target) {
+      const label = target.getAttribute('aria-label') || target.innerText || target.placeholder || '';
+      if (label) speak(label, true);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('button') || e.target.closest('.result-card')) {
+      if (navigator.vibrate) navigator.vibrate(25);
+    }
+  }, { passive: true });
+
+  // 4. Initial Render
+  UI.renderHomeScreen();
+}
+
+window.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
