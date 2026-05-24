@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>크게보기 - 메뉴 도우미</title>
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
@@ -23,29 +23,51 @@
     --input-bg: #1E1E1E;
     --input-border: #333333;
     --shadow: rgba(0,0,0,0.5);
-    
-    /* Font Sizes (Default) */
-    --fs-title: 40px;
-    --fs-menu: 30px;
-    --fs-body: 22px;
-    --fs-desc: 18px;
-    --fs-btn: 24px;
+
+    /* Accessibility sizing — Galaxy S (~360px) WebView baseline */
+    --fs-title: clamp(36px, 10vw, 48px);
+    --fs-menu: clamp(26px, 7.5vw, 34px);
+    --fs-body: clamp(22px, 5.5vw, 26px);
+    --fs-desc: clamp(22px, 5vw, 24px);
+    --fs-btn: clamp(24px, 6vw, 28px);
+    --fs-nav: clamp(24px, 6vw, 28px);
+    --fs-section: clamp(22px, 5vw, 26px);
+    --fs-breadcrumb: clamp(22px, 4.5vw, 24px);
+
+    --icon-card: clamp(56px, 14vw, 72px);
+    --icon-nav: clamp(48px, 12vw, 56px);
+    --icon-action: clamp(32px, 8vw, 40px);
+
+    --touch-min: 72px;
+    --btn-height: clamp(72px, 18vw, 80px);
+    --nav-height: clamp(112px, 28vw, 128px);
+
+    --line-height: 1.6;
+    --line-height-tight: 1.5;
+
+    --gap-card: clamp(6px, 1.5vw, 10px);
+    --gap-grid: clamp(8px, 2vw, 12px);
+    --padding-screen: clamp(12px, 3vw, 20px);
   }
 
-  /* Font Size Variations */
+  /* Font Size Variations — minimums preserved */
   body.fs-large {
-    --fs-title: 48px;
-    --fs-menu: 36px;
-    --fs-body: 26px;
-    --fs-desc: 22px;
-    --fs-btn: 28px;
+    --fs-title: clamp(44px, 11vw, 56px);
+    --fs-menu: clamp(32px, 8.5vw, 40px);
+    --fs-body: clamp(26px, 6.5vw, 30px);
+    --fs-desc: clamp(24px, 6vw, 28px);
+    --fs-btn: clamp(28px, 7vw, 32px);
+    --fs-nav: clamp(28px, 7vw, 32px);
+    --fs-section: clamp(24px, 6vw, 28px);
   }
   body.fs-small {
-    --fs-title: 32px;
-    --fs-menu: 24px;
-    --fs-body: 18px;
-    --fs-desc: 16px;
-    --fs-btn: 20px;
+    --fs-title: clamp(32px, 9vw, 40px);
+    --fs-menu: clamp(24px, 6.5vw, 28px);
+    --fs-body: 22px;
+    --fs-desc: 22px;
+    --fs-btn: 24px;
+    --fs-nav: 24px;
+    --fs-section: 22px;
   }
 
   /* High Contrast / Grayscale / Invert */
@@ -69,25 +91,37 @@
     padding: 0; 
     -webkit-tap-highlight-color: transparent; 
     letter-spacing: -0.02em;
-    line-height: 1.4;
+    line-height: var(--line-height);
     color: inherit;
   }
 
   body {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+    font-size: var(--fs-body);
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
+    min-height: 100dvh;
     max-width: 500px;
     margin: 0 auto;
     transition: background 0.25s, color 0.25s;
     overflow-x: hidden;
     position: relative;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
   }
 
   button, input, select, textarea {
     color: inherit;
     font-family: inherit;
+    font-size: inherit;
+    touch-action: manipulation;
+  }
+
+  button {
+    min-height: var(--touch-min);
+    cursor: pointer;
   }
 
   :focus-visible {
@@ -117,8 +151,9 @@
   }
 
   /* ─── SCREEN MANAGEMENT ─── */
-  .screen { display: none; flex-direction: column; min-height: 100vh; animation: fadeIn 0.3s ease-out; }
+  .screen { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; animation: fadeIn 0.3s ease-out; padding-bottom: var(--nav-height); }
   .screen.active { display: flex; }
+  #screen-splash { padding-bottom: 0; justify-content: center; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   /* ─── SPLASH SCREEN ─── */
@@ -143,16 +178,17 @@
   }
   .splash-logo svg { width: 70px; height: 70px; color: var(--accent); }
   .splash-title {
-    font-size: 56px;
+    font-size: clamp(44px, 12vw, 56px);
     font-weight: 800;
     margin-bottom: 16px;
     color: var(--text);
     letter-spacing: -0.03em;
+    line-height: var(--line-height-tight);
   }
   .splash-sub {
     font-size: var(--fs-body);
     font-weight: 500;
-    line-height: 1.6;
+    line-height: var(--line-height);
     margin-bottom: 60px;
     color: var(--sub);
   }
@@ -162,8 +198,10 @@
     border: none;
     border-radius: 24px;
     padding: 20px 60px;
+    min-height: var(--btn-height);
     font-size: var(--fs-btn);
     font-weight: 700;
+    line-height: var(--line-height-tight);
     cursor: pointer;
     box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     transition: transform 0.2s;
@@ -174,7 +212,8 @@
   .top-bar {
     display: flex;
     flex-direction: column;
-    padding: 16px 20px;
+    padding: var(--padding-screen);
+    padding-top: calc(var(--padding-screen) + env(safe-area-inset-top, 0px));
     border-bottom: 1px solid var(--border);
     background: var(--bg);
     position: sticky;
@@ -186,21 +225,23 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    min-height: 56px;
+    min-height: var(--touch-min);
   }
   .breadcrumb {
-    font-size: 16px;
+    font-size: var(--fs-breadcrumb);
     color: var(--sub);
     margin-bottom: 4px;
     font-weight: 500;
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
+    line-height: var(--line-height);
   }
   .breadcrumb span:not(:last-child)::after {
     content: '>';
     margin-left: 6px;
-    font-size: 12px;
+    font-size: var(--fs-breadcrumb);
     opacity: 0.5;
   }
   
@@ -208,53 +249,71 @@
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
-    font-size: 20px;
+    font-size: var(--fs-btn);
     font-weight: 600;
-    padding: 10px 18px;
+    padding: 12px 20px;
+    min-height: var(--touch-min);
     border-radius: 12px;
     cursor: pointer;
     display: flex; align-items: center; gap: 8px;
     transition: background 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .back-btn:active { background: var(--border); }
 
   .top-title {
-    font-size: 24px;
+    font-size: clamp(24px, 6.5vw, 30px);
     font-weight: 700;
     color: var(--text);
     flex: 1;
     text-align: center;
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
   }
   .top-title.home-title {
-    font-size: 32px;
+    font-size: clamp(28px, 7.5vw, 36px);
     font-weight: 800;
     text-align: left;
+  }
+  .header-logo {
+    width: clamp(48px, 12vw, 56px);
+    height: clamp(48px, 12vw, 56px);
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .top-bar-spacer {
+    width: clamp(72px, 18vw, 88px);
+    flex-shrink: 0;
   }
 
   /* ─── HOME: SEARCH ZONE ─── */
   .home-search-zone {
-    padding: 24px 20px;
+    padding: var(--padding-screen);
     background: var(--bg);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--gap-grid);
   }
   .search-row {
     display: flex;
-    gap: 12px;
+    gap: var(--gap-grid);
     width: 100%;
+    align-items: stretch;
   }
   .search-input {
     flex: 1;
     font-size: var(--fs-body);
     font-weight: 600;
     padding: 16px 20px;
+    min-height: var(--touch-min);
     border: 2px solid var(--border);
     border-radius: 16px;
     background: var(--card);
     color: var(--text);
     outline: none;
     transition: border-color 0.2s;
+    line-height: var(--line-height);
   }
   .search-input::placeholder { color: var(--sub); opacity: 0.5; }
   .search-input:focus { border-color: var(--accent); }
@@ -264,15 +323,22 @@
     color: var(--accent);
     border: 2px solid var(--border);
     border-radius: 16px;
-    width: 64px;
-    height: 64px;
-    font-size: 28px;
+    width: var(--touch-min);
+    min-width: var(--touch-min);
+    height: var(--touch-min);
+    min-height: var(--touch-min);
+    font-size: clamp(28px, 7vw, 36px);
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: all 0.2s;
+    flex-shrink: 0;
   }
   .mic-btn:active { transform: scale(0.92); background: var(--border); }
   .mic-btn.listening { border-color: var(--accent); animation: pulse 1.5s infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 212, 0, 0.45); }
+    50% { box-shadow: 0 0 0 10px rgba(255, 212, 0, 0); }
+  }
   
   .search-execute-btn {
     background: var(--accent);
@@ -280,69 +346,88 @@
     border: none;
     border-radius: 16px;
     padding: 18px;
+    min-height: var(--btn-height);
     font-size: var(--fs-btn);
     font-weight: 700;
     cursor: pointer;
     width: 100%;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    line-height: var(--line-height-tight);
   }
 
   /* ─── HOME: MENU ZONE ─── */
   .home-menu-zone {
-    padding: 20px;
+    padding: var(--padding-screen);
     flex: 1;
   }
   .home-cat-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: var(--gap-grid);
   }
   .home-cat-btn {
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 24px;
-    padding: 24px 16px;
-    font-size: 24px;
+    padding: clamp(16px, 4vw, 24px) clamp(12px, 3vw, 16px);
+    min-height: clamp(120px, 30vw, 140px);
+    font-size: var(--fs-btn);
     font-weight: 700;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
+    gap: clamp(10px, 2.5vw, 16px);
     transition: all 0.2s;
+    line-height: var(--line-height-tight);
+    overflow: hidden;
   }
   .home-cat-btn:active { background: var(--border); transform: translateY(2px); }
-  .home-cat-btn .cat-icon svg { width: 48px; height: 48px; color: var(--accent); }
+  .home-cat-btn .cat-icon svg {
+    width: var(--icon-card);
+    height: var(--icon-card);
+    color: var(--accent);
+  }
 
   /* ─── RESULTS SCREEN ─── */
   .results-list {
-    padding: 20px;
+    padding: var(--padding-screen);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--gap-card);
   }
   .result-card {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 20px;
+    padding: clamp(14px, 3.5vw, 18px) clamp(16px, 4vw, 20px);
+    min-height: var(--touch-min);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: clamp(10px, 2.5vw, 16px);
     cursor: pointer;
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    overflow: hidden;
   }
   .result-card.active {
     border-color: var(--accent);
     background: var(--accent);
     color: var(--btn-text);
   }
+  .result-card-info {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
   .result-card-name {
     font-size: var(--fs-menu);
     font-weight: 700;
-    color: var(--text);
+    color: inherit;
+    line-height: var(--line-height-tight);
   }
   .tts-btn {
     background: var(--border);
@@ -350,17 +435,116 @@
     border: none;
     border-radius: 12px;
     padding: 12px 20px;
-    font-size: 18px;
+    min-height: var(--touch-min);
+    min-width: var(--touch-min);
+    font-size: var(--fs-btn);
     font-weight: 700;
     cursor: pointer;
+    flex-shrink: 0;
+    line-height: var(--line-height-tight);
+  }
+  .result-card.active .tts-btn {
+    background: rgba(0,0,0,0.15);
+    color: var(--btn-text);
+  }
+
+  .no-results {
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    color: var(--sub);
+    padding: var(--padding-screen);
+    text-align: center;
+  }
+
+  /* ─── SECTION HEADINGS & SETTINGS ─── */
+  .section-heading {
+    font-size: var(--fs-section);
+    color: var(--sub);
+    margin-bottom: clamp(8px, 2vw, 12px);
+    font-weight: 600;
+    line-height: var(--line-height);
+  }
+  .settings-list {
+    gap: clamp(14px, 3.5vw, 20px) !important;
+  }
+  .settings-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--gap-grid);
+  }
+  .settings-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap-grid);
+  }
+  .setting-btn {
+    justify-content: center;
+    text-align: center;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    min-height: var(--btn-height);
+  }
+  .setting-toggle-btn {
+    width: 100%;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    min-height: var(--btn-height);
+  }
+
+  /* ─── RECENT ITEMS ─── */
+  .recent-section {
+    margin-bottom: clamp(12px, 3vw, 18px);
+  }
+  .recent-scroll {
+    display: flex;
+    gap: var(--gap-grid);
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .recent-card {
+    flex: 0 0 auto;
+    width: clamp(140px, 38vw, 180px);
+    padding: clamp(12px, 3vw, 16px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .recent-card-name {
+    font-size: var(--fs-body);
+    font-weight: 700;
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+  }
+  .recent-card-cat {
+    font-size: var(--fs-desc);
+    color: var(--sub);
+    line-height: var(--line-height);
+  }
+  .recent-searches {
+    margin-top: var(--gap-grid);
+  }
+  .recent-tag-btn {
+    padding: 12px 20px;
+    min-height: var(--touch-min);
+    border-radius: 30px;
+    font-size: var(--fs-body);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .recent-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-grid);
   }
 
   /* ─── DETAIL SCREEN ─── */
   .detail-card-large {
     background: var(--card);
     border-radius: 24px;
-    margin: 20px;
-    padding: 40px 24px;
+    margin: var(--padding-screen);
+    padding: clamp(28px, 7vw, 40px) clamp(20px, 5vw, 24px);
     text-align: center;
     border: 1px solid var(--border);
   }
@@ -369,38 +553,57 @@
     font-weight: 800;
     color: var(--text);
     margin-bottom: 12px;
+    line-height: var(--line-height);
+    overflow-wrap: anywhere;
   }
   .detail-menu-price {
     font-size: var(--fs-menu);
     font-weight: 600;
     color: var(--accent);
+    line-height: var(--line-height);
   }
   .big-listen-btn {
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 20px;
-    margin: 0 20px 12px;
-    padding: 24px;
+    margin: 0 var(--padding-screen) var(--gap-card);
+    padding: clamp(18px, 4.5vw, 24px);
+    min-height: var(--btn-height);
     font-size: var(--fs-btn);
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+    line-height: var(--line-height-tight);
+    width: calc(100% - var(--padding-screen) * 2);
+  }
+  .big-listen-btn svg {
+    width: var(--icon-action);
+    height: var(--icon-action);
+    flex-shrink: 0;
   }
   .add-fav-btn {
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 20px;
-    margin: 0 20px 20px;
-    padding: 20px;
-    font-size: 20px;
+    margin: 0 var(--padding-screen) var(--padding-screen);
+    padding: clamp(18px, 4.5vw, 24px);
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
     font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
+    line-height: var(--line-height-tight);
+    width: calc(100% - var(--padding-screen) * 2);
+  }
+  .add-fav-btn .fav-icon {
+    font-size: clamp(32px, 8vw, 40px);
+    line-height: 1;
   }
   .add-fav-btn.active {
     background: var(--accent);
@@ -414,47 +617,187 @@
     background: #000;
     position: relative;
     overflow: hidden;
+    min-height: 0;
+  }
+  #cameraVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .camera-controls {
     background: var(--bg);
-    padding: 20px;
+    padding: var(--padding-screen);
     border-top: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--gap-grid);
+    padding-bottom: calc(var(--padding-screen) + env(safe-area-inset-bottom, 0px));
+  }
+  .camera-zoom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap-grid);
+  }
+  .capture-row {
+    display: flex;
+    align-items: stretch;
+    gap: var(--gap-grid);
+    flex-wrap: wrap;
   }
   .zoom-btn {
     background: var(--card);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 16px;
-    width: 72px; height: 72px;
-    font-size: 32px;
+    width: var(--touch-min);
+    min-width: var(--touch-min);
+    height: var(--touch-min);
+    min-height: var(--touch-min);
+    font-size: clamp(32px, 8vw, 40px);
     font-weight: 700;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .zoom-label {
+    font-size: var(--fs-body);
+    font-weight: 700;
+    color: var(--sub);
+    text-align: center;
+    flex: 1;
+    line-height: var(--line-height);
+    min-width: 0;
+  }
+  .zoom-label strong {
+    font-size: clamp(26px, 7vw, 32px);
+    color: var(--text);
+    display: block;
+    margin-top: 2px;
   }
   .capture-btn {
     background: var(--accent);
     color: var(--btn-text);
     border: none;
     border-radius: 20px;
-    height: 72px;
-    font-size: 24px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
     font-weight: 700;
-    flex: 1;
+    flex: 2 1 160px;
+    line-height: var(--line-height-tight);
+    padding: 12px 16px;
   }
   .contrast-btn {
     background: var(--card);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 20px;
-    width: 100px;
-    height: 72px;
-    font-size: 16px;
+    flex: 1 1 88px;
+    min-width: var(--touch-min);
+    min-height: var(--btn-height);
+    font-size: clamp(22px, 5vw, 24px);
     font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 6px;
+    line-height: var(--line-height-tight);
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .contrast-btn .c-icon {
+    font-size: clamp(28px, 7vw, 36px);
+    line-height: 1;
   }
   .contrast-btn.active-contrast {
     background: var(--accent);
     color: var(--btn-text);
+  }
+  .flash-overlay {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 10;
+  }
+  .flash-overlay.flash { opacity: 0.85; }
+  .zoom-indicator,
+  .contrast-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    font-size: var(--fs-body);
+    font-weight: 700;
+    padding: 16px 28px;
+    border-radius: 16px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 20;
+    pointer-events: none;
+    line-height: var(--line-height);
+    text-align: center;
+    max-width: 90%;
+    overflow-wrap: anywhere;
+  }
+  .zoom-indicator.show,
+  .contrast-indicator.show { opacity: 1; }
+  .camera-no-support {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: var(--padding-screen);
+    background: var(--bg);
+    text-align: center;
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    z-index: 5;
+  }
+  .camera-no-support.visible { display: flex; }
+  .camera-no-support .big-icon {
+    font-size: clamp(48px, 12vw, 64px);
+    line-height: 1;
+  }
+  .captured-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    padding: var(--padding-screen);
+  }
+  .captured-overlay.show { display: flex; }
+  .captured-overlay canvas {
+    max-width: 100%;
+    max-height: calc(100% - 100px);
+    border-radius: 12px;
+  }
+  .close-capture-btn {
+    margin-top: 16px;
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    padding: 16px 32px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    width: 100%;
+    max-width: 320px;
   }
 
   /* ─── BOTTOM NAV ─── */
@@ -468,9 +811,9 @@
     background: var(--bg);
     border-top: 1px solid var(--border);
     display: flex;
-    height: 80px;
+    height: var(--nav-height);
     z-index: 200;
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .nav-tab {
     flex: 1;
@@ -478,39 +821,107 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: clamp(2px, 1vw, 6px);
     background: none;
     border: none;
     color: var(--sub);
-    font-size: 14px;
+    font-size: var(--fs-nav);
     font-weight: 600;
     transition: all 0.2s;
+    min-height: var(--touch-min);
+    padding: 6px 2px;
+    line-height: var(--line-height-tight);
+  }
+  .nav-tab span {
+    overflow-wrap: anywhere;
+    word-break: keep-all;
+    text-align: center;
+    max-width: 100%;
+    line-height: 1.2;
   }
   .nav-tab.active {
     color: var(--accent);
   }
-  .nav-tab svg { width: 28px; height: 28px; margin-bottom: 2px; }
-  
-  .screen { padding-bottom: 80px; }
+  .nav-tab svg {
+    width: var(--icon-nav);
+    height: var(--icon-nav);
+    margin-bottom: 2px;
+    flex-shrink: 0;
+  }
 
   /* ─── TOAST ─── */
   .toast {
     position: fixed;
-    bottom: 100px;
+    bottom: calc(var(--nav-height) + 16px);
     left: 50%;
     transform: translateX(-50%) translateY(20px);
     background: var(--accent);
     color: var(--btn-text);
-    font-size: 18px;
+    font-size: var(--fs-body);
     font-weight: 700;
-    padding: 12px 24px;
+    padding: 16px 28px;
     border-radius: 12px;
     z-index: 999;
     opacity: 0;
     transition: all 0.3s;
     box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    line-height: var(--line-height);
+    max-width: calc(100% - 32px);
+    text-align: center;
+    overflow-wrap: anywhere;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: var(--padding-screen);
+  }
+  .modal-content {
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 24px;
+    padding: clamp(24px, 6vw, 32px);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    border: 2px solid var(--border);
+  }
+  .modal-icon {
+    font-size: clamp(40px, 10vw, 48px);
+    margin-bottom: 16px;
+    line-height: 1;
+  }
+  .modal-title {
+    font-size: var(--fs-btn);
+    font-weight: 800;
+    margin-bottom: 12px;
+    line-height: var(--line-height);
+  }
+  .modal-desc {
+    font-size: var(--fs-body);
+    color: var(--sub);
+    margin-bottom: 24px;
+    line-height: var(--line-height);
+  }
+  .modal-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    width: 100%;
+    line-height: var(--line-height-tight);
+  }
 
   /* scrollbar */
   ::-webkit-scrollbar { width: 8px; }
@@ -546,7 +957,7 @@
       <span aria-current="location">홈</span>
     </nav>
     <div class="top-bar-content" style="display: flex; align-items: center; gap: 12px;">
-      <img src="assets/logo.png" alt="" style="width: 44px; height: 44px; border-radius: 10px;">
+      <img src="assets/logo.png" alt="" class="header-logo">
       <h1 class="top-title home-title">크게 크게</h1>
     </div>
   </header>
@@ -572,7 +983,7 @@
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
       <h1 class="top-title">검색하기</h1>
-      <div style="width:80px" aria-hidden="true"></div>
+      <div class="top-bar-spacer" aria-hidden="true"></div>
     </div>
   </header>
   
@@ -610,7 +1021,7 @@
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
       <h1 class="top-title" id="resultsTitle">검색 결과</h1>
-      <div style="width:80px" aria-hidden="true"></div>
+      <div class="top-bar-spacer" aria-hidden="true"></div>
     </div>
   </header>
   <div class="results-list" id="resultsList" role="list"></div>
@@ -630,7 +1041,7 @@
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
       <h1 class="top-title" id="detailTitle">메뉴</h1>
-      <div style="width:80px" aria-hidden="true"></div>
+      <div class="top-bar-spacer" aria-hidden="true"></div>
     </div>
   </header>
   
@@ -651,7 +1062,7 @@
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
       <h1 class="top-title">🔬 돋보기</h1>
-      <div style="width:80px" aria-hidden="true"></div>
+      <div class="top-bar-spacer" aria-hidden="true"></div>
     </div>
   </header>
 
@@ -675,23 +1086,23 @@
   </div>
 
   <footer class="camera-controls">
-    <div class="camera-zoom-row" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <div class="camera-zoom-row">
       <button class="zoom-btn" id="zoomOutBtn" aria-label="축소하기">−</button>
-      <div class="zoom-label" id="zoomLabel" style="font-size:20px; font-weight:700; color:var(--sub); text-align:center; flex:1;">
-        확대/축소<br><strong id="zoomValue" style="font-size:28px; color:var(--text);" aria-live="polite">1×</strong>
+      <div class="zoom-label" id="zoomLabel">
+        확대/축소<br><strong id="zoomValue" aria-live="polite">1×</strong>
       </div>
       <button class="zoom-btn" id="zoomInBtn" aria-label="확대하기">＋</button>
     </div>
-    <div class="capture-row" style="display:flex; align-items:center; gap:12px;">
+    <div class="capture-row">
       <button class="contrast-btn" id="contrastBtn" aria-label="글씨 뚜렷하게 보기 토글">
-        <span class="c-icon" style="font-size:24px;" aria-hidden="true">🎨</span>
+        <span class="c-icon" aria-hidden="true">🎨</span>
         <span>글씨 뚜렷하게</span>
       </button>
       <button class="capture-btn" id="captureBtn" aria-label="사진 찍기">
         📸 사진 찍기
       </button>
       <button class="contrast-btn" id="ocrBtn" aria-label="글자 읽기">
-        <span class="c-icon" style="font-size:24px;" aria-hidden="true">🔍</span>
+        <span class="c-icon" aria-hidden="true">🔍</span>
         <span>글자 읽기</span>
       </button>
     </div>
@@ -713,36 +1124,36 @@
     </div>
   </header>
   
-  <div class="results-list" style="gap: 24px;">
+  <div class="results-list settings-list">
     <section aria-labelledby="setting-font-size">
-      <h2 id="setting-font-size" style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">글자 크기</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-        <button class="result-card" style="justify-content: center; padding: 16px;" onclick="updateSetting('fontSize', 'small')" aria-label="작게">작게</button>
-        <button class="result-card" style="justify-content: center; padding: 16px;" onclick="updateSetting('fontSize', 'medium')" aria-label="보통">보통</button>
-        <button class="result-card" style="justify-content: center; padding: 16px;" onclick="updateSetting('fontSize', 'large')" aria-label="크게">크게</button>
+      <h2 id="setting-font-size" class="section-heading">글자 크기</h2>
+      <div class="settings-grid-3">
+        <button class="result-card setting-btn" onclick="updateSetting('fontSize', 'small')" aria-label="작게">작게</button>
+        <button class="result-card setting-btn" onclick="updateSetting('fontSize', 'medium')" aria-label="보통">보통</button>
+        <button class="result-card setting-btn" onclick="updateSetting('fontSize', 'large')" aria-label="크게">크게</button>
       </div>
     </section>
 
     <section aria-labelledby="setting-voice">
-      <h2 id="setting-voice" style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">음성 안내</h2>
-      <button class="result-card" style="width: 100%;" onclick="toggleVoice()" id="settings-voice-btn">
+      <h2 id="setting-voice" class="section-heading">음성 안내</h2>
+      <button class="result-card setting-toggle-btn" onclick="toggleVoice()" id="settings-voice-btn">
         <span>음성 안내 켜짐</span>
       </button>
     </section>
 
     <section aria-labelledby="setting-contrast">
-      <h2 id="setting-contrast" style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">화면 모드</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-        <button class="result-card" style="justify-content: center;" onclick="updateSetting('displayMode', 'normal')">기본</button>
-        <button class="result-card" style="justify-content: center;" onclick="updateSetting('displayMode', 'high-contrast')">고대비</button>
-        <button class="result-card" style="justify-content: center;" onclick="updateSetting('displayMode', 'grayscale')">흑백</button>
-        <button class="result-card" style="justify-content: center;" onclick="updateSetting('displayMode', 'invert')">색상 반전</button>
+      <h2 id="setting-contrast" class="section-heading">화면 모드</h2>
+      <div class="settings-grid-2">
+        <button class="result-card setting-btn" onclick="updateSetting('displayMode', 'normal')">기본</button>
+        <button class="result-card setting-btn" onclick="updateSetting('displayMode', 'high-contrast')">고대비</button>
+        <button class="result-card setting-btn" onclick="updateSetting('displayMode', 'grayscale')">흑백</button>
+        <button class="result-card setting-btn" onclick="updateSetting('displayMode', 'invert')">색상 반전</button>
       </div>
     </section>
 
     <section aria-labelledby="setting-motion">
-      <h2 id="setting-motion" style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">애니메이션</h2>
-      <button class="result-card" style="width: 100%;" onclick="updateSetting('reducedMotion', !AppState.settings.reducedMotion)" id="settings-motion-btn">
+      <h2 id="setting-motion" class="section-heading">애니메이션</h2>
+      <button class="result-card setting-toggle-btn" onclick="updateSetting('reducedMotion', !AppState.settings.reducedMotion)" id="settings-motion-btn">
         <span>애니메이션 사용 중</span>
       </button>
     </section>
@@ -775,27 +1186,27 @@
 ════════════════════════════════════════════ -->
 <nav class="bottom-nav" id="bottomNav" aria-label="주요 메뉴">
   <button class="nav-tab active" id="nav-home" onclick="navTo('home')" aria-label="홈 화면으로 이동" aria-current="page">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
       <polyline points="9 22 9 12 15 12 15 22"></polyline>
     </svg>
     <span>홈</span>
   </button>
   <button class="nav-tab" id="nav-camera" onclick="navTo('camera')" aria-label="돋보기 카메라로 이동">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="11" cy="11" r="8"></circle>
       <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
     </svg>
     <span>돋보기</span>
   </button>
   <button class="nav-tab" id="nav-fav" onclick="navTo('fav')" aria-label="즐겨찾기 목록으로 이동">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
     </svg>
     <span>즐겨찾기</span>
   </button>
   <button class="nav-tab" id="nav-settings" onclick="navTo('settings')" aria-label="설정 화면으로 이동">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="3"></circle>
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
     </svg>
@@ -1081,13 +1492,13 @@ const CameraManager = {
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'cameraPermModal';
-      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+      modal.className = 'modal-overlay';
       modal.innerHTML = `
-        <div style="background:var(--bg);color:var(--text);border-radius:24px;padding:32px;max-width:400px;width:100%;text-align:center;border:2px solid var(--border);">
-          <div style="font-size:48px;margin-bottom:16px;">🚫</div>
-          <div style="font-size:24px;font-weight:800;margin-bottom:12px;">카메라 권한 필요</div>
-          <div style="font-size:18px;color:var(--sub);margin-bottom:24px;">카메라 권한을 허용해야 돋보기를 사용할 수 있습니다.</div>
-          <button onclick="document.getElementById('cameraPermModal').remove()" style="background:var(--accent);color:var(--btn-text);border:none;border-radius:12px;padding:16px;font-size:20px;font-weight:700;width:100%;">확인</button>
+        <div class="modal-content">
+          <div class="modal-icon">🚫</div>
+          <div class="modal-title">카메라 권한 필요</div>
+          <div class="modal-desc">카메라 권한을 허용해야 돋보기를 사용할 수 있습니다.</div>
+          <button class="modal-btn" onclick="document.getElementById('cameraPermModal').remove()">확인</button>
         </div>`;
       document.body.appendChild(modal);
     }
@@ -1270,13 +1681,13 @@ const UI = {
     let recentHTML = '';
     if (AppState.recentMenus.length > 0) {
       recentHTML = `
-        <section aria-label="최근 본 메뉴" style="margin-bottom: 24px;">
-          <h2 style="font-size: 20px; color: var(--sub); margin-bottom: 12px; font-weight: 600;">최근 본 메뉴</h2>
-          <div style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;">
+        <section class="recent-section" aria-label="최근 본 메뉴">
+          <h2 class="section-heading">최근 본 메뉴</h2>
+          <div class="recent-scroll">
             ${AppState.recentMenus.slice(0, 5).map(item => `
-              <button class="result-card" style="flex: 0 0 auto; width: 160px; padding: 16px; flex-direction: column; align-items: flex-start; gap: 8px;" onclick="openBrand('${item.name}', '${item.cat}')" aria-label="최근 본 ${item.name} 보기">
-                <span style="font-size: 18px; font-weight: 700;">${item.name}</span>
-                <span style="font-size: 14px; color: var(--sub);">${item.cat}</span>
+              <button class="result-card recent-card" onclick="openBrand('${item.name}', '${item.cat}')" aria-label="최근 본 ${item.name} 보기">
+                <span class="recent-card-name">${item.name}</span>
+                <span class="recent-card-cat">${item.cat}</span>
               </button>
             `).join('')}
           </div>
@@ -1288,19 +1699,19 @@ const UI = {
       ${recentHTML}
       <div class="home-cat-grid">
         <button class="home-cat-btn" onclick="gotoScreen('search')" aria-label="메뉴 검색하기 버튼">
-          <span class="cat-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
           <span>검색하기</span>
         </button>
         <button class="home-cat-btn" onclick="goCat('카페')" aria-label="카페 메뉴 보기 버튼">
-          <span class="cat-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg></span>
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg></span>
           <span>카페</span>
         </button>
         <button class="home-cat-btn" onclick="goCat('식당')" aria-label="식당 메뉴 보기 버튼">
-          <span class="cat-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path></svg></span>
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path></svg></span>
           <span>식당</span>
         </button>
         <button class="home-cat-btn" onclick="navTo('settings')" aria-label="설정 버튼">
-          <span class="cat-icon" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
           <span>설정</span>
         </button>
       </div>
@@ -1316,9 +1727,9 @@ const UI = {
       recentDiv.className = 'recent-searches';
       recentDiv.style.marginTop = '12px';
       recentDiv.innerHTML = `
-        <h2 style="font-size: 18px; color: var(--sub); margin-bottom: 8px; font-weight: 600;">최근 검색어</h2>
-        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-          ${AppState.recentSearches.map(s => `<button class="result-card" style="padding: 10px 16px; min-height: auto; border-radius: 30px;" onclick="doSearch('${s}')" aria-label="${s} 검색하기">${s}</button>`).join('')}
+        <h2 class="section-heading">최근 검색어</h2>
+        <div class="recent-tags">
+          ${AppState.recentSearches.map(s => `<button class="result-card recent-tag-btn" onclick="doSearch('${s}')" aria-label="${s} 검색하기">${s}</button>`).join('')}
         </div>
       `;
       zone.appendChild(recentDiv);
@@ -1329,7 +1740,7 @@ const UI = {
     document.getElementById('resultsTitle').textContent = title;
     const list = document.getElementById('resultsList');
     if (items.length === 0) {
-      list.innerHTML = `<div class="no-results" style="font-size:22px; line-height:1.6; color:var(--sub);">😥 결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.</div>`;
+      list.innerHTML = `<div class="no-results">😥 결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.</div>`;
       NavigationManager.announce('검색 결과가 없습니다.');
       return;
     }
@@ -1347,7 +1758,7 @@ const UI = {
     const items = all.filter(b => AppState.favorites.includes(b.name));
     const list = document.getElementById('favList');
     if (items.length === 0) {
-      list.innerHTML = '<div class="no-results" style="font-size:22px; line-height:1.6; color:var(--sub);">아직 즐겨찾기가 없습니다.<br><br>브랜드 메뉴에서<br>별표를 눌러 추가해 보세요.</div>';
+      list.innerHTML = '<div class="no-results">아직 즐겨찾기가 없습니다.<br><br>브랜드 메뉴에서<br>별표를 눌러 추가해 보세요.</div>';
       return;
     }
     list.innerHTML = items.map(brand => `
@@ -1431,10 +1842,10 @@ function openBrand(name, cat) {
     </div>
     <button class="big-listen-btn" onclick="speak('${firstMenu} ${price}')" aria-label="메뉴 이름과 가격 듣기 버튼">
       <span>메뉴 크게 듣기</span>
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
     </button>
     <button class="add-fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav('${name}')" aria-label="${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'} 버튼" aria-pressed="${isFav}">
-      <span style="font-size:32px;" aria-hidden="true">${isFav ? '★' : '☆'}</span>
+      <span class="fav-icon" aria-hidden="true">${isFav ? '★' : '☆'}</span>
       <span>${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'}</span>
     </button>
   `;
