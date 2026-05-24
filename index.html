@@ -413,21 +413,65 @@
     flex-direction: column;
     gap: clamp(14px, 3.5vw, 20px);
   }
-  .home-category-results {
-    margin-top: clamp(16px, 4vw, 24px);
-    display: flex;
-    flex-direction: column;
-    gap: clamp(16px, 4vw, 24px);
-  }
   .category-section {
     display: flex;
     flex-direction: column;
     gap: var(--gap-card);
   }
-  .category-card-list {
+  .brand-card-list,
+  .menu-card-list {
     display: flex;
     flex-direction: column;
     gap: var(--gap-card);
+  }
+  .brand-card,
+  .menu-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: clamp(14px, 3.5vw, 18px) clamp(16px, 4vw, 20px);
+    min-height: var(--touch-min);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(10px, 2.5vw, 16px);
+    cursor: pointer;
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    overflow: hidden;
+    width: 100%;
+  }
+  .menu-card {
+    cursor: default;
+  }
+  .brand-card-info,
+  .menu-card-info {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: keep-all;
+  }
+  .brand-card-name,
+  .menu-card-name {
+    font-size: var(--fs-menu);
+    font-weight: 700;
+    color: inherit;
+    line-height: 1.35;
+  }
+  .brand-card .tts-btn,
+  .menu-card .tts-btn {
+    background: var(--border);
+    color: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 12px 20px;
+    min-height: var(--touch-min);
+    min-width: var(--touch-min);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: var(--line-height-tight);
   }
   .category-empty {
     font-size: var(--fs-body);
@@ -593,56 +637,31 @@
   }
 
   /* ─── DETAIL SCREEN ─── */
-  .detail-card-large {
-    background: var(--card);
-    border-radius: 24px;
-    margin: var(--padding-screen);
-    padding: clamp(28px, 7vw, 40px) clamp(20px, 5vw, 24px);
-    text-align: center;
-    border: 1px solid var(--border);
+  #screen-detail {
+    overflow: hidden;
   }
-  .detail-menu-name {
-    font-size: var(--fs-title);
-    font-weight: 800;
-    color: var(--text);
-    margin-bottom: 12px;
-    line-height: var(--line-height);
-    overflow-wrap: anywhere;
-  }
-  .detail-menu-price {
-    font-size: var(--fs-menu);
-    font-weight: 600;
-    color: var(--accent);
-    line-height: var(--line-height);
-  }
-  .big-listen-btn {
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 20px;
-    margin: 0 var(--padding-screen) var(--gap-card);
-    padding: clamp(18px, 4.5vw, 24px);
-    min-height: var(--btn-height);
-    font-size: var(--fs-btn);
-    font-weight: 700;
+  .detail-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: var(--padding-screen);
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    line-height: var(--line-height-tight);
-    width: calc(100% - var(--padding-screen) * 2);
+    flex-direction: column;
+    gap: var(--gap-card);
   }
-  .big-listen-btn svg {
-    width: var(--icon-action);
-    height: var(--icon-action);
-    flex-shrink: 0;
+  .detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-card);
+    margin-top: clamp(8px, 2vw, 12px);
   }
   .add-fav-btn {
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 20px;
-    margin: 0 var(--padding-screen) var(--padding-screen);
     padding: clamp(18px, 4.5vw, 24px);
     min-height: var(--btn-height);
     font-size: var(--fs-btn);
@@ -652,7 +671,7 @@
     justify-content: center;
     gap: 12px;
     line-height: var(--line-height-tight);
-    width: calc(100% - var(--padding-screen) * 2);
+    width: 100%;
   }
   .add-fav-btn .fav-icon {
     font-size: clamp(32px, 8vw, 40px);
@@ -1157,7 +1176,7 @@
     </div>
   </header>
   
-  <div id="detailContent" style="flex:1; display:flex; flex-direction:column;">
+  <div id="detailContent" class="detail-content">
     <!-- Dynamic content will be injected here -->
   </div>
 </section>
@@ -1732,13 +1751,13 @@ const CameraManager = {
 // ═══════════════════════════════════════════
 //   DATA HELPERS
 // ═══════════════════════════════════════════
-const MAX_CATEGORY_RESULTS = 5;
-const CATEGORIES = ['카페', '식당', '장소'];
+const MAX_MENU_RESULTS = 5;
+const CATEGORIES = ['카페', '식당'];
 
 const DataHelper = {
-  getCategoryItems(cat, limit = MAX_CATEGORY_RESULTS) {
+  getCategoryBrands(cat) {
     if (!AppState.brands || !AppState.brands[cat]) return [];
-    return AppState.brands[cat].slice(0, limit).map(b => ({ ...b, cat }));
+    return AppState.brands[cat].map(b => ({ ...b, cat }));
   },
 
   getAllBrands() {
@@ -1748,12 +1767,14 @@ const DataHelper = {
     );
   },
 
-  groupByCategory(items, limitPerCat = MAX_CATEGORY_RESULTS) {
+  getBrandMenus(brand, limit = MAX_MENU_RESULTS) {
+    return (brand.menus || []).slice(0, limit);
+  },
+
+  groupByCategory(items) {
     const grouped = Object.fromEntries(CATEGORIES.map(cat => [cat, []]));
     items.forEach(item => {
-      if (grouped[item.cat] && grouped[item.cat].length < limitPerCat) {
-        grouped[item.cat].push(item);
-      }
+      if (grouped[item.cat]) grouped[item.cat].push(item);
     });
     return grouped;
   }
@@ -1793,7 +1814,7 @@ const SearchManager = {
     });
 
     const grouped = DataHelper.groupByCategory(results);
-    UI.renderResults(grouped, `"${q}" 검색 결과`, { grouped: true });
+    UI.renderBrandList(grouped, `"${q}" 검색 결과`, { grouped: true });
     
     const bc = document.getElementById('resultsBreadcrumb');
     if (bc) bc.innerHTML = `<span>홈</span><span>검색</span><span aria-current="location">결과</span>`;
@@ -1815,8 +1836,6 @@ const SearchManager = {
 //   UI RENDER MODULE
 // ═══════════════════════════════════════════
 const UI = {
-  _lastResultsKey: '',
-
   escapeHtml(text) {
     return String(text)
       .replace(/&/g, '&amp;')
@@ -1826,19 +1845,27 @@ const UI = {
       .replace(/'/g, '&#39;');
   },
 
-  buildBrandCard(brand, index) {
+  buildBrandCard(brand) {
     const name = this.escapeHtml(brand.name);
     const cat = this.escapeHtml(brand.cat);
-    const num = index != null
-      ? `<span class="result-card-num" aria-hidden="true">${index}.</span>`
-      : '';
     return `
-      <div class="result-card" role="listitem" tabindex="0" data-brand="${name}" data-cat="${cat}" aria-label="${index != null ? index + '번, ' : ''}${name} 메뉴 보기">
-        <div class="result-card-info">
-          ${num}
-          <div class="result-card-name">${name}</div>
+      <div class="brand-card" role="listitem" tabindex="0" data-brand="${name}" data-cat="${cat}" aria-label="${name} 메뉴 보기">
+        <div class="brand-card-info">
+          <div class="brand-card-name">${name}</div>
         </div>
         <button type="button" class="tts-btn" data-speak="${name}" aria-label="${name} 이름 듣기">듣기</button>
+      </div>
+    `;
+  },
+
+  buildMenuCard(menuName) {
+    const menu = this.escapeHtml(menuName);
+    return `
+      <div class="menu-card" role="listitem" tabindex="0" aria-label="${menu} 메뉴">
+        <div class="menu-card-info">
+          <div class="menu-card-name">${menu}</div>
+        </div>
+        <button type="button" class="tts-btn" data-speak="${menu}" aria-label="${menu} 듣기">듣기</button>
       </div>
     `;
   },
@@ -1855,14 +1882,14 @@ const UI = {
     return `
       <section class="category-section" aria-label="${cat} 목록">
         <h2 class="section-heading">${cat}</h2>
-        <div class="category-card-list" role="list">
-          ${items.map((brand, i) => this.buildBrandCard(brand, i + 1)).join('')}
+        <div class="brand-card-list" role="list">
+          ${items.map(brand => this.buildBrandCard(brand)).join('')}
         </div>
       </section>
     `;
   },
 
-  handleListClick(e) {
+  handleBrandListClick(e) {
     const ttsBtn = e.target.closest('.tts-btn');
     if (ttsBtn) {
       e.stopPropagation();
@@ -1870,8 +1897,79 @@ const UI = {
       if (text) speak(text);
       return;
     }
-    const card = e.target.closest('.result-card[data-brand]');
+    const card = e.target.closest('.brand-card[data-brand], .recent-card[data-brand]');
     if (card) openBrand(card.dataset.brand, card.dataset.cat);
+  },
+
+  handleDetailClick(e) {
+    const ttsBtn = e.target.closest('.tts-btn');
+    if (!ttsBtn) return;
+    e.stopPropagation();
+    const text = ttsBtn.dataset.speak;
+    if (text) speak(text);
+  },
+
+  renderBrandList(brands, title, options = {}) {
+    const { grouped = false, emptyMessage } = options;
+    const list = document.getElementById('resultsList');
+    document.getElementById('resultsTitle').textContent = title;
+
+    const isEmpty = grouped
+      ? CATEGORIES.every(cat => !brands[cat] || brands[cat].length === 0)
+      : !brands || brands.length === 0;
+
+    if (isEmpty) {
+      list.innerHTML = `<div class="no-results">${emptyMessage || '결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.'}</div>`;
+      NavigationManager.announce(emptyMessage ? emptyMessage.replace(/<[^>]+>/g, '') : '검색 결과가 없습니다.');
+      return;
+    }
+
+    const html = grouped
+      ? CATEGORIES.filter(cat => brands[cat] && brands[cat].length).map(cat => this.buildCategorySection(cat, brands[cat])).join('')
+      : `<div class="brand-card-list" role="list">${brands.map(brand => this.buildBrandCard(brand)).join('')}</div>`;
+
+    list.innerHTML = html;
+    list.scrollTop = 0;
+
+    const count = grouped
+      ? CATEGORIES.reduce((n, cat) => n + (brands[cat] ? brands[cat].length : 0), 0)
+      : brands.length;
+    NavigationManager.announce(`${title} ${count}개가 있습니다.`);
+  },
+
+  renderBrandDetail(name, cat) {
+    if (!AppState.brands || !AppState.brands[cat]) return;
+    const brand = AppState.brands[cat].find(b => b.name === name);
+    if (!brand) return;
+
+    const isFav = AppState.favorites.includes(name);
+    const menus = DataHelper.getBrandMenus(brand);
+    const safeName = this.escapeHtml(name);
+
+    document.getElementById('detailTitle').textContent = name;
+    const bc = document.getElementById('detailBreadcrumb');
+    if (bc) bc.innerHTML = `<span>홈</span><span>${this.escapeHtml(cat)}</span><span aria-current="location">${safeName}</span>`;
+
+    const menuHTML = menus.length
+      ? `<div class="menu-card-list" role="list">${menus.map(menu => this.buildMenuCard(menu)).join('')}</div>`
+      : '<div class="no-results">등록된 메뉴가 없습니다.</div>';
+
+    document.getElementById('detailContent').innerHTML = `
+      ${menuHTML}
+      <div class="detail-actions">
+        <button class="add-fav-btn ${isFav ? 'active' : ''}" data-fav-brand="${safeName}" aria-label="${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'}" aria-pressed="${isFav}">
+          <span class="fav-icon" aria-hidden="true">${isFav ? '★' : '☆'}</span>
+          <span>${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'}</span>
+        </button>
+      </div>
+    `;
+
+    const favBtn = document.getElementById('detailContent').querySelector('[data-fav-brand]');
+    if (favBtn) {
+      favBtn.addEventListener('click', () => toggleFav(name));
+    }
+
+    NavigationManager.announce(`${name} 메뉴 ${menus.length}개가 있습니다.`);
   },
 
   renderHomeScreen() {
@@ -1881,29 +1979,7 @@ const UI = {
       return;
     }
 
-    let recentHTML = '';
-    if (AppState.recentMenus.length > 0) {
-      recentHTML = `
-        <section class="recent-section" aria-label="최근 본 메뉴">
-          <h2 class="section-heading">최근 본 메뉴</h2>
-          <div class="recent-scroll">
-            ${AppState.recentMenus.slice(0, 5).map(item => `
-              <button class="result-card recent-card" data-brand="${this.escapeHtml(item.name)}" data-cat="${this.escapeHtml(item.cat)}" aria-label="최근 본 ${this.escapeHtml(item.name)} 보기">
-                <span class="recent-card-name">${this.escapeHtml(item.name)}</span>
-                <span class="recent-card-cat">${this.escapeHtml(item.cat)}</span>
-              </button>
-            `).join('')}
-          </div>
-        </section>
-      `;
-    }
-
-    const categoryPreviewHTML = CATEGORIES.map(cat =>
-      this.buildCategorySection(cat, DataHelper.getCategoryItems(cat))
-    ).join('');
-
     homeContent.innerHTML = `
-      ${recentHTML}
       <div class="home-cat-grid">
         <button class="home-cat-btn" onclick="gotoScreen('search')" aria-label="메뉴 검색하기 버튼">
           <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
@@ -1917,17 +1993,10 @@ const UI = {
           <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path></svg></span>
           <span>식당</span>
         </button>
-        <button class="home-cat-btn" onclick="goCat('장소')" aria-label="장소 메뉴 보기 버튼">
-          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
-          <span>장소</span>
-        </button>
         <button class="home-cat-btn" onclick="navTo('settings')" aria-label="설정 버튼">
           <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
           <span>설정</span>
         </button>
-      </div>
-      <div class="home-category-results">
-        ${categoryPreviewHTML}
       </div>
     `;
   },
@@ -1950,44 +2019,6 @@ const UI = {
     }
   },
 
-  renderResults(data, title, options = {}) {
-    const { grouped = false, emptyMessage } = options;
-    const list = document.getElementById('resultsList');
-    document.getElementById('resultsTitle').textContent = title;
-
-    const isEmpty = grouped
-      ? CATEGORIES.every(cat => !data[cat] || data[cat].length === 0)
-      : !data || data.length === 0;
-
-    if (isEmpty) {
-      list.innerHTML = `<div class="no-results">${emptyMessage || '결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.'}</div>`;
-      this._lastResultsKey = '';
-      NavigationManager.announce(emptyMessage ? emptyMessage.replace(/<[^>]+>/g, '') : '검색 결과가 없습니다.');
-      return;
-    }
-
-    const renderKey = grouped
-      ? JSON.stringify(data)
-      : data.map(b => `${b.cat}:${b.name}`).join('|');
-
-    if (renderKey === this._lastResultsKey) return;
-    this._lastResultsKey = renderKey;
-
-    const html = grouped
-      ? CATEGORIES.filter(cat => data[cat] && data[cat].length).map(cat => this.buildCategorySection(cat, data[cat])).join('')
-      : `<div class="category-card-list" role="list">${data.map((brand, i) => this.buildBrandCard(brand, i + 1)).join('')}</div>`;
-
-    requestAnimationFrame(() => {
-      list.innerHTML = html;
-      list.scrollTop = 0;
-    });
-
-    const count = grouped
-      ? CATEGORIES.reduce((n, cat) => n + (data[cat] ? data[cat].length : 0), 0)
-      : data.length;
-    NavigationManager.announce(`${title} ${count}개가 있습니다.`);
-  },
-
   renderFavScreen() {
     const items = DataHelper.getAllBrands().filter(b => AppState.favorites.includes(b.name));
     const list = document.getElementById('favList');
@@ -1995,7 +2026,7 @@ const UI = {
       list.innerHTML = '<div class="no-results">아직 즐겨찾기가 없습니다.<br><br>브랜드 메뉴에서<br>별표를 눌러 추가해 보세요.</div>';
       return;
     }
-    list.innerHTML = `<div class="category-card-list" role="list">${items.map((brand, i) => this.buildBrandCard(brand, i + 1)).join('')}</div>`;
+    list.innerHTML = `<div class="brand-card-list" role="list">${items.map(brand => this.buildBrandCard(brand)).join('')}</div>`;
   },
 
   renderSettingsScreen() {
@@ -2043,8 +2074,8 @@ function goCat(cat) {
     showToast('데이터를 불러오는 중입니다.');
     return;
   }
-  const items = DataHelper.getCategoryItems(cat);
-  UI.renderResults(items, cat, { emptyMessage: `등록된 ${cat}가 없습니다.` });
+  const brands = DataHelper.getCategoryBrands(cat);
+  UI.renderBrandList(brands, cat, { emptyMessage: `등록된 ${cat}가 없습니다.` });
   const bc = document.getElementById('resultsBreadcrumb');
   if (bc) bc.innerHTML = `<span>홈</span><span aria-current="location">${cat}</span>`;
   NavigationManager.gotoScreen('results');
@@ -2061,31 +2092,8 @@ function openBrand(name, cat) {
   AppState.recentMenus = AppState.recentMenus.slice(0, 10);
   AppState.save();
 
-  const isFav = AppState.favorites.includes(name);
-  const firstMenu = brand.menus[0] || '메뉴 정보 없음';
-  const price = "4,500원";
-
-  document.getElementById('detailTitle').textContent = name;
-  const bc = document.getElementById('detailBreadcrumb');
-  if (bc) bc.innerHTML = `<span>홈</span><span>${cat}</span><span aria-current="location">${name}</span>`;
-
-  document.getElementById('detailContent').innerHTML = `
-    <div class="detail-card-large" role="region" aria-label="메뉴 상세 정보">
-      <div class="detail-menu-name">${firstMenu}</div>
-      <div class="detail-menu-price">${price}</div>
-    </div>
-    <button class="big-listen-btn" onclick="speak('${firstMenu} ${price}')" aria-label="메뉴 이름과 가격 듣기 버튼">
-      <span>메뉴 크게 듣기</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-    </button>
-    <button class="add-fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav('${name}')" aria-label="${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'} 버튼" aria-pressed="${isFav}">
-      <span class="fav-icon" aria-hidden="true">${isFav ? '★' : '☆'}</span>
-      <span>${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'}</span>
-    </button>
-  `;
-
+  UI.renderBrandDetail(name, cat);
   NavigationManager.gotoScreen('detail');
-  NavigationManager.announce(`${name} 메뉴 화면입니다. ${firstMenu} 가격은 ${price}입니다.`);
 }
 
 function toggleFav(name) {
@@ -2124,7 +2132,7 @@ async function initApp() {
     console.error("Data load failed", e);
     AppState.brands = {
       "카페": [
-        { "name": "스타벅스", "chosung": "ㅅㅌㅂㅅ", "menus": ["아메리카노", "카페라떼"] },
+        { "name": "스타벅스", "chosung": "ㅅㅌㅂㅅ", "menus": ["아메리카노", "카페라떼", "돌체라떼", "콜드브루", "자바칩프라푸치노"] },
         { "name": "투썸플레이스", "chosung": "ㅌㅆㅍㄹㅇㅅ", "menus": ["아메리카노", "카페라떼"] },
         { "name": "메가MGC커피", "chosung": "ㅁㄱMGCㅋㅍ", "menus": ["아메리카노", "큐브라떼"] },
         { "name": "이디야커피", "chosung": "ㅇㄷㅇㅋㅍ", "menus": ["아메리카노", "바닐라라떼"] },
@@ -2137,13 +2145,6 @@ async function initApp() {
         { "name": "교촌치킨", "chosung": "ㄱㅊㅊㅋ", "menus": ["교촌오리지날", "허니콤보"] },
         { "name": "BBQ치킨", "chosung": "BBQㅊㅋ", "menus": ["황금올리브치킨", "양념치킨"] }
       ],
-      "장소": [
-        { "name": "GS25", "chosung": "GS25", "menus": ["삼각김밥", "도시락"] },
-        { "name": "CU", "chosung": "CU", "menus": ["삼각김밥", "컵라면"] },
-        { "name": "세븐일레븐", "chosung": "ㅅㅂㅇㄹㅂ", "menus": ["삼각김밥", "핫도그"] },
-        { "name": "이마트24", "chosung": "ㅇㅁㅌ24", "menus": ["삼각김밥", "커피"] },
-        { "name": "올리브영", "chosung": "ㅇㄹㅂㅇ", "menus": ["스킨케어", "간식"] }
-      ]
     };
     showToast("데이터를 불러오지 못했습니다.");
   }
@@ -2153,9 +2154,10 @@ async function initApp() {
   SpeechManager.init();
 
   ['resultsList', 'favList'].forEach(id => {
-    document.getElementById(id).addEventListener('click', (e) => UI.handleListClick(e));
+    document.getElementById(id).addEventListener('click', (e) => UI.handleBrandListClick(e));
   });
-  document.querySelector('#screen-home .home-menu-zone').addEventListener('click', (e) => UI.handleListClick(e));
+  document.querySelector('#screen-home .home-menu-zone').addEventListener('click', (e) => UI.handleBrandListClick(e));
+  document.getElementById('detailContent').addEventListener('click', (e) => UI.handleDetailClick(e));
   
   // 3. Event Listeners
   document.getElementById('homeSearchBtn').addEventListener('click', () => doSearch(document.getElementById('homeSearchInput').value));
