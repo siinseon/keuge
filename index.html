@@ -41,6 +41,7 @@
     --touch-min: 72px;
     --btn-height: clamp(72px, 18vw, 80px);
     --nav-height: clamp(112px, 28vw, 128px);
+    --bottom-nav-offset: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
 
     --line-height: 1.6;
     --line-height-tight: 1.5;
@@ -151,7 +152,7 @@
   }
 
   /* ─── SCREEN MANAGEMENT ─── */
-  .screen { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; animation: fadeIn 0.3s ease-out; padding-bottom: var(--nav-height); }
+  .screen { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; animation: fadeIn 0.3s ease-out; padding-bottom: var(--bottom-nav-offset); }
   .screen.active { display: flex; }
   #screen-splash { padding-bottom: 0; justify-content: center; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -392,11 +393,51 @@
   }
 
   /* ─── RESULTS SCREEN ─── */
+  #screen-home,
+  #screen-results,
+  #screen-fav {
+    overflow: hidden;
+  }
+  .home-menu-zone,
+  #screen-results .results-list,
+  #screen-fav .results-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
   .results-list {
     padding: var(--padding-screen);
     display: flex;
     flex-direction: column;
+    gap: clamp(14px, 3.5vw, 20px);
+  }
+  .home-category-results {
+    margin-top: clamp(16px, 4vw, 24px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(16px, 4vw, 24px);
+  }
+  .category-section {
+    display: flex;
+    flex-direction: column;
     gap: var(--gap-card);
+  }
+  .category-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-card);
+  }
+  .category-empty {
+    font-size: var(--fs-body);
+    color: var(--sub);
+    padding: clamp(16px, 4vw, 20px);
+    text-align: center;
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 16px;
+    line-height: var(--line-height);
   }
   .result-card {
     background: var(--card);
@@ -422,6 +463,18 @@
     flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 12px);
+  }
+  .result-card-num {
+    font-size: var(--fs-desc);
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    line-height: 1;
+    min-width: 1.6em;
+    text-align: right;
   }
   .result-card-name {
     font-size: var(--fs-menu);
@@ -624,6 +677,17 @@
     height: 100%;
     object-fit: cover;
   }
+  #screen-camera.active {
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+  #screen-camera .camera-view {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  #screen-camera .camera-controls {
+    flex: 0 0 auto;
+  }
   .camera-controls {
     background: var(--bg);
     padding: var(--padding-screen);
@@ -631,7 +695,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--gap-grid);
-    padding-bottom: calc(var(--padding-screen) + env(safe-area-inset-bottom, 0px));
+    flex-shrink: 0;
   }
   .camera-zoom-row {
     display: flex;
@@ -640,10 +704,10 @@
     gap: var(--gap-grid);
   }
   .capture-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr);
     align-items: stretch;
     gap: var(--gap-grid);
-    flex-wrap: wrap;
   }
   .zoom-btn {
     background: var(--card);
@@ -682,35 +746,47 @@
     border: none;
     border-radius: 20px;
     min-height: var(--btn-height);
-    font-size: var(--fs-btn);
+    height: 100%;
+    font-size: clamp(22px, 5vw, var(--fs-btn));
     font-weight: 700;
-    flex: 2 1 160px;
-    line-height: var(--line-height-tight);
-    padding: 12px 16px;
+    line-height: 1.35;
+    padding: clamp(10px, 2.5vw, 14px) clamp(8px, 2vw, 12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-width: 0;
+    width: 100%;
+    overflow-wrap: break-word;
+    word-break: keep-all;
   }
   .contrast-btn {
     background: var(--card);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 20px;
-    flex: 1 1 88px;
-    min-width: var(--touch-min);
     min-height: var(--btn-height);
-    font-size: clamp(22px, 5vw, 24px);
+    height: 100%;
+    font-size: clamp(20px, 4.8vw, 24px);
     font-weight: 600;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 8px 6px;
-    line-height: var(--line-height-tight);
+    gap: clamp(2px, 0.8vw, 4px);
+    padding: clamp(10px, 2.5vw, 14px) clamp(6px, 1.5vw, 8px);
+    line-height: 1.35;
     text-align: center;
-    overflow-wrap: anywhere;
+    min-width: 0;
+    width: 100%;
+    overflow-wrap: break-word;
+    word-break: keep-all;
   }
-  .contrast-btn .c-icon {
-    font-size: clamp(28px, 7vw, 36px);
-    line-height: 1;
+  .contrast-btn span {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    line-height: 1.35;
   }
   .contrast-btn.active-contrast {
     background: var(--accent);
@@ -811,48 +887,62 @@
     background: var(--bg);
     border-top: 1px solid var(--border);
     display: flex;
-    height: var(--nav-height);
+    align-items: stretch;
+    min-height: var(--nav-height);
+    box-sizing: border-box;
     z-index: 200;
+    padding-top: clamp(4px, 1vw, 8px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    overflow: hidden;
+  }
+  .bottom-nav .nav-tab {
+    min-height: 0;
+    height: auto;
   }
   .nav-tab {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: clamp(2px, 1vw, 6px);
+    gap: clamp(2px, 0.8vw, 4px);
     background: none;
     border: none;
     color: var(--sub);
-    font-size: var(--fs-nav);
+    font-size: clamp(18px, 4.5vw, var(--fs-nav));
     font-weight: 600;
     transition: all 0.2s;
-    min-height: var(--touch-min);
-    padding: 6px 2px;
-    line-height: var(--line-height-tight);
+    min-height: 0;
+    padding: clamp(4px, 1vw, 6px) clamp(2px, 0.5vw, 4px);
+    line-height: 1.25;
+    overflow: hidden;
   }
   .nav-tab span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
     overflow-wrap: anywhere;
     word-break: keep-all;
     text-align: center;
+    width: 100%;
     max-width: 100%;
-    line-height: 1.2;
+    line-height: 1.25;
   }
   .nav-tab.active {
     color: var(--accent);
   }
   .nav-tab svg {
-    width: var(--icon-nav);
-    height: var(--icon-nav);
-    margin-bottom: 2px;
+    width: clamp(36px, 10vw, var(--icon-nav));
+    height: clamp(36px, 10vw, var(--icon-nav));
     flex-shrink: 0;
   }
 
   /* ─── TOAST ─── */
   .toast {
     position: fixed;
-    bottom: calc(var(--nav-height) + 16px);
+    bottom: calc(var(--bottom-nav-offset) + 16px);
     left: 50%;
     transform: translateX(-50%) translateY(20px);
     background: var(--accent);
@@ -921,6 +1011,28 @@
     font-weight: 700;
     width: 100%;
     line-height: var(--line-height-tight);
+  }
+
+  @media (max-width: 380px) {
+    .capture-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: clamp(6px, 1.5vw, 8px);
+    }
+    .contrast-btn {
+      font-size: clamp(18px, 4.5vw, 22px);
+      padding: clamp(8px, 2vw, 12px) clamp(4px, 1vw, 6px);
+    }
+    .capture-btn {
+      font-size: clamp(20px, 5vw, 24px);
+      padding: clamp(8px, 2vw, 12px) clamp(6px, 1.5vw, 8px);
+    }
+    .nav-tab {
+      font-size: clamp(16px, 4vw, 22px);
+    }
+    .nav-tab svg {
+      width: clamp(32px, 9vw, 44px);
+      height: clamp(32px, 9vw, 44px);
+    }
   }
 
   /* scrollbar */
@@ -1061,7 +1173,7 @@
     </nav>
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
-      <h1 class="top-title">🔬 돋보기</h1>
+      <h1 class="top-title">돋보기</h1>
       <div class="top-bar-spacer" aria-hidden="true"></div>
     </div>
   </header>
@@ -1074,7 +1186,6 @@
 
     <!-- No support fallback -->
     <div class="camera-no-support" id="cameraNoSupport" role="alert">
-      <span class="big-icon" aria-hidden="true">📷</span>
       <span>카메라를 사용할 수 없습니다.<br>권한을 허용해 주세요.</span>
     </div>
 
@@ -1095,14 +1206,12 @@
     </div>
     <div class="capture-row">
       <button class="contrast-btn" id="contrastBtn" aria-label="글씨 뚜렷하게 보기 토글">
-        <span class="c-icon" aria-hidden="true">🎨</span>
         <span>글씨 뚜렷하게</span>
       </button>
       <button class="capture-btn" id="captureBtn" aria-label="사진 찍기">
-        📸 사진 찍기
+        사진 찍기
       </button>
       <button class="contrast-btn" id="ocrBtn" aria-label="글자 읽기">
-        <span class="c-icon" aria-hidden="true">🔍</span>
         <span>글자 읽기</span>
       </button>
     </div>
@@ -1467,7 +1576,7 @@ const CameraManager = {
       return;
     }
 
-    showToast('📷 카메라를 준비 중입니다...');
+    showToast('카메라를 준비 중입니다...');
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -1495,7 +1604,6 @@ const CameraManager = {
       modal.className = 'modal-overlay';
       modal.innerHTML = `
         <div class="modal-content">
-          <div class="modal-icon">🚫</div>
           <div class="modal-title">카메라 권한 필요</div>
           <div class="modal-desc">카메라 권한을 허용해야 돋보기를 사용할 수 있습니다.</div>
           <button class="modal-btn" onclick="document.getElementById('cameraPermModal').remove()">확인</button>
@@ -1555,11 +1663,11 @@ const CameraManager = {
     btn.setAttribute('aria-pressed', this.contrastOn);
     
     const ind = document.getElementById('contrastIndicator');
-    ind.textContent = this.contrastOn ? '대비 강화 ON 🎨' : '대비 강화 OFF';
+    ind.textContent = this.contrastOn ? '대비 강화 ON' : '대비 강화 OFF';
     ind.classList.add('show');
     clearTimeout(this.contrastTimer);
     this.contrastTimer = setTimeout(() => ind.classList.remove('show'), 1800);
-    showToast(this.contrastOn ? '🎨 대비 강화 켜짐' : '대비 강화 꺼짐');
+    showToast(this.contrastOn ? '대비 강화 켜짐' : '대비 강화 꺼짐');
   },
 
   capture() {
@@ -1582,7 +1690,7 @@ const CameraManager = {
     }
 
     document.getElementById('capturedOverlay').classList.add('show');
-    showToast('📸 캡처 완료!');
+    showToast('캡처 완료!');
   },
 
   async runOCR() {
@@ -1590,7 +1698,7 @@ const CameraManager = {
     const video = document.getElementById('cameraVideo');
     if (!this.stream || video.readyState < 2) return;
 
-    showToast('🔍 글자를 읽는 중입니다...');
+    showToast('글자를 읽는 중입니다...');
     NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
 
     const canvas = document.createElement('canvas');
@@ -1622,6 +1730,36 @@ const CameraManager = {
 };
 
 // ═══════════════════════════════════════════
+//   DATA HELPERS
+// ═══════════════════════════════════════════
+const MAX_CATEGORY_RESULTS = 5;
+const CATEGORIES = ['카페', '식당', '장소'];
+
+const DataHelper = {
+  getCategoryItems(cat, limit = MAX_CATEGORY_RESULTS) {
+    if (!AppState.brands || !AppState.brands[cat]) return [];
+    return AppState.brands[cat].slice(0, limit).map(b => ({ ...b, cat }));
+  },
+
+  getAllBrands() {
+    if (!AppState.brands) return [];
+    return CATEGORIES.flatMap(cat =>
+      (AppState.brands[cat] || []).map(b => ({ ...b, cat }))
+    );
+  },
+
+  groupByCategory(items, limitPerCat = MAX_CATEGORY_RESULTS) {
+    const grouped = Object.fromEntries(CATEGORIES.map(cat => [cat, []]));
+    items.forEach(item => {
+      if (grouped[item.cat] && grouped[item.cat].length < limitPerCat) {
+        grouped[item.cat].push(item);
+      }
+    });
+    return grouped;
+  }
+};
+
+// ═══════════════════════════════════════════
 //   SEARCH MODULE
 // ═══════════════════════════════════════════
 const SearchManager = {
@@ -1641,7 +1779,7 @@ const SearchManager = {
     NavigationManager.announce('검색 중입니다.');
 
     const results = [];
-    const allBrands = [...AppState.brands.카페.map(b => ({...b, cat:'카페'})), ...AppState.brands.식당.map(b => ({...b, cat:'식당'}))];
+    const allBrands = DataHelper.getAllBrands();
 
     const qChosung = this.getChosung(q);
     const isChosungQuery = [...q].every(ch => 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'.includes(ch));
@@ -1654,7 +1792,8 @@ const SearchManager = {
       if (nameMatch || chosungMatch || menuMatch) results.push(brand);
     });
 
-    UI.renderResults(results, `"${q}" 검색 결과`);
+    const grouped = DataHelper.groupByCategory(results);
+    UI.renderResults(grouped, `"${q}" 검색 결과`, { grouped: true });
     
     const bc = document.getElementById('resultsBreadcrumb');
     if (bc) bc.innerHTML = `<span>홈</span><span>검색</span><span aria-current="location">결과</span>`;
@@ -1676,8 +1815,72 @@ const SearchManager = {
 //   UI RENDER MODULE
 // ═══════════════════════════════════════════
 const UI = {
+  _lastResultsKey: '',
+
+  escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
+  buildBrandCard(brand, index) {
+    const name = this.escapeHtml(brand.name);
+    const cat = this.escapeHtml(brand.cat);
+    const num = index != null
+      ? `<span class="result-card-num" aria-hidden="true">${index}.</span>`
+      : '';
+    return `
+      <div class="result-card" role="listitem" tabindex="0" data-brand="${name}" data-cat="${cat}" aria-label="${index != null ? index + '번, ' : ''}${name} 메뉴 보기">
+        <div class="result-card-info">
+          ${num}
+          <div class="result-card-name">${name}</div>
+        </div>
+        <button type="button" class="tts-btn" data-speak="${name}" aria-label="${name} 이름 듣기">듣기</button>
+      </div>
+    `;
+  },
+
+  buildCategorySection(cat, items) {
+    if (!items.length) {
+      return `
+        <section class="category-section" aria-label="${cat} 목록">
+          <h2 class="section-heading">${cat}</h2>
+          <div class="category-empty">등록된 ${cat}가 없습니다.</div>
+        </section>
+      `;
+    }
+    return `
+      <section class="category-section" aria-label="${cat} 목록">
+        <h2 class="section-heading">${cat}</h2>
+        <div class="category-card-list" role="list">
+          ${items.map((brand, i) => this.buildBrandCard(brand, i + 1)).join('')}
+        </div>
+      </section>
+    `;
+  },
+
+  handleListClick(e) {
+    const ttsBtn = e.target.closest('.tts-btn');
+    if (ttsBtn) {
+      e.stopPropagation();
+      const text = ttsBtn.dataset.speak;
+      if (text) speak(text);
+      return;
+    }
+    const card = e.target.closest('.result-card[data-brand]');
+    if (card) openBrand(card.dataset.brand, card.dataset.cat);
+  },
+
   renderHomeScreen() {
     const homeContent = document.querySelector('#screen-home .home-menu-zone');
+    if (!AppState.brands) {
+      homeContent.innerHTML = '<div class="no-results">데이터를 불러오는 중입니다...</div>';
+      return;
+    }
+
     let recentHTML = '';
     if (AppState.recentMenus.length > 0) {
       recentHTML = `
@@ -1685,15 +1888,19 @@ const UI = {
           <h2 class="section-heading">최근 본 메뉴</h2>
           <div class="recent-scroll">
             ${AppState.recentMenus.slice(0, 5).map(item => `
-              <button class="result-card recent-card" onclick="openBrand('${item.name}', '${item.cat}')" aria-label="최근 본 ${item.name} 보기">
-                <span class="recent-card-name">${item.name}</span>
-                <span class="recent-card-cat">${item.cat}</span>
+              <button class="result-card recent-card" data-brand="${this.escapeHtml(item.name)}" data-cat="${this.escapeHtml(item.cat)}" aria-label="최근 본 ${this.escapeHtml(item.name)} 보기">
+                <span class="recent-card-name">${this.escapeHtml(item.name)}</span>
+                <span class="recent-card-cat">${this.escapeHtml(item.cat)}</span>
               </button>
             `).join('')}
           </div>
         </section>
       `;
     }
+
+    const categoryPreviewHTML = CATEGORIES.map(cat =>
+      this.buildCategorySection(cat, DataHelper.getCategoryItems(cat))
+    ).join('');
 
     homeContent.innerHTML = `
       ${recentHTML}
@@ -1710,10 +1917,17 @@ const UI = {
           <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path></svg></span>
           <span>식당</span>
         </button>
+        <button class="home-cat-btn" onclick="goCat('장소')" aria-label="장소 메뉴 보기 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+          <span>장소</span>
+        </button>
         <button class="home-cat-btn" onclick="navTo('settings')" aria-label="설정 버튼">
           <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
           <span>설정</span>
         </button>
+      </div>
+      <div class="home-category-results">
+        ${categoryPreviewHTML}
       </div>
     `;
   },
@@ -1736,37 +1950,52 @@ const UI = {
     }
   },
 
-  renderResults(items, title) {
-    document.getElementById('resultsTitle').textContent = title;
+  renderResults(data, title, options = {}) {
+    const { grouped = false, emptyMessage } = options;
     const list = document.getElementById('resultsList');
-    if (items.length === 0) {
-      list.innerHTML = `<div class="no-results">😥 결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.</div>`;
-      NavigationManager.announce('검색 결과가 없습니다.');
+    document.getElementById('resultsTitle').textContent = title;
+
+    const isEmpty = grouped
+      ? CATEGORIES.every(cat => !data[cat] || data[cat].length === 0)
+      : !data || data.length === 0;
+
+    if (isEmpty) {
+      list.innerHTML = `<div class="no-results">${emptyMessage || '결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.'}</div>`;
+      this._lastResultsKey = '';
+      NavigationManager.announce(emptyMessage ? emptyMessage.replace(/<[^>]+>/g, '') : '검색 결과가 없습니다.');
       return;
     }
-    list.innerHTML = items.map(brand => `
-      <div class="result-card" role="listitem" tabindex="0" onclick="openBrand('${brand.name}','${brand.cat}')" aria-label="${brand.name} 메뉴 보기 버튼">
-        <div class="result-card-info"><div class="result-card-name">${brand.name}</div></div>
-        <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 이름 듣기 버튼">듣기</button>
-      </div>
-    `).join('');
-    NavigationManager.announce(`${title} ${items.length}개가 있습니다.`);
+
+    const renderKey = grouped
+      ? JSON.stringify(data)
+      : data.map(b => `${b.cat}:${b.name}`).join('|');
+
+    if (renderKey === this._lastResultsKey) return;
+    this._lastResultsKey = renderKey;
+
+    const html = grouped
+      ? CATEGORIES.filter(cat => data[cat] && data[cat].length).map(cat => this.buildCategorySection(cat, data[cat])).join('')
+      : `<div class="category-card-list" role="list">${data.map((brand, i) => this.buildBrandCard(brand, i + 1)).join('')}</div>`;
+
+    requestAnimationFrame(() => {
+      list.innerHTML = html;
+      list.scrollTop = 0;
+    });
+
+    const count = grouped
+      ? CATEGORIES.reduce((n, cat) => n + (data[cat] ? data[cat].length : 0), 0)
+      : data.length;
+    NavigationManager.announce(`${title} ${count}개가 있습니다.`);
   },
 
   renderFavScreen() {
-    const all = [...AppState.brands.카페.map(b => ({...b, cat:'카페'})), ...AppState.brands.식당.map(b => ({...b, cat:'식당'}))];
-    const items = all.filter(b => AppState.favorites.includes(b.name));
+    const items = DataHelper.getAllBrands().filter(b => AppState.favorites.includes(b.name));
     const list = document.getElementById('favList');
     if (items.length === 0) {
       list.innerHTML = '<div class="no-results">아직 즐겨찾기가 없습니다.<br><br>브랜드 메뉴에서<br>별표를 눌러 추가해 보세요.</div>';
       return;
     }
-    list.innerHTML = items.map(brand => `
-      <div class="result-card" role="listitem" tabindex="0" onclick="openBrand('${brand.name}','${brand.cat}')" aria-label="${brand.name} 메뉴 보기 버튼">
-        <div class="result-card-info"><div class="result-card-name">${brand.name}</div></div>
-        <button class="tts-btn" onclick="event.stopPropagation(); speak('${brand.name}')" aria-label="${brand.name} 이름 듣기 버튼">듣기</button>
-      </div>
-    `).join('');
+    list.innerHTML = `<div class="category-card-list" role="list">${items.map((brand, i) => this.buildBrandCard(brand, i + 1)).join('')}</div>`;
   },
 
   renderSettingsScreen() {
@@ -1810,8 +2039,12 @@ function updateSetting(k, v) { SettingsManager.update(k, v); }
 
 function goCat(cat) {
   vib();
-  const items = (AppState.brands[cat] || []).map(b => ({...b, cat}));
-  UI.renderResults(items, cat);
+  if (!AppState.brands) {
+    showToast('데이터를 불러오는 중입니다.');
+    return;
+  }
+  const items = DataHelper.getCategoryItems(cat);
+  UI.renderResults(items, cat, { emptyMessage: `등록된 ${cat}가 없습니다.` });
   const bc = document.getElementById('resultsBreadcrumb');
   if (bc) bc.innerHTML = `<span>홈</span><span aria-current="location">${cat}</span>`;
   NavigationManager.gotoScreen('results');
@@ -1819,6 +2052,7 @@ function goCat(cat) {
 
 function openBrand(name, cat) {
   vib();
+  if (!AppState.brands || !AppState.brands[cat]) return;
   const brand = AppState.brands[cat].find(b => b.name === name);
   if (!brand) return;
 
@@ -1871,8 +2105,7 @@ function toggleFav(name) {
   
   const detailTitle = document.getElementById('detailTitle').textContent;
   if (detailTitle === name) {
-    const all = [...AppState.brands.카페.map(b => ({...b, cat:'카페'})), ...AppState.brands.식당.map(b => ({...b, cat:'식당'}))];
-    const brand = all.find(b => b.name === name);
+    const brand = DataHelper.getAllBrands().find(b => b.name === name);
     if (brand) openBrand(name, brand.cat);
   }
 }
@@ -1889,12 +2122,40 @@ async function initApp() {
     AppState.brands = await response.json();
   } catch (e) {
     console.error("Data load failed", e);
+    AppState.brands = {
+      "카페": [
+        { "name": "스타벅스", "chosung": "ㅅㅌㅂㅅ", "menus": ["아메리카노", "카페라떼"] },
+        { "name": "투썸플레이스", "chosung": "ㅌㅆㅍㄹㅇㅅ", "menus": ["아메리카노", "카페라떼"] },
+        { "name": "메가MGC커피", "chosung": "ㅁㄱMGCㅋㅍ", "menus": ["아메리카노", "큐브라떼"] },
+        { "name": "이디야커피", "chosung": "ㅇㄷㅇㅋㅍ", "menus": ["아메리카노", "바닐라라떼"] },
+        { "name": "빽다방", "chosung": "ㅂㄷㅂ", "menus": ["앗!메리카노", "원조커피"] }
+      ],
+      "식당": [
+        { "name": "맥도날드", "chosung": "ㅁㄷㄴㄷ", "menus": ["빅맥", "맥너겟"] },
+        { "name": "롯데리아", "chosung": "ㄹㄷㄹㅇ", "menus": ["불고기버거", "새우버거"] },
+        { "name": "버거킹", "chosung": "ㅂㄱㅋ", "menus": ["와퍼", "치즈버거"] },
+        { "name": "교촌치킨", "chosung": "ㄱㅊㅊㅋ", "menus": ["교촌오리지날", "허니콤보"] },
+        { "name": "BBQ치킨", "chosung": "BBQㅊㅋ", "menus": ["황금올리브치킨", "양념치킨"] }
+      ],
+      "장소": [
+        { "name": "GS25", "chosung": "GS25", "menus": ["삼각김밥", "도시락"] },
+        { "name": "CU", "chosung": "CU", "menus": ["삼각김밥", "컵라면"] },
+        { "name": "세븐일레븐", "chosung": "ㅅㅂㅇㄹㅂ", "menus": ["삼각김밥", "핫도그"] },
+        { "name": "이마트24", "chosung": "ㅇㅁㅌ24", "menus": ["삼각김밥", "커피"] },
+        { "name": "올리브영", "chosung": "ㅇㄹㅂㅇ", "menus": ["스킨케어", "간식"] }
+      ]
+    };
     showToast("데이터를 불러오지 못했습니다.");
   }
 
   // 2. Init Modules
   SettingsManager.init();
   SpeechManager.init();
+
+  ['resultsList', 'favList'].forEach(id => {
+    document.getElementById(id).addEventListener('click', (e) => UI.handleListClick(e));
+  });
+  document.querySelector('#screen-home .home-menu-zone').addEventListener('click', (e) => UI.handleListClick(e));
   
   // 3. Event Listeners
   document.getElementById('homeSearchBtn').addEventListener('click', () => doSearch(document.getElementById('homeSearchInput').value));
