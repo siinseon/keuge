@@ -1,0 +1,2610 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>크게보기 - 메뉴 도우미</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+  :root {
+    --bg: #121212;
+    --card: #1E1E1E;
+    --text: #F5F5F5;
+    --sub: #CCCCCC;
+    --accent: #FFD400;
+    --border: #2A2A2A;
+    --card-border: #333333;
+    --btn-bg: #FFD400;
+    --btn-text: #121212;
+    --fav: #FFD400;
+    --tag-bg: #2A2A2A;
+    --tag-text: #F5F5F5;
+    --input-bg: #1E1E1E;
+    --input-border: #333333;
+    --shadow: rgba(0,0,0,0.5);
+
+    /* Accessibility sizing — Galaxy S (~360px) WebView baseline */
+    --fs-title: clamp(36px, 10vw, 48px);
+    --fs-menu: clamp(26px, 7.5vw, 34px);
+    --fs-body: clamp(22px, 5.5vw, 26px);
+    --fs-desc: clamp(22px, 5vw, 24px);
+    --fs-btn: clamp(24px, 6vw, 28px);
+    --fs-nav: clamp(24px, 6vw, 28px);
+    --fs-section: clamp(22px, 5vw, 26px);
+    --fs-breadcrumb: clamp(22px, 4.5vw, 24px);
+
+    --icon-card: clamp(56px, 14vw, 72px);
+    --icon-nav: clamp(48px, 12vw, 56px);
+    --icon-action: clamp(32px, 8vw, 40px);
+
+    --touch-min: 72px;
+    --btn-height: clamp(72px, 18vw, 80px);
+    --nav-height: clamp(112px, 28vw, 128px);
+    --bottom-nav-offset: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+
+    --line-height: 1.6;
+    --line-height-tight: 1.5;
+
+    --gap-card: clamp(6px, 1.5vw, 10px);
+    --gap-grid: clamp(8px, 2vw, 12px);
+    --padding-screen: clamp(12px, 3vw, 20px);
+  }
+
+  /* Font Size Variations — minimums preserved */
+  body.fs-large {
+    --fs-title: clamp(44px, 11vw, 56px);
+    --fs-menu: clamp(32px, 8.5vw, 40px);
+    --fs-body: clamp(26px, 6.5vw, 30px);
+    --fs-desc: clamp(24px, 6vw, 28px);
+    --fs-btn: clamp(28px, 7vw, 32px);
+    --fs-nav: clamp(28px, 7vw, 32px);
+    --fs-section: clamp(24px, 6vw, 28px);
+  }
+  body.fs-small {
+    --fs-title: clamp(32px, 9vw, 40px);
+    --fs-menu: clamp(24px, 6.5vw, 28px);
+    --fs-body: 22px;
+    --fs-desc: 22px;
+    --fs-btn: 24px;
+    --fs-nav: 24px;
+    --fs-section: 22px;
+  }
+
+  /* High Contrast / Grayscale / Invert */
+  body.high-contrast {
+    --bg: #000000;
+    --card: #000000;
+    --text: #FFFFFF;
+    --sub: #FFFFFF;
+    --accent: #FFFF00;
+    --border: #FFFFFF;
+    --card-border: #FFFFFF;
+    --btn-bg: #FFFF00;
+    --btn-text: #000000;
+  }
+  body.grayscale { filter: grayscale(100%); }
+  body.invert { filter: invert(100%) hue-rotate(180deg); }
+
+  * { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    -webkit-tap-highlight-color: transparent; 
+    letter-spacing: -0.02em;
+    line-height: var(--line-height);
+    color: inherit;
+  }
+
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+    font-size: var(--fs-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-width: 500px;
+    margin: 0 auto;
+    transition: background 0.25s, color 0.25s;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+
+  button, input, select, textarea {
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    touch-action: manipulation;
+  }
+
+  button {
+    min-height: var(--touch-min);
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 4px solid var(--accent);
+    outline-offset: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* ─── SCREEN MANAGEMENT ─── */
+  .screen { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; animation: fadeIn 0.3s ease-out; padding-bottom: var(--bottom-nav-offset); }
+  .screen.active { display: flex; }
+  #screen-splash { padding-bottom: 0; justify-content: center; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ─── SPLASH SCREEN ─── */
+  #screen-splash {
+    background: var(--bg);
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 40px;
+  }
+  .splash-logo {
+    width: 140px;
+    height: 140px;
+    border: 6px solid var(--accent);
+    border-radius: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 40px;
+    position: relative;
+    background: var(--card);
+  }
+  .splash-logo svg { width: 70px; height: 70px; color: var(--accent); }
+  .splash-title {
+    font-size: clamp(44px, 12vw, 56px);
+    font-weight: 800;
+    margin-bottom: 16px;
+    color: var(--text);
+    letter-spacing: -0.03em;
+    line-height: var(--line-height-tight);
+  }
+  .splash-sub {
+    font-size: var(--fs-body);
+    font-weight: 500;
+    line-height: var(--line-height);
+    margin-bottom: 60px;
+    color: var(--sub);
+  }
+  .start-btn {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 24px;
+    padding: 20px 60px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    line-height: var(--line-height-tight);
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    transition: transform 0.2s;
+  }
+  .start-btn:active { transform: scale(0.96); }
+
+  /* ─── HEADER BAR ─── */
+  .top-bar {
+    display: flex;
+    flex-direction: column;
+    padding: var(--padding-screen);
+    padding-top: calc(var(--padding-screen) + env(safe-area-inset-top, 0px));
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .top-bar-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: var(--touch-min);
+  }
+  .breadcrumb {
+    font-size: var(--fs-breadcrumb);
+    color: var(--sub);
+    margin-bottom: 4px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    line-height: var(--line-height);
+  }
+  .breadcrumb span:not(:last-child)::after {
+    content: '>';
+    margin-left: 6px;
+    font-size: var(--fs-breadcrumb);
+    opacity: 0.5;
+  }
+  
+  .back-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: var(--fs-btn);
+    font-weight: 600;
+    padding: 12px 20px;
+    min-height: var(--touch-min);
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .back-btn:active { background: var(--border); }
+
+  .top-title {
+    font-size: clamp(24px, 6.5vw, 30px);
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+    text-align: center;
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+  }
+  .top-title.home-title {
+    font-size: clamp(28px, 7.5vw, 36px);
+    font-weight: 800;
+    text-align: left;
+  }
+  .header-logo {
+    width: clamp(48px, 12vw, 56px);
+    height: clamp(48px, 12vw, 56px);
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .top-bar-spacer {
+    width: clamp(72px, 18vw, 88px);
+    flex-shrink: 0;
+  }
+
+  /* ─── HOME: SEARCH ZONE ─── */
+  #screen-search {
+    overflow: hidden;
+  }
+  .home-search-zone {
+    padding: var(--padding-screen);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-grid);
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .search-field {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .search-input {
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    font-size: var(--fs-body);
+    font-weight: 600;
+    padding: 16px 20px;
+    min-height: var(--touch-min);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    background: var(--card);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: var(--line-height);
+  }
+  .search-input::placeholder { color: var(--sub); opacity: 0.5; }
+  .search-input:focus { border-color: var(--accent); }
+
+  .voice-search-btn {
+    background: var(--card);
+    color: var(--text);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    padding: clamp(16px, 4vw, 20px);
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+    line-height: var(--line-height-tight);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow-wrap: break-word;
+    word-break: keep-all;
+  }
+  .voice-search-btn:active { transform: scale(0.98); }
+  .voice-search-btn.listening {
+    background: var(--accent);
+    color: var(--btn-text);
+    border-color: var(--accent);
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 212, 0, 0.45); }
+    50% { box-shadow: 0 0 0 10px rgba(255, 212, 0, 0); }
+  }
+
+  .search-execute-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    padding: clamp(16px, 4vw, 20px);
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    line-height: var(--line-height-tight);
+  }
+
+  /* ─── HOME: MENU ZONE ─── */
+  .home-menu-zone {
+    padding: var(--padding-screen);
+    flex: 1;
+  }
+  .home-cat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap-grid);
+  }
+  .home-cat-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 24px;
+    padding: clamp(16px, 4vw, 24px) clamp(12px, 3vw, 16px);
+    min-height: clamp(120px, 30vw, 140px);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 2.5vw, 16px);
+    transition: all 0.2s;
+    line-height: var(--line-height-tight);
+    overflow: hidden;
+  }
+  .home-cat-btn:active { background: var(--border); transform: translateY(2px); }
+  .home-cat-btn .cat-icon svg {
+    width: var(--icon-card);
+    height: var(--icon-card);
+    color: var(--accent);
+  }
+
+  /* ─── RESULTS SCREEN ─── */
+  #screen-home,
+  #screen-results,
+  #screen-fav {
+    overflow: hidden;
+  }
+  .home-menu-zone,
+  #screen-results .results-list,
+  #screen-fav .results-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .results-list {
+    padding: var(--padding-screen);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(14px, 3.5vw, 20px);
+  }
+  .category-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-card);
+  }
+  .brand-card-list,
+  .menu-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-card);
+  }
+  .brand-card,
+  .menu-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: clamp(14px, 3.5vw, 18px) clamp(16px, 4vw, 20px);
+    min-height: var(--touch-min);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(10px, 2.5vw, 16px);
+    cursor: pointer;
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    overflow: hidden;
+    width: 100%;
+  }
+  .menu-card {
+    cursor: default;
+  }
+  .brand-card-info,
+  .menu-card-info {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: keep-all;
+  }
+  .brand-card-name,
+  .menu-card-name {
+    font-size: var(--fs-menu);
+    font-weight: 700;
+    color: inherit;
+    line-height: 1.35;
+  }
+  .brand-card .tts-btn,
+  .menu-card .tts-btn {
+    background: var(--border);
+    color: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 12px 20px;
+    min-height: var(--touch-min);
+    min-width: var(--touch-min);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: var(--line-height-tight);
+  }
+  .category-empty {
+    font-size: var(--fs-body);
+    color: var(--sub);
+    padding: clamp(16px, 4vw, 20px);
+    text-align: center;
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 16px;
+    line-height: var(--line-height);
+  }
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: clamp(14px, 3.5vw, 18px) clamp(16px, 4vw, 20px);
+    min-height: var(--touch-min);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(10px, 2.5vw, 16px);
+    cursor: pointer;
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    overflow: hidden;
+  }
+  .result-card.active {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--btn-text);
+  }
+  .result-card-info {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 12px);
+  }
+  .result-card-num {
+    font-size: var(--fs-desc);
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    line-height: 1;
+    min-width: 1.6em;
+    text-align: right;
+  }
+  .result-card-name {
+    font-size: var(--fs-menu);
+    font-weight: 700;
+    color: inherit;
+    line-height: var(--line-height-tight);
+  }
+  .tts-btn {
+    background: var(--border);
+    color: var(--accent);
+    border: none;
+    border-radius: 12px;
+    padding: 12px 20px;
+    min-height: var(--touch-min);
+    min-width: var(--touch-min);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: var(--line-height-tight);
+  }
+  .result-card.active .tts-btn {
+    background: rgba(0,0,0,0.15);
+    color: var(--btn-text);
+  }
+
+  .no-results {
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    color: var(--sub);
+    padding: var(--padding-screen);
+    text-align: center;
+  }
+
+  /* ─── SECTION HEADINGS & SETTINGS ─── */
+  .section-heading {
+    font-size: var(--fs-section);
+    color: var(--sub);
+    margin-bottom: clamp(8px, 2vw, 12px);
+    font-weight: 600;
+    line-height: var(--line-height);
+  }
+  .settings-list {
+    gap: clamp(14px, 3.5vw, 20px) !important;
+  }
+  .settings-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--gap-grid);
+  }
+  .settings-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap-grid);
+  }
+  .setting-btn {
+    justify-content: center;
+    text-align: center;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    min-height: var(--btn-height);
+  }
+  .setting-toggle-btn {
+    width: 100%;
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    min-height: var(--btn-height);
+  }
+
+  /* ─── RECENT ITEMS ─── */
+  .recent-section {
+    margin-bottom: clamp(12px, 3vw, 18px);
+  }
+  .recent-scroll {
+    display: flex;
+    gap: var(--gap-grid);
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .recent-card {
+    flex: 0 0 auto;
+    width: clamp(140px, 38vw, 180px);
+    padding: clamp(12px, 3vw, 16px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .recent-card-name {
+    font-size: var(--fs-body);
+    font-weight: 700;
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+  }
+  .recent-card-cat {
+    font-size: var(--fs-desc);
+    color: var(--sub);
+    line-height: var(--line-height);
+  }
+  .recent-searches {
+    margin-top: var(--gap-grid);
+  }
+  .recent-tag-btn {
+    padding: 12px 20px;
+    min-height: var(--touch-min);
+    border-radius: 30px;
+    font-size: var(--fs-body);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .recent-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-grid);
+  }
+
+  /* ─── DETAIL SCREEN ─── */
+  #screen-detail {
+    overflow: hidden;
+  }
+  .detail-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: var(--padding-screen);
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-card);
+  }
+  .detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-card);
+    margin-top: clamp(8px, 2vw, 12px);
+  }
+  .add-fav-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 20px;
+    padding: clamp(18px, 4.5vw, 24px);
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    line-height: var(--line-height-tight);
+    width: 100%;
+  }
+  .add-fav-btn .fav-icon {
+    font-size: clamp(32px, 8vw, 40px);
+    line-height: 1;
+  }
+  .add-fav-btn.active {
+    background: var(--accent);
+    color: var(--btn-text);
+    border-color: var(--accent);
+  }
+
+  /* ─── CAMERA SCREEN ─── */
+  .camera-view {
+    flex: 1;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+  }
+  #cameraVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  #screen-camera.active {
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+  #screen-camera .camera-view {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  #screen-camera .camera-controls {
+    flex: 0 0 auto;
+  }
+  .camera-controls {
+    background: var(--bg);
+    padding: var(--padding-screen);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-grid);
+    flex-shrink: 0;
+  }
+  .camera-zoom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap-grid);
+  }
+  .capture-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: var(--gap-grid);
+  }
+  .zoom-btn {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: var(--touch-min);
+    min-width: var(--touch-min);
+    height: var(--touch-min);
+    min-height: var(--touch-min);
+    font-size: clamp(32px, 8vw, 40px);
+    font-weight: 700;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .zoom-label {
+    font-size: var(--fs-body);
+    font-weight: 700;
+    color: var(--sub);
+    text-align: center;
+    flex: 1;
+    line-height: var(--line-height);
+    min-width: 0;
+  }
+  .zoom-label strong {
+    font-size: clamp(26px, 7vw, 32px);
+    color: var(--text);
+    display: block;
+    margin-top: 2px;
+  }
+  .capture-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 20px;
+    min-height: var(--btn-height);
+    height: 100%;
+    font-size: clamp(22px, 5vw, var(--fs-btn));
+    font-weight: 700;
+    line-height: 1.35;
+    padding: clamp(10px, 2.5vw, 14px) clamp(8px, 2vw, 12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-width: 0;
+    width: 100%;
+    overflow-wrap: break-word;
+    word-break: keep-all;
+  }
+  .contrast-btn {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    min-height: var(--btn-height);
+    height: 100%;
+    font-size: clamp(20px, 4.8vw, 24px);
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(2px, 0.8vw, 4px);
+    padding: clamp(10px, 2.5vw, 14px) clamp(6px, 1.5vw, 8px);
+    line-height: 1.35;
+    text-align: center;
+    min-width: 0;
+    width: 100%;
+    overflow-wrap: break-word;
+    word-break: keep-all;
+  }
+  .contrast-btn span {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    line-height: 1.35;
+  }
+  .contrast-btn.active-contrast {
+    background: var(--accent);
+    color: var(--btn-text);
+  }
+  .flash-overlay {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 10;
+  }
+  .flash-overlay.flash { opacity: 0.85; }
+  .zoom-indicator,
+  .contrast-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    font-size: var(--fs-body);
+    font-weight: 700;
+    padding: 16px 28px;
+    border-radius: 16px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 20;
+    pointer-events: none;
+    line-height: var(--line-height);
+    text-align: center;
+    max-width: 90%;
+    overflow-wrap: anywhere;
+  }
+  .zoom-indicator.show,
+  .contrast-indicator.show { opacity: 1; }
+  .camera-no-support {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: var(--padding-screen);
+    background: var(--bg);
+    text-align: center;
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    z-index: 5;
+  }
+  .camera-no-support.visible { display: flex; }
+  .camera-no-support .big-icon {
+    font-size: clamp(48px, 12vw, 64px);
+    line-height: 1;
+  }
+  .captured-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    padding: var(--padding-screen);
+  }
+  .captured-overlay.show { display: flex; }
+  .captured-overlay canvas {
+    max-width: 100%;
+    max-height: calc(100% - 100px);
+    border-radius: 12px;
+  }
+  .close-capture-btn {
+    margin-top: 16px;
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    padding: 16px 32px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  /* ─── BOTTOM NAV ─── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 500px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: stretch;
+    min-height: var(--nav-height);
+    box-sizing: border-box;
+    z-index: 200;
+    padding-top: clamp(4px, 1vw, 8px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    overflow: hidden;
+  }
+  .bottom-nav .nav-tab {
+    min-height: 0;
+    height: auto;
+  }
+  .nav-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(2px, 0.8vw, 4px);
+    background: none;
+    border: none;
+    color: var(--sub);
+    font-size: clamp(18px, 4.5vw, var(--fs-nav));
+    font-weight: 600;
+    transition: all 0.2s;
+    min-height: 0;
+    padding: clamp(4px, 1vw, 6px) clamp(2px, 0.5vw, 4px);
+    line-height: 1.25;
+    overflow: hidden;
+  }
+  .nav-tab span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    word-break: keep-all;
+    text-align: center;
+    width: 100%;
+    max-width: 100%;
+    line-height: 1.25;
+  }
+  .nav-tab.active {
+    color: var(--accent);
+  }
+  .nav-tab svg {
+    width: clamp(36px, 10vw, var(--icon-nav));
+    height: clamp(36px, 10vw, var(--icon-nav));
+    flex-shrink: 0;
+  }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: calc(var(--bottom-nav-offset) + 16px);
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent);
+    color: var(--btn-text);
+    font-size: var(--fs-body);
+    font-weight: 700;
+    padding: 16px 28px;
+    border-radius: 12px;
+    z-index: 999;
+    opacity: 0;
+    transition: all 0.3s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    line-height: var(--line-height);
+    max-width: calc(100% - 32px);
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: var(--padding-screen);
+  }
+  .modal-content {
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 24px;
+    padding: clamp(24px, 6vw, 32px);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    border: 2px solid var(--border);
+  }
+  .modal-icon {
+    font-size: clamp(40px, 10vw, 48px);
+    margin-bottom: 16px;
+    line-height: 1;
+  }
+  .modal-title {
+    font-size: var(--fs-btn);
+    font-weight: 800;
+    margin-bottom: 12px;
+    line-height: var(--line-height);
+  }
+  .modal-desc {
+    font-size: var(--fs-body);
+    color: var(--sub);
+    margin-bottom: 24px;
+    line-height: var(--line-height);
+  }
+  .modal-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    width: 100%;
+    line-height: var(--line-height-tight);
+  }
+
+  @media (max-width: 380px) {
+    .capture-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: clamp(6px, 1.5vw, 8px);
+    }
+    .contrast-btn {
+      font-size: clamp(18px, 4.5vw, 22px);
+      padding: clamp(8px, 2vw, 12px) clamp(4px, 1vw, 6px);
+    }
+    .capture-btn {
+      font-size: clamp(20px, 5vw, 24px);
+      padding: clamp(8px, 2vw, 12px) clamp(6px, 1.5vw, 8px);
+    }
+    .nav-tab {
+      font-size: clamp(16px, 4vw, 22px);
+    }
+    .nav-tab svg {
+      width: clamp(32px, 9vw, 44px);
+      height: clamp(32px, 9vw, 44px);
+    }
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- Screen Reader Announcements -->
+<div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ════════════════════════════════════════════
+     SCREEN 0: SPLASH
+════════════════════════════════════════════ -->
+<section id="screen-splash" class="screen active" role="region" aria-label="시작 화면">
+  <div class="splash-logo" aria-hidden="true">
+    <img src="assets/logo.png" alt="로고" style="width: 100%; height: 100%; object-fit: cover; border-radius: 34px;">
+  </div>
+  <h1 class="splash-title">크게 크게</h1>
+  <p class="splash-sub">메뉴가 잘 안 보이세요?<br>크게 보여드릴게요!</p>
+  <button class="start-btn" onclick="navTo('home')" aria-label="앱 시작하기">시작하기</button>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SCREEN 1: HOME
+════════════════════════════════════════════ -->
+<main id="screen-home" class="screen" role="main">
+
+  <!-- Top bar -->
+  <header class="top-bar">
+    <nav class="breadcrumb" id="breadcrumb-home" aria-label="현재 위치">
+      <span aria-current="location">홈</span>
+    </nav>
+    <div class="top-bar-content" style="display: flex; align-items: center; gap: 12px;">
+      <img src="assets/logo.png" alt="" class="header-logo">
+      <h1 class="top-title home-title">크게 크게</h1>
+    </div>
+  </header>
+
+  <!-- Menu zone -->
+  <section class="home-menu-zone" aria-label="메뉴 카테고리">
+    <div class="home-cat-grid">
+      <!-- Dynamic content will be injected here -->
+    </div>
+  </section>
+
+</main>
+
+<!-- ════════════════════════════════════════════
+     SCREEN 1.5: SEARCH
+════════════════════════════════════════════ -->
+<section id="screen-search" class="screen" role="region" aria-label="검색 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" aria-label="현재 위치">
+      <span>홈</span>
+      <span aria-current="location">검색</span>
+    </nav>
+    <div class="top-bar-content">
+      <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
+      <h1 class="top-title">검색하기</h1>
+      <div class="top-bar-spacer" aria-hidden="true"></div>
+    </div>
+  </header>
+  
+  <div class="home-search-zone">
+    <div class="search-field">
+      <label for="homeSearchInput" class="sr-only">브랜드 또는 메뉴 검색</label>
+      <input
+        class="search-input"
+        id="homeSearchInput"
+        type="search"
+        placeholder="브랜드 또는 메뉴 입력"
+        inputmode="search"
+        autocomplete="off"
+        aria-describedby="search-hint"
+      >
+      <span id="search-hint" class="sr-only">초성으로도 검색이 가능합니다.</span>
+    </div>
+    <button class="voice-search-btn" id="voiceSearchBtn" type="button" aria-label="음성으로 검색하기">
+      <span id="voiceSearchBtnText">음성으로 검색하기</span>
+    </button>
+    <button class="search-execute-btn" id="homeSearchBtn" type="button" aria-label="검색 실행하기">검색하기</button>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 2: RESULTS
+════════════════════════════════════════════ -->
+<section id="screen-results" class="screen" role="region" aria-label="검색 결과 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" id="resultsBreadcrumb" aria-label="현재 위치">
+      <span>홈</span>
+      <span aria-current="location">검색 결과</span>
+    </nav>
+    <div class="top-bar-content">
+      <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
+      <h1 class="top-title" id="resultsTitle">검색 결과</h1>
+      <div class="top-bar-spacer" aria-hidden="true"></div>
+    </div>
+  </header>
+  <div class="results-list" id="resultsList" role="list"></div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 3: BRAND DETAIL
+════════════════════════════════════════════ -->
+<section id="screen-detail" class="screen" role="region" aria-label="상세 메뉴 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" id="detailBreadcrumb" aria-label="현재 위치">
+      <span>홈</span>
+      <span>검색</span>
+      <span aria-current="location">메뉴</span>
+    </nav>
+    <div class="top-bar-content">
+      <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
+      <h1 class="top-title" id="detailTitle">메뉴</h1>
+      <div class="top-bar-spacer" aria-hidden="true"></div>
+    </div>
+  </header>
+  
+  <div id="detailContent" class="detail-content">
+    <!-- Dynamic content will be injected here -->
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 4: CAMERA
+════════════════════════════════════════════ -->
+<section id="screen-camera" class="screen" role="region" aria-label="돋보기 카메라 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" aria-label="현재 위치">
+      <span aria-current="location">돋보기</span>
+    </nav>
+    <div class="top-bar-content">
+      <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
+      <h1 class="top-title">돋보기</h1>
+      <div class="top-bar-spacer" aria-hidden="true"></div>
+    </div>
+  </header>
+
+  <div class="camera-view" id="cameraView">
+    <video id="cameraVideo" autoplay playsinline muted aria-label="카메라 미리보기"></video>
+    <div class="flash-overlay" id="flashOverlay" aria-hidden="true"></div>
+    <div class="zoom-indicator" id="zoomIndicator" aria-live="polite">확대 1×</div>
+    <div class="contrast-indicator" id="contrastIndicator" aria-live="polite">대비 강화 ON</div>
+
+    <!-- No support fallback -->
+    <div class="camera-no-support" id="cameraNoSupport" role="alert">
+      <span>카메라를 사용할 수 없습니다.<br>권한을 허용해 주세요.</span>
+    </div>
+
+    <!-- Captured image overlay -->
+    <div class="captured-overlay" id="capturedOverlay" role="dialog" aria-label="캡처된 사진">
+      <canvas id="capturedCanvas" aria-label="캡처된 이미지 미리보기"></canvas>
+      <button class="close-capture-btn" onclick="closeCaptured()" aria-label="사진 닫기">✕ 닫기</button>
+    </div>
+  </div>
+
+  <footer class="camera-controls">
+    <div class="camera-zoom-row">
+      <button class="zoom-btn" id="zoomOutBtn" aria-label="축소하기">−</button>
+      <div class="zoom-label" id="zoomLabel">
+        확대/축소<br><strong id="zoomValue" aria-live="polite">1×</strong>
+      </div>
+      <button class="zoom-btn" id="zoomInBtn" aria-label="확대하기">＋</button>
+    </div>
+    <div class="capture-row">
+      <button class="contrast-btn" id="contrastBtn" aria-label="글씨 뚜렷하게 보기 토글">
+        <span>글씨 뚜렷하게</span>
+      </button>
+      <button class="capture-btn" id="captureBtn" aria-label="사진 찍기">
+        사진 찍기
+      </button>
+      <button class="contrast-btn" id="ocrBtn" aria-label="글자 읽기">
+        <span>글자 읽기</span>
+      </button>
+    </div>
+    <div id="ocrResultArea" class="sr-only" aria-live="polite"></div>
+  </footer>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 6: SETTINGS
+════════════════════════════════════════════ -->
+<section id="screen-settings" class="screen" role="region" aria-label="설정 화면">
+  <header class="top-bar">
+    <div class="breadcrumb" aria-label="현재 위치">
+      <span aria-current="location">설정</span>
+    </div>
+    <div class="top-bar-content">
+      <h1 class="top-title" style="text-align:left;">설정</h1>
+    </div>
+  </header>
+  
+  <div class="results-list settings-list">
+    <section aria-labelledby="setting-font-size">
+      <h2 id="setting-font-size" class="section-heading">글자 크기</h2>
+      <div class="settings-grid-3">
+        <button class="result-card setting-btn" onclick="updateSetting('fontSize', 'small')" aria-label="작게">작게</button>
+        <button class="result-card setting-btn" onclick="updateSetting('fontSize', 'medium')" aria-label="보통">보통</button>
+        <button class="result-card setting-btn" onclick="updateSetting('fontSize', 'large')" aria-label="크게">크게</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="setting-voice">
+      <h2 id="setting-voice" class="section-heading">음성 안내</h2>
+      <button class="result-card setting-toggle-btn" onclick="toggleVoice()" id="settings-voice-btn">
+        <span>음성 안내 켜짐</span>
+      </button>
+      <button class="result-card setting-toggle-btn tts-debug-btn" type="button" onclick="testAndroidTtsBridge()" id="settings-tts-test-btn" aria-label="Android TTS 연결 테스트">
+        <span>TTS 연결 테스트</span>
+      </button>
+    </section>
+
+    <section aria-labelledby="setting-contrast">
+      <h2 id="setting-contrast" class="section-heading">화면 모드</h2>
+      <div class="settings-grid-2">
+        <button class="result-card setting-btn" onclick="updateSetting('displayMode', 'normal')">기본</button>
+        <button class="result-card setting-btn" onclick="updateSetting('displayMode', 'high-contrast')">고대비</button>
+        <button class="result-card setting-btn" onclick="updateSetting('displayMode', 'grayscale')">흑백</button>
+        <button class="result-card setting-btn" onclick="updateSetting('displayMode', 'invert')">색상 반전</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="setting-motion">
+      <h2 id="setting-motion" class="section-heading">애니메이션</h2>
+      <button class="result-card setting-toggle-btn" onclick="updateSetting('reducedMotion', !AppState.settings.reducedMotion)" id="settings-motion-btn">
+        <span>애니메이션 사용 중</span>
+      </button>
+    </section>
+  </div>
+</section>
+
+
+<!-- TOAST -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+
+
+<!-- ════════════════════════════════════════════
+     SCREEN 5: FAVORITES
+════════════════════════════════════════════ -->
+<section id="screen-fav" class="screen" role="region" aria-label="즐겨찾기 목록 화면">
+  <header class="top-bar">
+    <nav class="breadcrumb" aria-label="현재 위치">
+      <span aria-current="location">즐겨찾기</span>
+    </nav>
+    <div class="top-bar-content">
+      <h1 class="top-title" style="text-align:left;">즐겨찾기</h1>
+    </div>
+  </header>
+  <div class="results-list" id="favList" role="list"></div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     BOTTOM NAVIGATION
+════════════════════════════════════════════ -->
+<nav class="bottom-nav" id="bottomNav" aria-label="주요 메뉴">
+  <button class="nav-tab active" id="nav-home" onclick="navTo('home')" aria-label="홈 화면으로 이동" aria-current="page">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+      <polyline points="9 22 9 12 15 12 15 22"></polyline>
+    </svg>
+    <span>홈</span>
+  </button>
+  <button class="nav-tab" id="nav-camera" onclick="navTo('camera')" aria-label="돋보기 카메라로 이동">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <span>돋보기</span>
+  </button>
+  <button class="nav-tab" id="nav-fav" onclick="navTo('fav')" aria-label="즐겨찾기 목록으로 이동">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+    </svg>
+    <span>즐겨찾기</span>
+  </button>
+  <button class="nav-tab" id="nav-settings" onclick="navTo('settings')" aria-label="설정 화면으로 이동">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+    <span>설정</span>
+  </button>
+</nav>
+
+<script>
+/**
+ * 크게 크게 - 접근성 중심 메뉴 도우미
+ * Modular Architecture Refactoring
+ */
+
+// ═══════════════════════════════════════════
+//   CORE MODULE: STATE & SETTINGS
+// ═══════════════════════════════════════════
+const AppState = {
+  screenHistory: ['home'],
+  favorites: JSON.parse(localStorage.getItem('fav') || '[]'),
+  recentMenus: JSON.parse(localStorage.getItem('recentMenus') || '[]'),
+  recentSearches: JSON.parse(localStorage.getItem('recentSearches') || '[]'),
+  settings: JSON.parse(localStorage.getItem('settings') || '{"voiceEnabled": true, "fontSize": "medium", "displayMode": "normal", "reducedMotion": false}'),
+  brands: null, // Loaded via fetch
+  
+  save() {
+    localStorage.setItem('fav', JSON.stringify(this.favorites));
+    localStorage.setItem('recentMenus', JSON.stringify(this.recentMenus));
+    localStorage.setItem('recentSearches', JSON.stringify(this.recentSearches));
+    localStorage.setItem('settings', JSON.stringify(this.settings));
+  }
+};
+
+const SettingsManager = {
+  init() {
+    this.applySettings();
+  },
+  
+  update(key, value) {
+    AppState.settings[key] = value;
+    AppState.save();
+    this.applySettings();
+    
+    let msg = '';
+    if (key === 'fontSize') msg = `글자 크기가 ${value === 'small' ? '작게' : value === 'large' ? '크게' : '보통'}로 변경되었습니다.`;
+    if (key === 'displayMode') msg = `화면 모드가 변경되었습니다.`;
+    if (key === 'reducedMotion') msg = value ? '애니메이션이 제한됩니다.' : '애니메이션을 사용합니다.';
+    
+    if (msg) {
+      showToast(msg);
+      NavigationManager.announce(msg);
+    }
+    
+    if (AppState.screenHistory[AppState.screenHistory.length - 1] === 'settings') {
+      UI.renderSettingsScreen();
+    }
+  },
+  
+  applySettings() {
+    const body = document.body;
+    const s = AppState.settings;
+    
+    // Font Size
+    body.classList.remove('fs-small', 'fs-large');
+    if (s.fontSize === 'small') body.classList.add('fs-small');
+    if (s.fontSize === 'large') body.classList.add('fs-large');
+    
+    // Display Mode
+    body.classList.remove('high-contrast', 'grayscale', 'invert');
+    if (s.displayMode !== 'normal') body.classList.add(s.displayMode);
+    
+    // Reduced Motion
+    if (s.reducedMotion) {
+      body.setAttribute('data-reduced-motion', 'true');
+    } else {
+      body.removeAttribute('data-reduced-motion');
+    }
+  }
+};
+
+// ═══════════════════════════════════════════
+//   NAVIGATION MODULE
+// ═══════════════════════════════════════════
+const NavigationManager = {
+  navTo(name) {
+    vib();
+    document.querySelectorAll('.nav-tab').forEach(t => {
+      t.classList.remove('active');
+      t.removeAttribute('aria-current');
+    });
+    const activeTab = document.getElementById('nav-' + name);
+    if (activeTab) {
+      activeTab.classList.add('active');
+      activeTab.setAttribute('aria-current', 'page');
+    }
+
+    AppState.screenHistory = [name === 'home' ? 'home' : name];
+    this.switchScreen(name);
+  },
+
+  gotoScreen(name) {
+    vib();
+    this.switchScreen(name);
+    AppState.screenHistory.push(name);
+  },
+
+  switchScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById('screen-' + name);
+    if (target) {
+      target.classList.add('active');
+      
+      // Screen specific logic
+      if (name === 'home') UI.renderHomeScreen();
+      if (name === 'search') UI.renderSearchScreen();
+      if (name === 'fav') UI.renderFavScreen();
+      if (name === 'settings') UI.renderSettingsScreen();
+      
+      this.announceScreen(name);
+    }
+    
+    if (name === 'camera') CameraManager.start();
+    else CameraManager.stop();
+  },
+
+  goBack() {
+    vib();
+    if (AppState.screenHistory.length <= 1) {
+      const root = AppState.screenHistory[0] || 'home';
+      this.navTo(root === 'camera' ? 'camera' : root === 'fav' ? 'fav' : root === 'settings' ? 'settings' : 'home');
+      return;
+    }
+    AppState.screenHistory.pop();
+    const prev = AppState.screenHistory[AppState.screenHistory.length - 1];
+    this.switchScreen(prev);
+    
+    // Update bottom nav active state
+    const rootTabs = ['home', 'camera', 'fav', 'settings'];
+    if (rootTabs.includes(prev)) {
+      document.querySelectorAll('.nav-tab').forEach(t => {
+        t.classList.remove('active');
+        t.removeAttribute('aria-current');
+      });
+      const tab = document.getElementById('nav-' + prev);
+      if (tab) {
+        tab.classList.add('active');
+        tab.setAttribute('aria-current', 'page');
+      }
+    }
+  },
+
+  announce(msg, forceTTS = false) {
+    const announcer = document.getElementById('sr-announcer');
+    if (announcer) {
+      announcer.textContent = '';
+      setTimeout(() => { announcer.textContent = msg; }, 100);
+    }
+    if (AppState.settings.voiceEnabled || forceTTS) {
+      SpeechManager.speak(msg, true);
+    }
+  },
+
+  announceScreen(name) {
+    const titles = {
+      'home': '홈 화면입니다.',
+      'search': '검색 화면입니다. 브랜드나 메뉴를 입력해 주세요.',
+      'results': '검색 결과 화면입니다.',
+      'detail': '상세 메뉴 화면입니다.',
+      'camera': '돋보기 카메라 화면입니다. 화면을 눌러 사진을 찍을 수 있습니다.',
+      'fav': '즐겨찾기 화면입니다.',
+      'settings': '설정 화면입니다.'
+    };
+    this.announce(titles[name] || '화면이 전환되었습니다.');
+  }
+};
+
+// ═══════════════════════════════════════════
+//   SPEECH MODULE
+// ═══════════════════════════════════════════
+const SpeechManager = {
+  recognition: null,
+  synth: null,
+  Utterance: null,
+  voicesReady: false,
+  _cachedVoice: null,
+  _pending: null,
+  _retriesActive: false,
+  _keepAliveTimer: null,
+  _voiceRetryDelays: [50, 150, 300, 500, 800, 1200, 2000, 3000],
+
+  isNativeTtsAvailable() {
+    return !!(window.Android && typeof window.Android.speakText === 'function');
+  },
+
+  speakNative(text) {
+    if (!text || !this.isNativeTtsAvailable()) {
+      console.log('[TTS_DEBUG] speakNative skipped: bridge unavailable or empty text', {
+        hasAndroid: !!window.Android,
+        hasSpeakText: !!(window.Android && window.Android.speakText),
+        text
+      });
+      return false;
+    }
+    try {
+      console.log('[TTS_DEBUG] speakNative calling window.Android.speakText:', text);
+      window.Android.speakText(String(text));
+      console.log('[TTS_DEBUG] speakNative call completed');
+      return true;
+    } catch (e) {
+      console.log('[TTS_DEBUG] speakNative error:', e);
+      return false;
+    }
+  },
+
+  stopNative() {
+    if (window.Android && typeof window.Android.stopSpeak === 'function') {
+      try {
+        window.Android.stopSpeak();
+        return true;
+      } catch (e) {}
+    }
+    return false;
+  },
+
+  getSynth() {
+    return window.speechSynthesis || window.webkitSpeechSynthesis || null;
+  },
+
+  getUtteranceClass() {
+    return window.SpeechSynthesisUtterance || window.webkitSpeechSynthesisUtterance || null;
+  },
+
+  prepareSynth() {
+    this.synth = this.getSynth();
+    this.Utterance = this.getUtteranceClass();
+    if (!this.synth) return false;
+    try {
+      if (this.synth.paused) this.synth.resume();
+    } catch (e) {}
+    return !!this.Utterance;
+  },
+
+  loadVoices() {
+    if (!this.synth) return [];
+    try {
+      const voices = this.synth.getVoices();
+      return voices && voices.length ? voices : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  pickVoice(voices) {
+    const list = voices && voices.length ? voices : this.loadVoices();
+    if (!list.length) return this._cachedVoice || null;
+
+    const rules = [
+      v => v.lang === 'ko-KR' && v.localService,
+      v => v.lang === 'ko-KR',
+      v => /^ko-KR/i.test(v.lang || ''),
+      v => /^ko/i.test(v.lang || ''),
+      v => (v.lang || '').toLowerCase().includes('ko'),
+      v => /korean|ko-kr|google.*ko|samsung.*ko/i.test(v.name || ''),
+      v => v.default === true,
+    ];
+
+    for (const rule of rules) {
+      const found = list.find(rule);
+      if (found) return found;
+    }
+    return list[0];
+  },
+
+  cacheVoice() {
+    const voice = this.pickVoice(this.loadVoices());
+    if (voice) {
+      this._cachedVoice = voice;
+      this.voicesReady = true;
+    }
+    return voice;
+  },
+
+  buildUtterance(text) {
+    const utter = new this.Utterance(String(text));
+    utter.lang = 'ko-KR';
+    utter.rate = 0.9;
+    utter.pitch = 1;
+    utter.volume = 1;
+
+    const voice = this.pickVoice(this.loadVoices()) || this._cachedVoice;
+    if (voice) {
+      utter.voice = voice;
+      this._cachedVoice = voice;
+    }
+    return utter;
+  },
+
+  startKeepAlive() {
+    this.stopKeepAlive();
+    this._keepAliveTimer = setInterval(() => {
+      if (!this.synth) {
+        this.stopKeepAlive();
+        return;
+      }
+      if (!this.synth.speaking) {
+        this.stopKeepAlive();
+        return;
+      }
+      try {
+        if (this.synth.paused) this.synth.resume();
+      } catch (e) {}
+    }, 250);
+    setTimeout(() => this.stopKeepAlive(), 15000);
+  },
+
+  stopKeepAlive() {
+    if (this._keepAliveTimer) {
+      clearInterval(this._keepAliveTimer);
+      this._keepAliveTimer = null;
+    }
+  },
+
+  runSpeak(text, skipToast = false) {
+    if (this.speakNative(text)) {
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
+    }
+
+    if (!this.prepareSynth()) return;
+
+    try {
+      this.synth.cancel();
+    } catch (e) {}
+
+    setTimeout(() => {
+      if (!this.prepareSynth()) return;
+
+      try {
+        if (this.synth.paused) this.synth.resume();
+
+        const utter = this.buildUtterance(text);
+        utter.onend = () => this.stopKeepAlive();
+        utter.onerror = () => this.stopKeepAlive();
+
+        this.startKeepAlive();
+        this.synth.speak(utter);
+
+        if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      } catch (e) {
+        this.stopKeepAlive();
+      }
+    }, 50);
+  },
+
+  tryPendingSpeak() {
+    if (!this._pending) return;
+
+    const { text, skipToast } = this._pending;
+    if (this.speakNative(text)) {
+      this._pending = null;
+      this._retriesActive = false;
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
+    }
+
+    if (!this.prepareSynth()) return;
+
+    const voices = this.loadVoices();
+    if (!voices.length) {
+      this.scheduleVoiceRetries();
+      return;
+    }
+
+    this.cacheVoice();
+    this._pending = null;
+    this._retriesActive = false;
+    this.runSpeak(text, skipToast);
+  },
+
+  scheduleVoiceRetries() {
+    if (this._retriesActive) return;
+    this._retriesActive = true;
+
+    const attempt = () => {
+      if (!this._pending) {
+        this._retriesActive = false;
+        return;
+      }
+      if (this.speakNative(this._pending.text)) {
+        const { text, skipToast } = this._pending;
+        this._pending = null;
+        this._retriesActive = false;
+        if (!skipToast) showToast(`"${text}" 읽는 중...`);
+        return;
+      }
+      this.prepareSynth();
+      const voices = this.loadVoices();
+      if (voices.length > 0) {
+        this.tryPendingSpeak();
+      }
+    };
+
+    this._voiceRetryDelays.forEach(delay => setTimeout(attempt, delay));
+
+    setTimeout(() => {
+      if (!this._pending) {
+        this._retriesActive = false;
+        return;
+      }
+      const { text, skipToast } = this._pending;
+      this._pending = null;
+      this._retriesActive = false;
+      this.runSpeak(text, skipToast);
+    }, 3500);
+  },
+
+  queueSpeak(text, skipToast = false) {
+    this._pending = { text, skipToast };
+    this.tryPendingSpeak();
+  },
+
+  initVoiceEngine() {
+    this.prepareSynth();
+
+    const onVoicesChanged = () => {
+      if (this.loadVoices().length > 0) {
+        this.cacheVoice();
+        if (this._pending) this.tryPendingSpeak();
+      }
+    };
+
+    if (this.synth) {
+      this.synth.onvoiceschanged = onVoicesChanged;
+    }
+
+    onVoicesChanged();
+    this._voiceRetryDelays.forEach(delay => setTimeout(onVoicesChanged, delay));
+  },
+
+  bindUserGestureWarmUp() {
+    if (this._warmUpBound) return;
+    this._warmUpBound = true;
+    const warmUp = () => {
+      this.prepareSynth();
+      this.cacheVoice();
+    };
+    document.addEventListener('touchstart', warmUp, { once: true, passive: true });
+    document.addEventListener('click', warmUp, { once: true, passive: true });
+  },
+
+  getVoiceSearchBtn() {
+    return document.getElementById('voiceSearchBtn');
+  },
+
+  getVoiceSearchBtnText() {
+    return document.getElementById('voiceSearchBtnText');
+  },
+
+  setVoiceSearchListening(listening) {
+    const btn = this.getVoiceSearchBtn();
+    const label = this.getVoiceSearchBtnText();
+    if (!btn || !label) return;
+
+    if (listening) {
+      btn.classList.add('listening');
+      btn.setAttribute('aria-label', '듣고 있습니다. 다시 누르면 중단');
+      label.textContent = '듣고 있습니다...';
+    } else {
+      btn.classList.remove('listening');
+      btn.setAttribute('aria-label', '음성으로 검색하기');
+      label.textContent = '음성으로 검색하기';
+    }
+  },
+
+  startVoiceSearch() {
+    vib();
+    if (!this.recognition) {
+      showToast('음성 검색을 사용할 수 없습니다');
+      NavigationManager.announce('음성 검색을 사용할 수 없습니다');
+      return;
+    }
+
+    try {
+      this.recognition.start();
+    } catch (e) {
+      try {
+        this.recognition.stop();
+      } catch (err) {}
+    }
+  },
+
+  toggleVoiceSearch() {
+    const btn = this.getVoiceSearchBtn();
+    if (btn && btn.classList.contains('listening')) {
+      try {
+        this.recognition?.stop();
+      } catch (e) {}
+      return;
+    }
+    this.startVoiceSearch();
+  },
+
+  init() {
+    this.initVoiceEngine();
+    this.bindUserGestureWarmUp();
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      this.recognition = new SR();
+      this.recognition.lang = 'ko-KR';
+      this.recognition.onstart = () => {
+        this.setVoiceSearchListening(true);
+        showToast('듣고 있습니다...');
+        NavigationManager.announce('듣고 있습니다. 말씀해 주세요.');
+      };
+      this.recognition.onend = () => {
+        this.setVoiceSearchListening(false);
+      };
+      this.recognition.onerror = () => {
+        this.setVoiceSearchListening(false);
+        showToast('음성 인식 실패');
+        NavigationManager.announce('음성 인식에 실패했습니다.');
+      };
+      this.recognition.onresult = (e) => {
+        const t = e.results[0][0].transcript;
+        const input = document.getElementById('homeSearchInput');
+        if (input) input.value = t;
+        SearchManager.doSearch(t);
+      };
+    }
+  },
+
+  speak(text, skipToast = false) {
+    if (!text) return;
+    vib();
+    if (this.speakNative(text)) {
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
+    }
+    this.queueSpeak(text, skipToast);
+  },
+
+  speakFromUserAction(text, skipToast = false) {
+    if (!text) return;
+    vib();
+    if (this.speakNative(text)) {
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
+    }
+
+    this.prepareSynth();
+    this.cacheVoice();
+
+    const voices = this.loadVoices();
+    if (voices.length > 0) {
+      this._pending = null;
+      this.runSpeak(text, skipToast);
+    } else {
+      this.queueSpeak(text, skipToast);
+    }
+  },
+
+  toggle() {
+    AppState.settings.voiceEnabled = !AppState.settings.voiceEnabled;
+    AppState.save();
+    const msg = AppState.settings.voiceEnabled ? '음성 안내를 시작합니다.' : '음성 안내를 종료합니다.';
+    showToast(msg);
+
+    const announcer = document.getElementById('sr-announcer');
+    if (announcer) {
+      announcer.textContent = '';
+      setTimeout(() => { announcer.textContent = msg; }, 100);
+    }
+
+    if (AppState.settings.voiceEnabled) {
+      this.speakFromUserAction(msg, true);
+    } else {
+      this.stopNative();
+      try {
+        if (this.prepareSynth()) this.synth.cancel();
+      } catch (e) {}
+      this.stopKeepAlive();
+    }
+
+    if (AppState.screenHistory[AppState.screenHistory.length - 1] === 'settings') {
+      UI.renderSettingsScreen();
+    }
+  }
+};
+
+// ═══════════════════════════════════════════
+//   CAMERA & OCR MODULE
+// ═══════════════════════════════════════════
+const CameraManager = {
+  stream: null,
+  zoomScale: 1,
+  contrastOn: false,
+  zoomTimer: null,
+  contrastTimer: null,
+
+  async start() {
+    const video = document.getElementById('cameraVideo');
+    const noSupport = document.getElementById('cameraNoSupport');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      video.style.display = 'none';
+      noSupport.style.display = 'flex';
+      return;
+    }
+
+    showToast('카메라를 준비 중입니다...');
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      video.srcObject = this.stream;
+      video.style.display = 'block';
+      noSupport.style.display = 'none';
+      this.applyZoom();
+    } catch (err) {
+      video.style.display = 'none';
+      noSupport.style.display = 'flex';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        this.showPermissionModal();
+      }
+      showToast('카메라 오류');
+    }
+  },
+
+  showPermissionModal() {
+    let modal = document.getElementById('cameraPermModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'cameraPermModal';
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-title">카메라 권한 필요</div>
+          <div class="modal-desc">카메라 권한을 허용해야 돋보기를 사용할 수 있습니다.</div>
+          <button class="modal-btn" onclick="document.getElementById('cameraPermModal').remove()">확인</button>
+        </div>`;
+      document.body.appendChild(modal);
+    }
+  },
+
+  stop() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(t => t.stop());
+      this.stream = null;
+    }
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = null;
+    this.zoomScale = 1;
+    this.contrastOn = false;
+    this.updateUI();
+  },
+
+  async applyZoom() {
+    const video = document.getElementById('cameraVideo');
+    if (this.stream) {
+      const track = this.stream.getVideoTracks()[0];
+      if (track && track.getCapabilities) {
+        const caps = track.getCapabilities();
+        if (caps.zoom) {
+          try {
+            const nativeZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, this.zoomScale));
+            await track.applyConstraints({ advanced: [{ zoom: nativeZoom }] });
+            video.style.transform = '';
+            return;
+          } catch(e) {}
+        }
+      }
+    }
+    video.style.transform = `scale(${this.zoomScale})`;
+  },
+
+  updateUI() {
+    const val = this.zoomScale.toFixed(1).replace('.0', '') + '×';
+    document.getElementById('zoomValue').textContent = val;
+    const ind = document.getElementById('zoomIndicator');
+    ind.textContent = '확대 ' + val;
+    ind.classList.add('show');
+    clearTimeout(this.zoomTimer);
+    this.zoomTimer = setTimeout(() => ind.classList.remove('show'), 1800);
+  },
+
+  toggleContrast() {
+    vib([30, 20, 30]);
+    this.contrastOn = !this.contrastOn;
+    const video = document.getElementById('cameraVideo');
+    video.style.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : '';
+    const btn = document.getElementById('contrastBtn');
+    btn.classList.toggle('active-contrast', this.contrastOn);
+    btn.setAttribute('aria-pressed', this.contrastOn);
+    
+    const ind = document.getElementById('contrastIndicator');
+    ind.textContent = this.contrastOn ? '대비 강화 ON' : '대비 강화 OFF';
+    ind.classList.add('show');
+    clearTimeout(this.contrastTimer);
+    this.contrastTimer = setTimeout(() => ind.classList.remove('show'), 1800);
+    showToast(this.contrastOn ? '대비 강화 켜짐' : '대비 강화 꺼짐');
+  },
+
+  capture() {
+    vib([50, 30, 50]);
+    const video = document.getElementById('cameraVideo');
+    if (!this.stream || video.readyState < 2) return;
+
+    const flash = document.getElementById('flashOverlay');
+    flash.classList.add('flash');
+    setTimeout(() => flash.classList.remove('flash'), 200);
+
+    const canvas = document.getElementById('capturedCanvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    if (this.contrastOn) {
+      ctx.filter = 'contrast(2.5) brightness(1.1)';
+      ctx.drawImage(canvas, 0, 0);
+    }
+
+    document.getElementById('capturedOverlay').classList.add('show');
+    showToast('캡처 완료!');
+  },
+
+  async runOCR() {
+    vib();
+    const video = document.getElementById('cameraVideo');
+    if (!this.stream || video.readyState < 2) return;
+
+    showToast('글자를 읽는 중입니다...');
+    NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    
+    // OCR Placeholder
+    const text = await this.recognizeText(canvas);
+    
+    if (text) {
+      NavigationManager.announce(`인식된 글자입니다: ${text}`);
+      document.getElementById('ocrResultArea').textContent = text;
+      showToast('인식 완료!');
+    } else {
+      NavigationManager.announce('글자를 인식하지 못했습니다.');
+      showToast('인식 실패');
+    }
+  },
+
+  async recognizeText(canvas) {
+    // 실제 OCR 엔진(Tesseract.js 등) 연결 지점
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve("샘플 메뉴: 아메리카노 4,500원, 카페라떼 5,000원");
+      }, 1500);
+    });
+  }
+};
+
+// ═══════════════════════════════════════════
+//   DATA HELPERS
+// ═══════════════════════════════════════════
+const MAX_MENU_RESULTS = 5;
+const CATEGORIES = ['카페', '식당'];
+
+const DataHelper = {
+  getCategoryBrands(cat) {
+    if (!AppState.brands || !AppState.brands[cat]) return [];
+    return AppState.brands[cat].map(b => ({ ...b, cat }));
+  },
+
+  getAllBrands() {
+    if (!AppState.brands) return [];
+    return CATEGORIES.flatMap(cat =>
+      (AppState.brands[cat] || []).map(b => ({ ...b, cat }))
+    );
+  },
+
+  getBrandMenus(brand, limit = MAX_MENU_RESULTS) {
+    return (brand.menus || []).slice(0, limit);
+  },
+
+  groupByCategory(items) {
+    const grouped = Object.fromEntries(CATEGORIES.map(cat => [cat, []]));
+    items.forEach(item => {
+      if (grouped[item.cat]) grouped[item.cat].push(item);
+    });
+    return grouped;
+  }
+};
+
+// ═══════════════════════════════════════════
+//   SEARCH MODULE
+// ═══════════════════════════════════════════
+const SearchManager = {
+  doSearch(query) {
+    const q = query.trim();
+    if (!q) {
+      NavigationManager.announce('검색어를 입력해 주세요');
+      return;
+    }
+    vib();
+
+    AppState.recentSearches = AppState.recentSearches.filter(s => s !== q);
+    AppState.recentSearches.unshift(q);
+    AppState.recentSearches = AppState.recentSearches.slice(0, 5);
+    AppState.save();
+
+    NavigationManager.announce('검색 중입니다.');
+
+    const results = [];
+    const allBrands = DataHelper.getAllBrands();
+
+    const qChosung = this.getChosung(q);
+    const isChosungQuery = [...q].every(ch => 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'.includes(ch));
+
+    allBrands.forEach(brand => {
+      const nameMatch = brand.name.includes(q);
+      const brandChosung = this.getChosung(brand.name);
+      const chosungMatch = (brand.chosung && brand.chosung.includes(q)) || brandChosung.includes(q) || (isChosungQuery && brandChosung.startsWith(qChosung));
+      const menuMatch = brand.menus.some(m => m.includes(q) || this.getChosung(m).includes(q));
+      if (nameMatch || chosungMatch || menuMatch) results.push(brand);
+    });
+
+    const grouped = DataHelper.groupByCategory(results);
+    UI.renderBrandList(grouped, `"${q}" 검색 결과`, { grouped: true });
+    
+    const bc = document.getElementById('resultsBreadcrumb');
+    if (bc) bc.innerHTML = `<span>홈</span><span>검색</span><span aria-current="location">결과</span>`;
+
+    NavigationManager.gotoScreen('results');
+  },
+
+  getChosung(str) {
+    const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+    return [...str].map(c => {
+      const code = c.charCodeAt(0) - 0xAC00;
+      if (code < 0 || code > 11171) return c;
+      return CHO[Math.floor(code / 28 / 21)];
+    }).join('');
+  }
+};
+
+// ═══════════════════════════════════════════
+//   UI RENDER MODULE
+// ═══════════════════════════════════════════
+const UI = {
+  escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
+  buildBrandCard(brand) {
+    const name = this.escapeHtml(brand.name);
+    const cat = this.escapeHtml(brand.cat);
+    return `
+      <div class="brand-card" role="listitem" tabindex="0" data-brand="${name}" data-cat="${cat}" aria-label="${name} 메뉴 보기">
+        <div class="brand-card-info">
+          <div class="brand-card-name">${name}</div>
+        </div>
+        <button type="button" class="tts-btn" data-speak="${name}" aria-label="${name} 이름 듣기">듣기</button>
+      </div>
+    `;
+  },
+
+  buildMenuCard(menuName) {
+    const menu = this.escapeHtml(menuName);
+    return `
+      <div class="menu-card" role="listitem" tabindex="0" aria-label="${menu} 메뉴">
+        <div class="menu-card-info">
+          <div class="menu-card-name">${menu}</div>
+        </div>
+        <button type="button" class="tts-btn" data-speak="${menu}" aria-label="${menu} 듣기">듣기</button>
+      </div>
+    `;
+  },
+
+  buildCategorySection(cat, items) {
+    if (!items.length) {
+      return `
+        <section class="category-section" aria-label="${cat} 목록">
+          <h2 class="section-heading">${cat}</h2>
+          <div class="category-empty">등록된 ${cat}가 없습니다.</div>
+        </section>
+      `;
+    }
+    return `
+      <section class="category-section" aria-label="${cat} 목록">
+        <h2 class="section-heading">${cat}</h2>
+        <div class="brand-card-list" role="list">
+          ${items.map(brand => this.buildBrandCard(brand)).join('')}
+        </div>
+      </section>
+    `;
+  },
+
+  handleBrandListClick(e) {
+    const ttsBtn = e.target.closest('.tts-btn');
+    if (ttsBtn) {
+      e.stopPropagation();
+      const text = ttsBtn.dataset.speak;
+      console.log('[TTS_DEBUG] brand list tts button clicked:', text);
+      if (text) SpeechManager.speakFromUserAction(text);
+      return;
+    }
+    const card = e.target.closest('.brand-card[data-brand], .recent-card[data-brand]');
+    if (card) openBrand(card.dataset.brand, card.dataset.cat);
+  },
+
+  handleDetailClick(e) {
+    const ttsBtn = e.target.closest('.tts-btn');
+    if (!ttsBtn) return;
+    e.stopPropagation();
+    const text = ttsBtn.dataset.speak;
+    console.log('[TTS_DEBUG] menu tts button clicked:', text);
+    if (text) SpeechManager.speakFromUserAction(text);
+  },
+
+  renderBrandList(brands, title, options = {}) {
+    const { grouped = false, emptyMessage } = options;
+    const list = document.getElementById('resultsList');
+    document.getElementById('resultsTitle').textContent = title;
+
+    const isEmpty = grouped
+      ? CATEGORIES.every(cat => !brands[cat] || brands[cat].length === 0)
+      : !brands || brands.length === 0;
+
+    if (isEmpty) {
+      list.innerHTML = `<div class="no-results">${emptyMessage || '결과가 없습니다.<br><br>다른 검색어로<br>다시 시도해 보세요.'}</div>`;
+      NavigationManager.announce(emptyMessage ? emptyMessage.replace(/<[^>]+>/g, '') : '검색 결과가 없습니다.');
+      return;
+    }
+
+    const html = grouped
+      ? CATEGORIES.filter(cat => brands[cat] && brands[cat].length).map(cat => this.buildCategorySection(cat, brands[cat])).join('')
+      : `<div class="brand-card-list" role="list">${brands.map(brand => this.buildBrandCard(brand)).join('')}</div>`;
+
+    list.innerHTML = html;
+    list.scrollTop = 0;
+
+    const count = grouped
+      ? CATEGORIES.reduce((n, cat) => n + (brands[cat] ? brands[cat].length : 0), 0)
+      : brands.length;
+    NavigationManager.announce(`${title} ${count}개가 있습니다.`);
+  },
+
+  renderBrandDetail(name, cat) {
+    if (!AppState.brands || !AppState.brands[cat]) return;
+    const brand = AppState.brands[cat].find(b => b.name === name);
+    if (!brand) return;
+
+    const isFav = AppState.favorites.includes(name);
+    const menus = DataHelper.getBrandMenus(brand);
+    const safeName = this.escapeHtml(name);
+
+    document.getElementById('detailTitle').textContent = name;
+    const bc = document.getElementById('detailBreadcrumb');
+    if (bc) bc.innerHTML = `<span>홈</span><span>${this.escapeHtml(cat)}</span><span aria-current="location">${safeName}</span>`;
+
+    const menuHTML = menus.length
+      ? `<div class="menu-card-list" role="list">${menus.map(menu => this.buildMenuCard(menu)).join('')}</div>`
+      : '<div class="no-results">등록된 메뉴가 없습니다.</div>';
+
+    document.getElementById('detailContent').innerHTML = `
+      ${menuHTML}
+      <div class="detail-actions">
+        <button class="add-fav-btn ${isFav ? 'active' : ''}" data-fav-brand="${safeName}" aria-label="${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'}" aria-pressed="${isFav}">
+          <span class="fav-icon" aria-hidden="true">${isFav ? '★' : '☆'}</span>
+          <span>${isFav ? '즐겨찾기 삭제' : '즐겨찾기 추가'}</span>
+        </button>
+      </div>
+    `;
+
+    const favBtn = document.getElementById('detailContent').querySelector('[data-fav-brand]');
+    if (favBtn) {
+      favBtn.addEventListener('click', () => toggleFav(name));
+    }
+
+    NavigationManager.announce(`${name} 메뉴 ${menus.length}개가 있습니다.`);
+  },
+
+  renderHomeScreen() {
+    const homeContent = document.querySelector('#screen-home .home-menu-zone');
+    if (!AppState.brands) {
+      homeContent.innerHTML = '<div class="no-results">데이터를 불러오는 중입니다...</div>';
+      return;
+    }
+
+    homeContent.innerHTML = `
+      <div class="home-cat-grid">
+        <button class="home-cat-btn" onclick="gotoScreen('search')" aria-label="메뉴 검색하기 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+          <span>검색하기</span>
+        </button>
+        <button class="home-cat-btn" onclick="goCat('카페')" aria-label="카페 메뉴 보기 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg></span>
+          <span>카페</span>
+        </button>
+        <button class="home-cat-btn" onclick="goCat('식당')" aria-label="식당 메뉴 보기 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path></svg></span>
+          <span>식당</span>
+        </button>
+        <button class="home-cat-btn" onclick="navTo('settings')" aria-label="설정 버튼">
+          <span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
+          <span>설정</span>
+        </button>
+      </div>
+    `;
+  },
+
+  renderSearchScreen() {
+    const zone = document.querySelector('#screen-search .home-search-zone');
+    const existingRecent = zone.querySelector('.recent-searches');
+    if (existingRecent) existingRecent.remove();
+    if (AppState.recentSearches.length > 0) {
+      const recentDiv = document.createElement('div');
+      recentDiv.className = 'recent-searches';
+      recentDiv.style.marginTop = '12px';
+      recentDiv.innerHTML = `
+        <h2 class="section-heading">최근 검색어</h2>
+        <div class="recent-tags">
+          ${AppState.recentSearches.map(s => `<button class="result-card recent-tag-btn" onclick="doSearch('${s}')" aria-label="${s} 검색하기">${s}</button>`).join('')}
+        </div>
+      `;
+      zone.appendChild(recentDiv);
+    }
+  },
+
+  renderFavScreen() {
+    const items = DataHelper.getAllBrands().filter(b => AppState.favorites.includes(b.name));
+    const list = document.getElementById('favList');
+    if (items.length === 0) {
+      list.innerHTML = '<div class="no-results">아직 즐겨찾기가 없습니다.<br><br>브랜드 메뉴에서<br>별표를 눌러 추가해 보세요.</div>';
+      return;
+    }
+    list.innerHTML = `<div class="brand-card-list" role="list">${items.map(brand => this.buildBrandCard(brand)).join('')}</div>`;
+  },
+
+  renderSettingsScreen() {
+    const s = AppState.settings;
+    document.getElementById('settings-voice-btn').querySelector('span').textContent = s.voiceEnabled ? '음성 안내 켜짐' : '음성 안내 꺼짐';
+    document.getElementById('settings-motion-btn').querySelector('span').textContent = s.reducedMotion ? '애니메이션 제한됨' : '애니메이션 사용 중';
+
+    document.querySelectorAll('#screen-settings .result-card').forEach(btn => {
+      btn.classList.remove('active');
+      const onclick = btn.getAttribute('onclick') || '';
+      if (onclick.includes('fontSize')) {
+        if (onclick.includes(`'${s.fontSize}'`)) btn.classList.add('active');
+      } else if (onclick.includes('displayMode')) {
+        if (onclick.includes(`'${s.displayMode}'`)) btn.classList.add('active');
+      }
+    });
+  }
+};
+
+// ═══════════════════════════════════════════
+//   GLOBAL HELPERS & EVENT HANDLERS
+// ═══════════════════════════════════════════
+function vib(pattern = [30]) { if (navigator.vibrate) navigator.vibrate(pattern); }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function navTo(name) { NavigationManager.navTo(name); }
+function gotoScreen(name) { NavigationManager.gotoScreen(name); }
+function goBack() { NavigationManager.goBack(); }
+function toggleVoice() { SpeechManager.toggle(); }
+function speak(text, skip) { SpeechManager.speak(text, skip); }
+function speakFromClick(text, skip) { SpeechManager.speakFromUserAction(text, skip); }
+
+function testAndroidTtsBridge() {
+  vib();
+  console.log('[TTS_DEBUG] TTS test button clicked');
+
+  if (window.Android) {
+    console.log('Android bridge exists');
+    console.log('[TTS_DEBUG] window.Android keys:', Object.keys(window.Android));
+    console.log('[TTS_DEBUG] typeof speakText:', typeof window.Android.speakText);
+
+    if (typeof window.Android.isTtsReady === 'function') {
+      console.log('[TTS_DEBUG] isTtsReady:', window.Android.isTtsReady());
+    }
+
+    try {
+      console.log('[TTS_DEBUG] calling window.Android.speakText("테스트입니다")');
+      window.Android.speakText('테스트입니다');
+      console.log('[TTS_DEBUG] speakText call finished');
+      showToast('TTS 테스트 호출 완료');
+    } catch (e) {
+      console.log('[TTS_DEBUG] speakText threw error:', e);
+      showToast('TTS 테스트 오류');
+    }
+  } else {
+    console.log('Android bridge missing');
+    showToast('Android bridge 없음');
+  }
+}
+function doSearch(q) { SearchManager.doSearch(q); }
+function updateSetting(k, v) { SettingsManager.update(k, v); }
+
+function goCat(cat) {
+  vib();
+  if (!AppState.brands) {
+    showToast('데이터를 불러오는 중입니다.');
+    return;
+  }
+  const brands = DataHelper.getCategoryBrands(cat);
+  UI.renderBrandList(brands, cat, { emptyMessage: `등록된 ${cat}가 없습니다.` });
+  const bc = document.getElementById('resultsBreadcrumb');
+  if (bc) bc.innerHTML = `<span>홈</span><span aria-current="location">${cat}</span>`;
+  NavigationManager.gotoScreen('results');
+}
+
+function openBrand(name, cat) {
+  vib();
+  if (!AppState.brands || !AppState.brands[cat]) return;
+  const brand = AppState.brands[cat].find(b => b.name === name);
+  if (!brand) return;
+
+  AppState.recentMenus = AppState.recentMenus.filter(item => item.name !== name);
+  AppState.recentMenus.unshift({ name, cat });
+  AppState.recentMenus = AppState.recentMenus.slice(0, 10);
+  AppState.save();
+
+  UI.renderBrandDetail(name, cat);
+  NavigationManager.gotoScreen('detail');
+}
+
+function toggleFav(name) {
+  vib([30, 20, 30]);
+  const idx = AppState.favorites.indexOf(name);
+  let msg = '';
+  if (idx === -1) {
+    AppState.favorites.push(name);
+    msg = `${name} 즐겨찾기에 추가되었습니다.`;
+  } else {
+    AppState.favorites.splice(idx, 1);
+    msg = `${name} 즐겨찾기에서 삭제되었습니다.`;
+  }
+  AppState.save();
+  showToast(msg);
+  NavigationManager.announce(msg);
+  
+  const detailTitle = document.getElementById('detailTitle').textContent;
+  if (detailTitle === name) {
+    const brand = DataHelper.getAllBrands().find(b => b.name === name);
+    if (brand) openBrand(name, brand.cat);
+  }
+}
+
+function closeCaptured() { vib(); document.getElementById('capturedOverlay').classList.remove('show'); }
+
+// ═══════════════════════════════════════════
+//   INITIALIZATION
+// ═══════════════════════════════════════════
+async function initApp() {
+  // 1. Load Data
+  try {
+    const response = await fetch('./data/brands.json');
+    AppState.brands = await response.json();
+  } catch (e) {
+    console.error("Data load failed", e);
+    AppState.brands = {
+      "카페": [
+        { "name": "스타벅스", "chosung": "ㅅㅌㅂㅅ", "menus": ["아메리카노", "카페라떼", "돌체라떼", "콜드브루", "자바칩프라푸치노"] },
+        { "name": "투썸플레이스", "chosung": "ㅌㅆㅍㄹㅇㅅ", "menus": ["아메리카노", "카페라떼"] },
+        { "name": "메가MGC커피", "chosung": "ㅁㄱMGCㅋㅍ", "menus": ["아메리카노", "큐브라떼"] },
+        { "name": "이디야커피", "chosung": "ㅇㄷㅇㅋㅍ", "menus": ["아메리카노", "바닐라라떼"] },
+        { "name": "빽다방", "chosung": "ㅂㄷㅂ", "menus": ["앗!메리카노", "원조커피"] }
+      ],
+      "식당": [
+        { "name": "맥도날드", "chosung": "ㅁㄷㄴㄷ", "menus": ["빅맥", "맥너겟"] },
+        { "name": "롯데리아", "chosung": "ㄹㄷㄹㅇ", "menus": ["불고기버거", "새우버거"] },
+        { "name": "버거킹", "chosung": "ㅂㄱㅋ", "menus": ["와퍼", "치즈버거"] },
+        { "name": "교촌치킨", "chosung": "ㄱㅊㅊㅋ", "menus": ["교촌오리지날", "허니콤보"] },
+        { "name": "BBQ치킨", "chosung": "BBQㅊㅋ", "menus": ["황금올리브치킨", "양념치킨"] }
+      ],
+    };
+    showToast("데이터를 불러오지 못했습니다.");
+  }
+
+  // 2. Init Modules
+  SettingsManager.init();
+  SpeechManager.init();
+
+  ['resultsList', 'favList'].forEach(id => {
+    document.getElementById(id).addEventListener('click', (e) => UI.handleBrandListClick(e));
+  });
+  document.querySelector('#screen-home .home-menu-zone').addEventListener('click', (e) => UI.handleBrandListClick(e));
+  document.getElementById('detailContent').addEventListener('click', (e) => UI.handleDetailClick(e));
+  
+  // 3. Event Listeners
+  document.getElementById('homeSearchBtn').addEventListener('click', () => doSearch(document.getElementById('homeSearchInput').value));
+  document.getElementById('voiceSearchBtn').addEventListener('click', () => SpeechManager.toggleVoiceSearch());
+  document.getElementById('homeSearchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(e.target.value); });
+  document.getElementById('zoomInBtn').addEventListener('click', () => { vib(); CameraManager.zoomScale = Math.min(4, CameraManager.zoomScale + 0.5); CameraManager.applyZoom(); CameraManager.updateUI(); });
+  document.getElementById('zoomOutBtn').addEventListener('click', () => { vib(); CameraManager.zoomScale = Math.max(1, CameraManager.zoomScale - 0.5); CameraManager.applyZoom(); CameraManager.updateUI(); });
+  document.getElementById('contrastBtn').addEventListener('click', () => CameraManager.toggleContrast());
+  document.getElementById('captureBtn').addEventListener('click', () => CameraManager.capture());
+  document.getElementById('ocrBtn').addEventListener('click', () => CameraManager.runOCR());
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const target = e.target.closest('button, [tabindex="0"]');
+      if (target && !target.disabled) {
+        if (e.key === ' ') e.preventDefault();
+        target.click();
+      }
+    }
+  });
+
+  document.addEventListener('focusin', (e) => {
+    if (!AppState.settings.voiceEnabled) return;
+    const target = e.target.closest('button, input, [tabindex="0"]');
+    if (target) {
+      const label = target.getAttribute('aria-label') || target.innerText || target.placeholder || '';
+      if (label) speak(label, true);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('button') || e.target.closest('.result-card')) {
+      if (navigator.vibrate) navigator.vibrate(25);
+    }
+  }, { passive: true });
+
+  // 4. Initial Render
+  console.log('[TTS_DEBUG] initApp: Android bridge check', {
+    hasAndroid: !!window.Android,
+    hasSpeakText: !!(window.Android && window.Android.speakText)
+  });
+  UI.renderHomeScreen();
+}
+
+window.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
