@@ -1267,6 +1267,9 @@
       <button class="result-card setting-toggle-btn" onclick="toggleVoice()" id="settings-voice-btn">
         <span>음성 안내 켜짐</span>
       </button>
+      <button class="result-card setting-toggle-btn tts-debug-btn" type="button" onclick="testAndroidTtsBridge()" id="settings-tts-test-btn" aria-label="Android TTS 연결 테스트">
+        <span>TTS 연결 테스트</span>
+      </button>
     </section>
 
     <section aria-labelledby="setting-contrast">
@@ -1524,6 +1527,40 @@ const SpeechManager = {
   _keepAliveTimer: null,
   _voiceRetryDelays: [50, 150, 300, 500, 800, 1200, 2000, 3000],
 
+  isNativeTtsAvailable() {
+    return !!(window.Android && typeof window.Android.speakText === 'function');
+  },
+
+  speakNative(text) {
+    if (!text || !this.isNativeTtsAvailable()) {
+      console.log('[TTS_DEBUG] speakNative skipped: bridge unavailable or empty text', {
+        hasAndroid: !!window.Android,
+        hasSpeakText: !!(window.Android && window.Android.speakText),
+        text
+      });
+      return false;
+    }
+    try {
+      console.log('[TTS_DEBUG] speakNative calling window.Android.speakText:', text);
+      window.Android.speakText(String(text));
+      console.log('[TTS_DEBUG] speakNative call completed');
+      return true;
+    } catch (e) {
+      console.log('[TTS_DEBUG] speakNative error:', e);
+      return false;
+    }
+  },
+
+  stopNative() {
+    if (window.Android && typeof window.Android.stopSpeak === 'function') {
+      try {
+        window.Android.stopSpeak();
+        return true;
+      } catch (e) {}
+    }
+    return false;
+  },
+
   getSynth() {
     return window.speechSynthesis || window.webkitSpeechSynthesis || null;
   },
@@ -1623,6 +1660,11 @@ const SpeechManager = {
   },
 
   runSpeak(text, skipToast = false) {
+    if (this.speakNative(text)) {
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
+    }
+
     if (!this.prepareSynth()) return;
 
     try {
@@ -1651,6 +1693,15 @@ const SpeechManager = {
 
   tryPendingSpeak() {
     if (!this._pending) return;
+
+    const { text, skipToast } = this._pending;
+    if (this.speakNative(text)) {
+      this._pending = null;
+      this._retriesActive = false;
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
+    }
+
     if (!this.prepareSynth()) return;
 
     const voices = this.loadVoices();
@@ -1660,7 +1711,6 @@ const SpeechManager = {
     }
 
     this.cacheVoice();
-    const { text, skipToast } = this._pending;
     this._pending = null;
     this._retriesActive = false;
     this.runSpeak(text, skipToast);
@@ -1673,6 +1723,13 @@ const SpeechManager = {
     const attempt = () => {
       if (!this._pending) {
         this._retriesActive = false;
+        return;
+      }
+      if (this.speakNative(this._pending.text)) {
+        const { text, skipToast } = this._pending;
+        this._pending = null;
+        this._retriesActive = false;
+        if (!skipToast) showToast(`"${text}" 읽는 중...`);
         return;
       }
       this.prepareSynth();
@@ -1768,12 +1825,21 @@ const SpeechManager = {
   speak(text, skipToast = false) {
     if (!text) return;
     vib();
+    if (this.speakNative(text)) {
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
+    }
     this.queueSpeak(text, skipToast);
   },
 
   speakFromUserAction(text, skipToast = false) {
     if (!text) return;
     vib();
+    if (this.speakNative(text)) {
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
+    }
+
     this.prepareSynth();
     this.cacheVoice();
 
@@ -1801,6 +1867,7 @@ const SpeechManager = {
     if (AppState.settings.voiceEnabled) {
       this.speakFromUserAction(msg, true);
     } else {
+      this.stopNative();
       try {
         if (this.prepareSynth()) this.synth.cancel();
       } catch (e) {}
@@ -2132,6 +2199,7 @@ const UI = {
     if (ttsBtn) {
       e.stopPropagation();
       const text = ttsBtn.dataset.speak;
+      console.log('[TTS_DEBUG] brand list tts button clicked:', text);
       if (text) SpeechManager.speakFromUserAction(text);
       return;
     }
@@ -2144,6 +2212,7 @@ const UI = {
     if (!ttsBtn) return;
     e.stopPropagation();
     const text = ttsBtn.dataset.speak;
+    console.log('[TTS_DEBUG] menu tts button clicked:', text);
     if (text) SpeechManager.speakFromUserAction(text);
   },
 
@@ -2304,6 +2373,34 @@ function goBack() { NavigationManager.goBack(); }
 function toggleVoice() { SpeechManager.toggle(); }
 function speak(text, skip) { SpeechManager.speak(text, skip); }
 function speakFromClick(text, skip) { SpeechManager.speakFromUserAction(text, skip); }
+
+function testAndroidTtsBridge() {
+  vib();
+  console.log('[TTS_DEBUG] TTS test button clicked');
+
+  if (window.Android) {
+    console.log('Android bridge exists');
+    console.log('[TTS_DEBUG] window.Android keys:', Object.keys(window.Android));
+    console.log('[TTS_DEBUG] typeof speakText:', typeof window.Android.speakText);
+
+    if (typeof window.Android.isTtsReady === 'function') {
+      console.log('[TTS_DEBUG] isTtsReady:', window.Android.isTtsReady());
+    }
+
+    try {
+      console.log('[TTS_DEBUG] calling window.Android.speakText("테스트입니다")');
+      window.Android.speakText('테스트입니다');
+      console.log('[TTS_DEBUG] speakText call finished');
+      showToast('TTS 테스트 호출 완료');
+    } catch (e) {
+      console.log('[TTS_DEBUG] speakText threw error:', e);
+      showToast('TTS 테스트 오류');
+    }
+  } else {
+    console.log('Android bridge missing');
+    showToast('Android bridge 없음');
+  }
+}
 function doSearch(q) { SearchManager.doSearch(q); }
 function updateSetting(k, v) { SettingsManager.update(k, v); }
 
@@ -2433,6 +2530,10 @@ async function initApp() {
   }, { passive: true });
 
   // 4. Initial Render
+  console.log('[TTS_DEBUG] initApp: Android bridge check', {
+    hasAndroid: !!window.Android,
+    hasSpeakText: !!(window.Android && window.Android.speakText)
+  });
   UI.renderHomeScreen();
 }
 
