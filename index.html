@@ -289,21 +289,29 @@
   }
 
   /* ─── HOME: SEARCH ZONE ─── */
+  #screen-search {
+    overflow: hidden;
+  }
   .home-search-zone {
     padding: var(--padding-screen);
     background: var(--bg);
     display: flex;
     flex-direction: column;
     gap: var(--gap-grid);
-  }
-  .search-row {
-    display: flex;
-    gap: var(--gap-grid);
     width: 100%;
-    align-items: stretch;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .search-field {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
   .search-input {
-    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
     font-size: var(--fs-body);
     font-weight: 600;
     padding: 16px 20px;
@@ -319,39 +327,50 @@
   .search-input::placeholder { color: var(--sub); opacity: 0.5; }
   .search-input:focus { border-color: var(--accent); }
 
-  .mic-btn {
+  .voice-search-btn {
     background: var(--card);
-    color: var(--accent);
-    border: 2px solid var(--border);
+    color: var(--text);
+    border: 2px solid var(--accent);
     border-radius: 16px;
-    width: var(--touch-min);
-    min-width: var(--touch-min);
-    height: var(--touch-min);
-    min-height: var(--touch-min);
-    font-size: clamp(28px, 7vw, 36px);
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
-  .mic-btn:active { transform: scale(0.92); background: var(--border); }
-  .mic-btn.listening { border-color: var(--accent); animation: pulse 1.5s infinite; }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 212, 0, 0.45); }
-    50% { box-shadow: 0 0 0 10px rgba(255, 212, 0, 0); }
-  }
-  
-  .search-execute-btn {
-    background: var(--accent);
-    color: var(--btn-text);
-    border: none;
-    border-radius: 16px;
-    padding: 18px;
+    padding: clamp(16px, 4vw, 20px);
     min-height: var(--btn-height);
     font-size: var(--fs-btn);
     font-weight: 700;
     cursor: pointer;
     width: 100%;
+    box-sizing: border-box;
+    line-height: var(--line-height-tight);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow-wrap: break-word;
+    word-break: keep-all;
+  }
+  .voice-search-btn:active { transform: scale(0.98); }
+  .voice-search-btn.listening {
+    background: var(--accent);
+    color: var(--btn-text);
+    border-color: var(--accent);
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 212, 0, 0.45); }
+    50% { box-shadow: 0 0 0 10px rgba(255, 212, 0, 0); }
+  }
+
+  .search-execute-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    padding: clamp(16px, 4vw, 20px);
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     line-height: var(--line-height-tight);
   }
@@ -1119,23 +1138,23 @@
   </header>
   
   <div class="home-search-zone">
-    <div class="search-row">
-      <div style="flex: 1; display: flex; flex-direction: column;">
-        <label for="homeSearchInput" class="sr-only">브랜드 또는 메뉴 검색</label>
-        <input
-          class="search-input"
-          id="homeSearchInput"
-          type="search"
-          placeholder="브랜드 또는 메뉴 입력"
-          inputmode="search"
-          autocomplete="off"
-          aria-describedby="search-hint"
-        >
-        <span id="search-hint" class="sr-only">초성으로도 검색이 가능합니다.</span>
-      </div>
-      <button class="mic-btn" id="micBtn" aria-label="음성으로 검색하기">🎤</button>
+    <div class="search-field">
+      <label for="homeSearchInput" class="sr-only">브랜드 또는 메뉴 검색</label>
+      <input
+        class="search-input"
+        id="homeSearchInput"
+        type="search"
+        placeholder="브랜드 또는 메뉴 입력"
+        inputmode="search"
+        autocomplete="off"
+        aria-describedby="search-hint"
+      >
+      <span id="search-hint" class="sr-only">초성으로도 검색이 가능합니다.</span>
     </div>
-    <button class="search-execute-btn" id="homeSearchBtn" aria-label="검색 실행하기">검색하기</button>
+    <button class="voice-search-btn" id="voiceSearchBtn" type="button" aria-label="음성으로 검색하기">
+      <span id="voiceSearchBtnText">음성으로 검색하기</span>
+    </button>
+    <button class="search-execute-btn" id="homeSearchBtn" type="button" aria-label="검색 실행하기">검색하기</button>
   </div>
 </section>
 
@@ -1787,6 +1806,58 @@ const SpeechManager = {
     document.addEventListener('click', warmUp, { once: true, passive: true });
   },
 
+  getVoiceSearchBtn() {
+    return document.getElementById('voiceSearchBtn');
+  },
+
+  getVoiceSearchBtnText() {
+    return document.getElementById('voiceSearchBtnText');
+  },
+
+  setVoiceSearchListening(listening) {
+    const btn = this.getVoiceSearchBtn();
+    const label = this.getVoiceSearchBtnText();
+    if (!btn || !label) return;
+
+    if (listening) {
+      btn.classList.add('listening');
+      btn.setAttribute('aria-label', '듣고 있습니다. 다시 누르면 중단');
+      label.textContent = '듣고 있습니다...';
+    } else {
+      btn.classList.remove('listening');
+      btn.setAttribute('aria-label', '음성으로 검색하기');
+      label.textContent = '음성으로 검색하기';
+    }
+  },
+
+  startVoiceSearch() {
+    vib();
+    if (!this.recognition) {
+      showToast('음성 검색을 사용할 수 없습니다');
+      NavigationManager.announce('음성 검색을 사용할 수 없습니다');
+      return;
+    }
+
+    try {
+      this.recognition.start();
+    } catch (e) {
+      try {
+        this.recognition.stop();
+      } catch (err) {}
+    }
+  },
+
+  toggleVoiceSearch() {
+    const btn = this.getVoiceSearchBtn();
+    if (btn && btn.classList.contains('listening')) {
+      try {
+        this.recognition?.stop();
+      } catch (e) {}
+      return;
+    }
+    this.startVoiceSearch();
+  },
+
   init() {
     this.initVoiceEngine();
     this.bindUserGestureWarmUp();
@@ -1796,27 +1867,22 @@ const SpeechManager = {
       this.recognition = new SR();
       this.recognition.lang = 'ko-KR';
       this.recognition.onstart = () => {
-        const btn = document.getElementById('micBtn');
-        btn.classList.add('listening');
-        btn.setAttribute('aria-label', '음성 인식 중... 다시 누르면 중단');
-        showToast('🎤 말씀해 주세요...');
-        NavigationManager.announce('음성 인식을 시작합니다. 말씀해 주세요.');
+        this.setVoiceSearchListening(true);
+        showToast('듣고 있습니다...');
+        NavigationManager.announce('듣고 있습니다. 말씀해 주세요.');
       };
       this.recognition.onend = () => {
-        const btn = document.getElementById('micBtn');
-        btn.classList.remove('listening');
-        btn.setAttribute('aria-label', '음성으로 검색하기');
+        this.setVoiceSearchListening(false);
       };
       this.recognition.onerror = () => {
-        const btn = document.getElementById('micBtn');
-        btn.classList.remove('listening');
-        btn.setAttribute('aria-label', '음성으로 검색하기');
+        this.setVoiceSearchListening(false);
         showToast('음성 인식 실패');
         NavigationManager.announce('음성 인식에 실패했습니다.');
       };
       this.recognition.onresult = (e) => {
         const t = e.results[0][0].transcript;
-        document.getElementById('homeSearchInput').value = t;
+        const input = document.getElementById('homeSearchInput');
+        if (input) input.value = t;
         SearchManager.doSearch(t);
       };
     }
@@ -2497,6 +2563,7 @@ async function initApp() {
   
   // 3. Event Listeners
   document.getElementById('homeSearchBtn').addEventListener('click', () => doSearch(document.getElementById('homeSearchInput').value));
+  document.getElementById('voiceSearchBtn').addEventListener('click', () => SpeechManager.toggleVoiceSearch());
   document.getElementById('homeSearchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(e.target.value); });
   document.getElementById('zoomInBtn').addEventListener('click', () => { vib(); CameraManager.zoomScale = Math.min(4, CameraManager.zoomScale + 0.5); CameraManager.applyZoom(); CameraManager.updateUI(); });
   document.getElementById('zoomOutBtn').addEventListener('click', () => { vib(); CameraManager.zoomScale = Math.max(1, CameraManager.zoomScale - 0.5); CameraManager.applyZoom(); CameraManager.updateUI(); });
