@@ -1518,7 +1518,11 @@ const SpeechManager = {
   synth: null,
   Utterance: null,
   voicesReady: false,
-  _voiceRetryDelays: [0, 100, 250, 500, 1000, 2000],
+  _cachedVoice: null,
+  _pending: null,
+  _retriesActive: false,
+  _keepAliveTimer: null,
+  _voiceRetryDelays: [50, 150, 300, 500, 800, 1200, 2000, 3000],
 
   getSynth() {
     return window.speechSynthesis || window.webkitSpeechSynthesis || null;
@@ -1548,67 +1552,187 @@ const SpeechManager = {
     }
   },
 
-  pickKoreanVoice(voices) {
-    if (!voices || !voices.length) return null;
-    return voices.find(v => v.lang && /^ko/i.test(v.lang))
-      || voices.find(v => v.lang && v.lang.toLowerCase().includes('ko'))
-      || voices[0];
+  pickVoice(voices) {
+    const list = voices && voices.length ? voices : this.loadVoices();
+    if (!list.length) return this._cachedVoice || null;
+
+    const rules = [
+      v => v.lang === 'ko-KR' && v.localService,
+      v => v.lang === 'ko-KR',
+      v => /^ko-KR/i.test(v.lang || ''),
+      v => /^ko/i.test(v.lang || ''),
+      v => (v.lang || '').toLowerCase().includes('ko'),
+      v => /korean|ko-kr|google.*ko|samsung.*ko/i.test(v.name || ''),
+      v => v.default === true,
+    ];
+
+    for (const rule of rules) {
+      const found = list.find(rule);
+      if (found) return found;
+    }
+    return list[0];
   },
 
-  ensureVoicesLoaded() {
-    if (!this.prepareSynth()) return false;
-    const voices = this.loadVoices();
-    if (voices.length > 0) {
+  cacheVoice() {
+    const voice = this.pickVoice(this.loadVoices());
+    if (voice) {
+      this._cachedVoice = voice;
       this.voicesReady = true;
-      return true;
     }
-    return false;
+    return voice;
   },
 
-  initVoiceEngine() {
-    const refreshVoices = () => this.ensureVoicesLoaded();
-
-    refreshVoices();
-
-    if (this.synth) {
-      this.synth.onvoiceschanged = refreshVoices;
-    }
-
-    this._voiceRetryDelays.forEach(delay => {
-      setTimeout(refreshVoices, delay);
-    });
-  },
-
-  createUtterance(text, voices) {
+  buildUtterance(text) {
     const utter = new this.Utterance(String(text));
     utter.lang = 'ko-KR';
     utter.rate = 0.9;
-    const voice = this.pickKoreanVoice(voices);
-    if (voice) utter.voice = voice;
+    utter.pitch = 1;
+    utter.volume = 1;
+
+    const voice = this.pickVoice(this.loadVoices()) || this._cachedVoice;
+    if (voice) {
+      utter.voice = voice;
+      this._cachedVoice = voice;
+    }
     return utter;
   },
 
-  attemptSpeak(text) {
-    if (!this.prepareSynth() || !this.Utterance) return false;
+  startKeepAlive() {
+    this.stopKeepAlive();
+    this._keepAliveTimer = setInterval(() => {
+      if (!this.synth) {
+        this.stopKeepAlive();
+        return;
+      }
+      if (!this.synth.speaking) {
+        this.stopKeepAlive();
+        return;
+      }
+      try {
+        if (this.synth.paused) this.synth.resume();
+      } catch (e) {}
+    }, 250);
+    setTimeout(() => this.stopKeepAlive(), 15000);
+  },
+
+  stopKeepAlive() {
+    if (this._keepAliveTimer) {
+      clearInterval(this._keepAliveTimer);
+      this._keepAliveTimer = null;
+    }
+  },
+
+  runSpeak(text, skipToast = false) {
+    if (!this.prepareSynth()) return;
 
     try {
       this.synth.cancel();
-      if (this.synth.paused) this.synth.resume();
+    } catch (e) {}
 
-      const voices = this.loadVoices();
-      const utter = voices.length
-        ? this.createUtterance(text, voices)
-        : this.createUtterance(text, []);
+    setTimeout(() => {
+      if (!this.prepareSynth()) return;
 
-      this.synth.speak(utter);
-      return true;
-    } catch (e) {
-      return false;
+      try {
+        if (this.synth.paused) this.synth.resume();
+
+        const utter = this.buildUtterance(text);
+        utter.onend = () => this.stopKeepAlive();
+        utter.onerror = () => this.stopKeepAlive();
+
+        this.startKeepAlive();
+        this.synth.speak(utter);
+
+        if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      } catch (e) {
+        this.stopKeepAlive();
+      }
+    }, 50);
+  },
+
+  tryPendingSpeak() {
+    if (!this._pending) return;
+    if (!this.prepareSynth()) return;
+
+    const voices = this.loadVoices();
+    if (!voices.length) {
+      this.scheduleVoiceRetries();
+      return;
     }
+
+    this.cacheVoice();
+    const { text, skipToast } = this._pending;
+    this._pending = null;
+    this._retriesActive = false;
+    this.runSpeak(text, skipToast);
+  },
+
+  scheduleVoiceRetries() {
+    if (this._retriesActive) return;
+    this._retriesActive = true;
+
+    const attempt = () => {
+      if (!this._pending) {
+        this._retriesActive = false;
+        return;
+      }
+      this.prepareSynth();
+      const voices = this.loadVoices();
+      if (voices.length > 0) {
+        this.tryPendingSpeak();
+      }
+    };
+
+    this._voiceRetryDelays.forEach(delay => setTimeout(attempt, delay));
+
+    setTimeout(() => {
+      if (!this._pending) {
+        this._retriesActive = false;
+        return;
+      }
+      const { text, skipToast } = this._pending;
+      this._pending = null;
+      this._retriesActive = false;
+      this.runSpeak(text, skipToast);
+    }, 3500);
+  },
+
+  queueSpeak(text, skipToast = false) {
+    this._pending = { text, skipToast };
+    this.tryPendingSpeak();
+  },
+
+  initVoiceEngine() {
+    this.prepareSynth();
+
+    const onVoicesChanged = () => {
+      if (this.loadVoices().length > 0) {
+        this.cacheVoice();
+        if (this._pending) this.tryPendingSpeak();
+      }
+    };
+
+    if (this.synth) {
+      this.synth.onvoiceschanged = onVoicesChanged;
+    }
+
+    onVoicesChanged();
+    this._voiceRetryDelays.forEach(delay => setTimeout(onVoicesChanged, delay));
+  },
+
+  bindUserGestureWarmUp() {
+    if (this._warmUpBound) return;
+    this._warmUpBound = true;
+    const warmUp = () => {
+      this.prepareSynth();
+      this.cacheVoice();
+    };
+    document.addEventListener('touchstart', warmUp, { once: true, passive: true });
+    document.addEventListener('click', warmUp, { once: true, passive: true });
   },
 
   init() {
     this.initVoiceEngine();
+    this.bindUserGestureWarmUp();
 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1644,27 +1768,22 @@ const SpeechManager = {
   speak(text, skipToast = false) {
     if (!text) return;
     vib();
+    this.queueSpeak(text, skipToast);
+  },
 
+  speakFromUserAction(text, skipToast = false) {
+    if (!text) return;
+    vib();
     this.prepareSynth();
-    this.ensureVoicesLoaded();
+    this.cacheVoice();
 
-    const started = this.attemptSpeak(text);
-    if (started) {
-      if (!skipToast) showToast(`"${text}" 읽는 중...`);
-      return;
+    const voices = this.loadVoices();
+    if (voices.length > 0) {
+      this._pending = null;
+      this.runSpeak(text, skipToast);
+    } else {
+      this.queueSpeak(text, skipToast);
     }
-
-    setTimeout(() => {
-      this.ensureVoicesLoaded();
-      if (this.attemptSpeak(text) && !skipToast) {
-        showToast(`"${text}" 읽는 중...`);
-      }
-    }, 300);
-
-    setTimeout(() => {
-      this.ensureVoicesLoaded();
-      this.attemptSpeak(text);
-    }, 1000);
   },
 
   toggle() {
@@ -1680,11 +1799,12 @@ const SpeechManager = {
     }
 
     if (AppState.settings.voiceEnabled) {
-      this.speak(msg, true);
+      this.speakFromUserAction(msg, true);
     } else {
       try {
         if (this.prepareSynth()) this.synth.cancel();
       } catch (e) {}
+      this.stopKeepAlive();
     }
 
     if (AppState.screenHistory[AppState.screenHistory.length - 1] === 'settings') {
@@ -2012,7 +2132,7 @@ const UI = {
     if (ttsBtn) {
       e.stopPropagation();
       const text = ttsBtn.dataset.speak;
-      if (text) speak(text);
+      if (text) SpeechManager.speakFromUserAction(text);
       return;
     }
     const card = e.target.closest('.brand-card[data-brand], .recent-card[data-brand]');
@@ -2024,7 +2144,7 @@ const UI = {
     if (!ttsBtn) return;
     e.stopPropagation();
     const text = ttsBtn.dataset.speak;
-    if (text) speak(text);
+    if (text) SpeechManager.speakFromUserAction(text);
   },
 
   renderBrandList(brands, title, options = {}) {
@@ -2183,6 +2303,7 @@ function gotoScreen(name) { NavigationManager.gotoScreen(name); }
 function goBack() { NavigationManager.goBack(); }
 function toggleVoice() { SpeechManager.toggle(); }
 function speak(text, skip) { SpeechManager.speak(text, skip); }
+function speakFromClick(text, skip) { SpeechManager.speakFromUserAction(text, skip); }
 function doSearch(q) { SearchManager.doSearch(q); }
 function updateSetting(k, v) { SettingsManager.update(k, v); }
 
