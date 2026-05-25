@@ -77,6 +77,7 @@ function closeCaptured() { vib(); document.getElementById('capturedOverlay').cla
 const ScrollPerf = {
   isScrolling: false,
   _timer: null,
+  _scrollSelector: '.home-menu-zone, .results-list, .detail-content, .home-search-zone',
 
   init() {
     const onScrollActivity = () => {
@@ -84,8 +85,13 @@ const ScrollPerf = {
       clearTimeout(this._timer);
       this._timer = setTimeout(() => { this.isScrolling = false; }, 120);
     };
-    document.addEventListener('scroll', onScrollActivity, { passive: true, capture: true });
-    document.addEventListener('touchmove', onScrollActivity, { passive: true });
+
+    document.addEventListener('scroll', (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      if (!target.matches(this._scrollSelector)) return;
+      onScrollActivity();
+    }, { passive: true, capture: true });
   }
 };
 

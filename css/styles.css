@@ -87,22 +87,28 @@
     color: inherit;
   }
 
+  html {
+    height: 100%;
+    overflow: hidden;
+    scroll-behavior: auto;
+  }
+
   body {
     font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, 'Malgun Gothic', sans-serif;
     font-size: var(--fs-body);
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
-    min-height: 100dvh;
+    height: 100%;
+    min-height: 0;
     max-width: 500px;
     margin: 0 auto;
-    overflow-x: hidden;
+    overflow: hidden;
     position: relative;
     scroll-behavior: auto;
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: auto;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    touch-action: manipulation;
+    touch-action: pan-y;
   }
 
   button, input, select, textarea {
@@ -147,23 +153,28 @@
   .screen {
     display: none;
     flex-direction: column;
-    min-height: 100vh;
-    min-height: 100dvh;
+    height: 100%;
+    max-height: 100%;
     padding-bottom: var(--bottom-nav-offset);
+    overflow: hidden;
   }
   .screen.active { display: flex; }
   #screen-splash { padding-bottom: 0; justify-content: center; }
 
-  .scroll-panel {
+  .app-scroll,
+  .home-menu-zone,
+  #screen-results .results-list,
+  #screen-fav .results-list,
+  #screen-settings .results-list,
+  .detail-content {
     flex: 1;
     min-height: 0;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    overscroll-behavior-y: auto;
     scroll-behavior: auto;
     touch-action: pan-y;
-    contain: layout style paint;
   }
 
   /* ─── SPLASH SCREEN ─── */
@@ -224,11 +235,9 @@
     padding-top: calc(var(--padding-screen) + env(safe-area-inset-top, 0px));
     border-bottom: 1px solid var(--border);
     background: var(--bg);
-    position: sticky;
-    top: 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
     z-index: 100;
-    transform: translateZ(0);
-    backface-visibility: hidden;
   }
   .top-bar-content {
     display: flex;
@@ -299,6 +308,15 @@
   /* ─── HOME: SEARCH ZONE ─── */
   #screen-search {
     overflow: hidden;
+  }
+  #screen-search .home-search-zone {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
   }
   .home-search-zone {
     padding: var(--padding-screen);
@@ -384,14 +402,6 @@
   /* ─── HOME: MENU ZONE ─── */
   .home-menu-zone {
     padding: var(--padding-screen);
-    flex: 1;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    scroll-behavior: auto;
-    touch-action: pan-y;
   }
   .home-cat-grid {
     display: grid;
@@ -431,20 +441,6 @@
   #screen-detail {
     overflow: hidden;
   }
-  #screen-results .results-list,
-  #screen-fav .results-list,
-  #screen-settings .results-list,
-  .detail-content {
-    flex: 1;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    scroll-behavior: auto;
-    touch-action: pan-y;
-    contain: layout style paint;
-  }
   .results-list {
     padding: var(--padding-screen);
     display: flex;
@@ -461,12 +457,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--gap-card);
-  }
-  .brand-card,
-  .menu-card,
-  .result-card {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 88px;
   }
   .brand-card,
   .menu-card {
