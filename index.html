@@ -1515,29 +1515,122 @@ const NavigationManager = {
 // ═══════════════════════════════════════════
 const SpeechManager = {
   recognition: null,
+  synth: null,
+  Utterance: null,
+  voicesReady: false,
+  _voiceRetryDelays: [0, 100, 250, 500, 1000, 2000],
+
+  getSynth() {
+    return window.speechSynthesis || window.webkitSpeechSynthesis || null;
+  },
+
+  getUtteranceClass() {
+    return window.SpeechSynthesisUtterance || window.webkitSpeechSynthesisUtterance || null;
+  },
+
+  prepareSynth() {
+    this.synth = this.getSynth();
+    this.Utterance = this.getUtteranceClass();
+    if (!this.synth) return false;
+    try {
+      if (this.synth.paused) this.synth.resume();
+    } catch (e) {}
+    return !!this.Utterance;
+  },
+
+  loadVoices() {
+    if (!this.synth) return [];
+    try {
+      const voices = this.synth.getVoices();
+      return voices && voices.length ? voices : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  pickKoreanVoice(voices) {
+    if (!voices || !voices.length) return null;
+    return voices.find(v => v.lang && /^ko/i.test(v.lang))
+      || voices.find(v => v.lang && v.lang.toLowerCase().includes('ko'))
+      || voices[0];
+  },
+
+  ensureVoicesLoaded() {
+    if (!this.prepareSynth()) return false;
+    const voices = this.loadVoices();
+    if (voices.length > 0) {
+      this.voicesReady = true;
+      return true;
+    }
+    return false;
+  },
+
+  initVoiceEngine() {
+    const refreshVoices = () => this.ensureVoicesLoaded();
+
+    refreshVoices();
+
+    if (this.synth) {
+      this.synth.onvoiceschanged = refreshVoices;
+    }
+
+    this._voiceRetryDelays.forEach(delay => {
+      setTimeout(refreshVoices, delay);
+    });
+  },
+
+  createUtterance(text, voices) {
+    const utter = new this.Utterance(String(text));
+    utter.lang = 'ko-KR';
+    utter.rate = 0.9;
+    const voice = this.pickKoreanVoice(voices);
+    if (voice) utter.voice = voice;
+    return utter;
+  },
+
+  attemptSpeak(text) {
+    if (!this.prepareSynth() || !this.Utterance) return false;
+
+    try {
+      this.synth.cancel();
+      if (this.synth.paused) this.synth.resume();
+
+      const voices = this.loadVoices();
+      const utter = voices.length
+        ? this.createUtterance(text, voices)
+        : this.createUtterance(text, []);
+
+      this.synth.speak(utter);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
 
   init() {
+    this.initVoiceEngine();
+
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       this.recognition = new SR();
       this.recognition.lang = 'ko-KR';
-      this.recognition.onstart = () => { 
+      this.recognition.onstart = () => {
         const btn = document.getElementById('micBtn');
-        btn.classList.add('listening'); 
+        btn.classList.add('listening');
         btn.setAttribute('aria-label', '음성 인식 중... 다시 누르면 중단');
-        showToast('🎤 말씀해 주세요...'); 
+        showToast('🎤 말씀해 주세요...');
         NavigationManager.announce('음성 인식을 시작합니다. 말씀해 주세요.');
       };
-      this.recognition.onend = () => { 
+      this.recognition.onend = () => {
         const btn = document.getElementById('micBtn');
-        btn.classList.remove('listening'); 
+        btn.classList.remove('listening');
         btn.setAttribute('aria-label', '음성으로 검색하기');
       };
-      this.recognition.onerror = () => { 
+      this.recognition.onerror = () => {
         const btn = document.getElementById('micBtn');
-        btn.classList.remove('listening'); 
+        btn.classList.remove('listening');
         btn.setAttribute('aria-label', '음성으로 검색하기');
-        showToast('음성 인식 실패'); 
+        showToast('음성 인식 실패');
         NavigationManager.announce('음성 인식에 실패했습니다.');
       };
       this.recognition.onresult = (e) => {
@@ -1549,17 +1642,29 @@ const SpeechManager = {
   },
 
   speak(text, skipToast = false) {
+    if (!text) return;
     vib();
-    if (!('speechSynthesis' in window)) { 
-      if (!skipToast) showToast('음성 기능 미지원'); 
-      return; 
+
+    this.prepareSynth();
+    this.ensureVoicesLoaded();
+
+    const started = this.attemptSpeak(text);
+    if (started) {
+      if (!skipToast) showToast(`"${text}" 읽는 중...`);
+      return;
     }
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'ko-KR';
-    utter.rate = 0.9;
-    window.speechSynthesis.speak(utter);
-    if (!skipToast) showToast(`"${text}" 읽는 중...`);
+
+    setTimeout(() => {
+      this.ensureVoicesLoaded();
+      if (this.attemptSpeak(text) && !skipToast) {
+        showToast(`"${text}" 읽는 중...`);
+      }
+    }, 300);
+
+    setTimeout(() => {
+      this.ensureVoicesLoaded();
+      this.attemptSpeak(text);
+    }, 1000);
   },
 
   toggle() {
@@ -1567,8 +1672,21 @@ const SpeechManager = {
     AppState.save();
     const msg = AppState.settings.voiceEnabled ? '음성 안내를 시작합니다.' : '음성 안내를 종료합니다.';
     showToast(msg);
-    NavigationManager.announce(msg, true);
-    UI.renderHomeScreen();
+
+    const announcer = document.getElementById('sr-announcer');
+    if (announcer) {
+      announcer.textContent = '';
+      setTimeout(() => { announcer.textContent = msg; }, 100);
+    }
+
+    if (AppState.settings.voiceEnabled) {
+      this.speak(msg, true);
+    } else {
+      try {
+        if (this.prepareSynth()) this.synth.cancel();
+      } catch (e) {}
+    }
+
     if (AppState.screenHistory[AppState.screenHistory.length - 1] === 'settings') {
       UI.renderSettingsScreen();
     }
