@@ -125,7 +125,7 @@ const NavigationManager = {
       
       // Screen specific logic
       if (name === 'home') {
-        if (!document.querySelector('#screen-home .home-cat-grid')) UI.renderHomeScreen();
+        if (!document.querySelector('#screen-home .home-cat-btn')) UI.renderHomeScreen();
       } else if (name === 'search') {
         UI.renderSearchScreen();
       } else if (name === 'fav') {

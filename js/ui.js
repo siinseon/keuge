@@ -146,7 +146,7 @@ const UI = {
       return;
     }
 
-    if (homeContent.querySelector('.home-cat-grid')) return;
+    if (homeContent.querySelector('.home-cat-btn')) return;
 
     homeContent.innerHTML = `
       <div class="home-cat-grid">

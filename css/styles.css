@@ -385,6 +385,13 @@
   .home-menu-zone {
     padding: var(--padding-screen);
     flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scroll-behavior: auto;
+    touch-action: pan-y;
   }
   .home-cat-grid {
     display: grid;
@@ -424,7 +431,6 @@
   #screen-detail {
     overflow: hidden;
   }
-  .home-menu-zone,
   #screen-results .results-list,
   #screen-fav .results-list,
   #screen-settings .results-list,
