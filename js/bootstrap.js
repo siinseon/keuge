@@ -350,6 +350,33 @@ const KeugeOcr = {
   }
 };
 
+// ═══════════════════════════════════════════
+//   BROWSER OCR (Tesseract.js — 웹 브라우저 전용)
+// ═══════════════════════════════════════════
+const BrowserOcr = {
+  _worker: null,
+
+  available() {
+    return typeof Tesseract !== 'undefined';
+  },
+
+  async _ensureWorker() {
+    if (this._worker) return this._worker;
+    this._worker = await Tesseract.createWorker('kor');
+    return this._worker;
+  },
+
+  async recognize(canvas) {
+    if (!this.available()) throw new Error('tesseract_not_loaded');
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const worker = await this._ensureWorker();
+    const { data } = await worker.recognize(dataUrl);
+    const text = (data.text || '').trim();
+    if (!text) throw new Error('empty_text');
+    return text;
+  }
+};
+
 const OcrResultUI = {
   _currentText: '',
 
@@ -730,13 +757,21 @@ const CameraManager = {
     const overlay = document.getElementById('capturedOverlay');
     const flash = document.getElementById('flashOverlay');
 
-    if (!this.stream || !video) {
+    if (!this.stream || !video || !this._frameReadyForCapture(video)) {
+      const input = document.getElementById('nativeCameraInput');
+      if (input) {
+        const onFileChange = async () => {
+          input.removeEventListener('change', onFileChange);
+          const file = input.files && input.files[0];
+          if (!file) return;
+          input.value = '';
+          await this._processPhotoFile(file);
+        };
+        input.addEventListener('change', onFileChange);
+        input.click();
+        return;
+      }
       showToast('카메라 준비 중입니다. 잠시 후 다시 눌러 주세요.');
-      return;
-    }
-
-    if (!this._frameReadyForCapture(video)) {
-      showToast('프레임이 없습니다.');
       return;
     }
 
@@ -787,7 +822,12 @@ const CameraManager = {
       flash.classList.add('flash');
       setTimeout(() => flash.classList.remove('flash'), 200);
     }
-    showToast('캡처 완료!');
+
+    if (BrowserOcr.available() || KeugeOcr.isNativeAvailable()) {
+      await this._autoRunOcr(canvas);
+    } else {
+      showToast('캡처 완료!');
+    }
   },
 
   async runOCR() {
@@ -831,8 +871,17 @@ const CameraManager = {
     }
 
     if (!KeugeOcr.isNativeAvailable()) {
-      showToast('앱에서만 글자 읽기를 사용할 수 있습니다');
-      NavigationManager.announce('앱에서만 글자 읽기를 사용할 수 있습니다');
+      if (BrowserOcr.available()) {
+        if (!hasCapture) {
+          showToast('먼저 사진을 찍어 주세요');
+          NavigationManager.announce('먼저 사진을 찍어 주세요');
+          return;
+        }
+        await this._autoRunOcr(canvas);
+      } else {
+        showToast('글자 읽기 기능을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
+        NavigationManager.announce('글자 읽기 기능을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
+      }
       return;
     }
 
@@ -856,6 +905,7 @@ const CameraManager = {
   mapOcrError(error) {
     const code = error && error.message ? error.message : 'ocr_failed';
     if (code === 'no_bridge') return '앱에서만 글자 읽기를 사용할 수 있습니다.';
+    if (code === 'tesseract_not_loaded') return '글자 읽기 기능을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.';
     if (code === 'cancelled') return '촬영을 취소했습니다.';
     if (code === 'timeout') return '글자 읽기 시간이 초과되었습니다. 다시 시도해 주세요.';
     if (code === 'empty_image' || code === 'invalid_image') return '사진을 다시 찍어 주세요.';
@@ -883,6 +933,71 @@ const CameraManager = {
     const overlay = document.getElementById('capturedOverlay');
     if (overlay && overlay.classList.contains('show')) return;
     if (!this.stream) this.start();
+  },
+
+  async _processPhotoFile(file) {
+    const canvas = document.getElementById('capturedCanvas');
+    const overlay = document.getElementById('capturedOverlay');
+    const flash = document.getElementById('flashOverlay');
+    if (!canvas || !file) return;
+
+    await new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(); return; }
+        ctx.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : 'none';
+        ctx.drawImage(img, 0, 0);
+        ctx.filter = 'none';
+        this.captureStateValid = true;
+        if (overlay) overlay.classList.add('show');
+        if (flash) {
+          flash.classList.add('flash');
+          setTimeout(() => flash.classList.remove('flash'), 200);
+        }
+        vib([50, 30, 50]);
+        resolve();
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        showToast('사진을 불러오는 데 실패했습니다.');
+        resolve();
+      };
+      img.src = url;
+    });
+
+    if (BrowserOcr.available() || KeugeOcr.isNativeAvailable()) {
+      await this._autoRunOcr(canvas);
+    } else {
+      showToast('사진 저장 완료. 글자 읽기를 눌러주세요.');
+    }
+  },
+
+  async _autoRunOcr(canvas) {
+    OcrResultUI.showLoading();
+    NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
+    try {
+      let text;
+      if (BrowserOcr.available()) {
+        showToast('글자를 읽는 중...');
+        text = await BrowserOcr.recognize(canvas);
+      } else {
+        text = await KeugeOcr.recognizeCanvas(canvas);
+      }
+      if (!text) {
+        OcrResultUI.showError('글자를 찾지 못했습니다. 더 밝은 곳에서 선명하게 다시 찍어 주세요.');
+        return;
+      }
+      OcrResultUI.showResult(text);
+      showToast('글자를 찾았습니다');
+    } catch (e) {
+      if (e && e.message === 'cancelled') { OcrResultUI.hide(); return; }
+      OcrResultUI.showError(this.mapOcrError(e));
+    }
   }
 };
 

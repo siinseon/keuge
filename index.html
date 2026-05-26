@@ -157,6 +157,10 @@
       <p>아래 <strong>사진 찍기</strong> 또는 <strong>글자 읽기</strong>를 눌러 주세요.</p>
     </div>
 
+    <!-- Hidden native camera input (web browser fallback) -->
+    <input type="file" accept="image/*" capture="environment"
+           id="nativeCameraInput" style="display:none" aria-hidden="true" tabindex="-1">
+
     <!-- Captured image overlay -->
     <div class="captured-overlay" id="capturedOverlay" role="dialog" aria-label="캡처된 사진">
       <canvas id="capturedCanvas" aria-label="캡처된 이미지 미리보기"></canvas>
@@ -308,6 +312,7 @@
   </button>
 </nav>
 
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="/js/bootstrap.js"></script>
 <script src="/js/speech.js"></script>
 <script src="/js/ui.js"></script>
