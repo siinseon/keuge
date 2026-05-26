@@ -178,6 +178,9 @@ const NavigationManager = {
   },
 
   goBack() {
+    if (typeof EventDiag !== 'undefined') {
+      EventDiag.log('handler:goBack', { history: AppState.screenHistory.slice() });
+    }
     vib();
     if (AppState.screenHistory.length <= 1) {
       const root = AppState.screenHistory[0] || 'home';

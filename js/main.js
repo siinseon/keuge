@@ -102,30 +102,142 @@ let _appInitialized = false;
 let _coreInitialized = false;
 let _documentListenersBound = false;
 
+const EventDiag = {
+  boundNodes: {},
+  _touchProbeBound: false,
+
+  log(msg, data) {
+    console.log('[EventDiag] ' + msg, data !== undefined ? data : '');
+  },
+
+  logBind(name, el) {
+    this.boundNodes[name] = el || null;
+    this.log('bind:' + name, {
+      ok: !!el,
+      id: el?.id || null,
+      connected: el?.isConnected ?? null
+    });
+  },
+
+  probeNode(name, id) {
+    const current = document.getElementById(id);
+    const bound = this.boundNodes[name];
+    this.log('probe:' + name, {
+      currentExists: !!current,
+      boundExists: !!bound,
+      sameNode: !!(current && bound && current === bound),
+      currentConnected: current?.isConnected ?? null
+    });
+    return current;
+  },
+
+  probeHomeButtons() {
+    const homeSearchBtn = document.getElementById('homeSearchBtn');
+    const catBtns = document.querySelectorAll('#screen-home .home-cat-btn');
+    this.log('probe:homeSearchBtn', {
+      exists: !!homeSearchBtn,
+      hasClickListener: homeSearchBtn ? homeSearchBtn.dataset.diagClickBound === '1' : false
+    });
+    catBtns.forEach((btn, i) => {
+      this.log('probe:categoryBtn[' + i + ']', {
+        label: btn.getAttribute('aria-label'),
+        hasOnclick: !!btn.getAttribute('onclick'),
+        onclick: btn.getAttribute('onclick') || null
+      });
+    });
+  },
+
+  probeDelegation() {
+    this.probeNode('resultsList', 'resultsList');
+    this.probeNode('detailContent', 'detailContent');
+    this.probeNode('favList', 'favList');
+    const resultsList = document.getElementById('resultsList');
+    const detailContent = document.getElementById('detailContent');
+    this.log('probe:delegation', {
+      resultsListDiagBound: resultsList?.dataset.diagClickBound === '1',
+      detailContentDiagBound: detailContent?.dataset.diagClickBound === '1',
+      resultsChildCount: resultsList?.childElementCount ?? 0,
+      detailChildCount: detailContent?.childElementCount ?? 0,
+      ttsBtnCount: document.querySelectorAll('.tts-btn').length
+    });
+  },
+
+  afterRender(renderName) {
+    this.log('afterRender:' + renderName, { appInitialized: _appInitialized });
+    if (renderName === 'renderHomeScreen') this.probeHomeButtons();
+    if (renderName === 'renderBrandList' || renderName === 'renderBrandDetail') this.probeDelegation();
+  },
+
+  wrapClick(name, handler) {
+    return (e) => {
+      this.log('event:delegation-click:' + name, {
+        type: e.type,
+        target: e.target?.className || e.target?.tagName,
+        closestTts: !!e.target?.closest?.('.tts-btn'),
+        closestBrand: !!e.target?.closest?.('.brand-card')
+      });
+      return handler(e);
+    };
+  },
+
+  bindTouchProbe() {
+    if (this._touchProbeBound) return;
+    this._touchProbeBound = true;
+    const logTouch = (e) => {
+      const t = e.target?.closest?.('.back-btn, .tts-btn, .home-cat-btn, .brand-card, .homeSearchBtn, #homeSearchBtn, .nav-tab, button');
+      if (!t) return;
+      this.log('event:' + e.type, {
+        tag: t.tagName,
+        class: t.className,
+        id: t.id || null,
+        aria: t.getAttribute('aria-label')
+      });
+    };
+    document.addEventListener('touchstart', logTouch, { capture: true, passive: true });
+    document.addEventListener('pointerup', logTouch, { capture: true, passive: true });
+    document.addEventListener('click', logTouch, { capture: true, passive: true });
+    this.log('touchProbe:bound', { events: ['touchstart', 'pointerup', 'click'] });
+  }
+};
+
 function bindUIListeners() {
   ['resultsList', 'favList'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('click', (e) => UI.handleBrandListClick(e));
+    EventDiag.logBind(id, el);
+    if (el) {
+      el.dataset.diagClickBound = '1';
+      el.addEventListener('click', EventDiag.wrapClick(id, (e) => UI.handleBrandListClick(e)));
+    }
   });
   const detailContent = document.getElementById('detailContent');
-  if (detailContent) detailContent.addEventListener('click', (e) => UI.handleDetailClick(e));
+  EventDiag.logBind('detailContent', detailContent);
+  if (detailContent) {
+    detailContent.dataset.diagClickBound = '1';
+    detailContent.addEventListener('click', EventDiag.wrapClick('detailContent', (e) => UI.handleDetailClick(e)));
+  }
 
   const homeSearchBtn = document.getElementById('homeSearchBtn');
+  EventDiag.logBind('homeSearchBtn', homeSearchBtn);
   if (homeSearchBtn) {
+    homeSearchBtn.dataset.diagClickBound = '1';
     homeSearchBtn.addEventListener('click', () => {
+      EventDiag.log('event:homeSearchBtn-click');
       const input = document.getElementById('homeSearchInput');
       if (input) doSearch(input.value);
     });
   }
   const voiceSearchBtn = document.getElementById('voiceSearchBtn');
+  EventDiag.logBind('voiceSearchBtn', voiceSearchBtn);
   if (voiceSearchBtn) voiceSearchBtn.addEventListener('click', () => SpeechManager.toggleVoiceSearch());
   const homeSearchInput = document.getElementById('homeSearchInput');
+  EventDiag.logBind('homeSearchInput', homeSearchInput);
   if (homeSearchInput) {
     homeSearchInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') doSearch(e.target.value);
     });
   }
   const zoomInBtn = document.getElementById('zoomInBtn');
+  EventDiag.logBind('zoomInBtn', zoomInBtn);
   if (zoomInBtn) {
     zoomInBtn.addEventListener('click', () => {
       vib();
@@ -135,6 +247,7 @@ function bindUIListeners() {
     });
   }
   const zoomOutBtn = document.getElementById('zoomOutBtn');
+  EventDiag.logBind('zoomOutBtn', zoomOutBtn);
   if (zoomOutBtn) {
     zoomOutBtn.addEventListener('click', () => {
       vib();
@@ -144,10 +257,13 @@ function bindUIListeners() {
     });
   }
   const contrastBtn = document.getElementById('contrastBtn');
+  EventDiag.logBind('contrastBtn', contrastBtn);
   if (contrastBtn) contrastBtn.addEventListener('click', () => CameraManager.toggleContrast());
   const captureBtn = document.getElementById('captureBtn');
+  EventDiag.logBind('captureBtn', captureBtn);
   if (captureBtn) captureBtn.addEventListener('click', () => CameraManager.capture());
   const ocrBtn = document.getElementById('ocrBtn');
+  EventDiag.logBind('ocrBtn', ocrBtn);
   if (ocrBtn) ocrBtn.addEventListener('click', () => CameraManager.runOCR());
 }
 
@@ -185,10 +301,20 @@ function canBindUIListeners() {
 }
 
 async function initApp() {
-  if (_appInitialized) return;
+  EventDiag.log('initApp:called', {
+    appInitialized: _appInitialized,
+    coreInitialized: _coreInitialized,
+    readyState: document.readyState
+  });
+
+  if (_appInitialized) {
+    EventDiag.log('initApp:skip', 'already initialized');
+    return;
+  }
 
   if (!_coreInitialized) {
     _coreInitialized = true;
+    EventDiag.log('initApp:coreInit', 'start');
 
     let loaded = false;
     try {
@@ -203,17 +329,30 @@ async function initApp() {
     SettingsManager.init();
     SpeechManager.init();
     ScrollPerf.init();
+    EventDiag.log('initApp:coreInit', 'done');
   }
 
-  if (!canBindUIListeners()) return;
+  const canBind = canBindUIListeners();
+  EventDiag.log('initApp:canBindUIListeners', { canBind });
+  if (!canBind) return;
 
   bindUIListeners();
   bindDocumentListeners();
+  EventDiag.bindTouchProbe();
 
   // 4. Initial Render
   UI.renderHomeScreen();
   _appInitialized = true;
+  EventDiag.log('initApp:complete', { appInitialized: _appInitialized });
+  EventDiag.probeHomeButtons();
+  EventDiag.probeDelegation();
 }
 
-window.addEventListener('DOMContentLoaded', initApp);
-window.addEventListener('load', initApp);
+window.addEventListener('DOMContentLoaded', () => {
+  EventDiag.log('lifecycle:DOMContentLoaded');
+  initApp();
+});
+window.addEventListener('load', () => {
+  EventDiag.log('lifecycle:load');
+  initApp();
+});

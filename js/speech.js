@@ -373,7 +373,15 @@ const SpeechManager = {
     if (!text) return;
     if (this._isDuplicateSpeak(text)) return;
     vib();
-    if (this.speakNative(text)) {
+    const nativeOk = this.speakNative(text);
+    if (typeof EventDiag !== 'undefined') {
+      EventDiag.log('handler:speakFromUserAction', {
+        text,
+        nativeOk,
+        bridge: this.isNativeTtsAvailable()
+      });
+    }
+    if (nativeOk) {
       this._showSpeakToast(text, skipToast);
       return;
     }
