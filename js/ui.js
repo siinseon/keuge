@@ -57,6 +57,12 @@ const UI = {
     if (ttsBtn) {
       e.stopPropagation();
       const text = ttsBtn.dataset.speak;
+      if (typeof EventDiag !== 'undefined') {
+        EventDiag.log('handler:handleBrandListClick:tts', {
+          text: text || null,
+          nativeTts: SpeechManager.isNativeTtsAvailable()
+        });
+      }
       if (text) SpeechManager.speakFromUserAction(text);
       return;
     }
@@ -69,6 +75,12 @@ const UI = {
     if (!ttsBtn) return;
     e.stopPropagation();
     const text = ttsBtn.dataset.speak;
+    if (typeof EventDiag !== 'undefined') {
+      EventDiag.log('handler:handleDetailClick:tts', {
+        text: text || null,
+        nativeTts: SpeechManager.isNativeTtsAvailable()
+      });
+    }
     if (text) SpeechManager.speakFromUserAction(text);
   },
 
@@ -94,6 +106,7 @@ const UI = {
     requestAnimationFrame(() => {
       list.innerHTML = html;
       list.scrollTop = 0;
+      if (typeof EventDiag !== 'undefined') EventDiag.afterRender('renderBrandList');
     });
 
     const count = grouped
@@ -135,6 +148,7 @@ const UI = {
     }
 
     NavigationManager.announce(`${name} 메뉴 ${menus.length}개가 있습니다.`);
+    if (typeof EventDiag !== 'undefined') EventDiag.afterRender('renderBrandDetail');
   },
 
   renderHomeScreen() {
@@ -143,10 +157,14 @@ const UI = {
 
     if (AppState.brandsLoading || !AppState.brands) {
       homeContent.innerHTML = '<div class="no-results">데이터를 불러오는 중입니다...</div>';
+      if (typeof EventDiag !== 'undefined') EventDiag.afterRender('renderHomeScreen:loading');
       return;
     }
 
-    if (homeContent.querySelector('.home-cat-btn')) return;
+    if (homeContent.querySelector('.home-cat-btn')) {
+      if (typeof EventDiag !== 'undefined') EventDiag.afterRender('renderHomeScreen:skipped');
+      return;
+    }
 
     homeContent.innerHTML = `
       <div class="home-cat-grid">
@@ -168,6 +186,7 @@ const UI = {
         </button>
       </div>
     `;
+    if (typeof EventDiag !== 'undefined') EventDiag.afterRender('renderHomeScreen');
   },
 
   renderSearchScreen() {
