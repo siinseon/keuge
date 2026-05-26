@@ -225,6 +225,169 @@ const NavigationManager = {
 // ═══════════════════════════════════════════
 
 // ═══════════════════════════════════════════
+//   OCR BRIDGE & RESULT UI
+// ═══════════════════════════════════════════
+const KeugeOcr = {
+  _pending: {},
+  _timeoutMs: 30000,
+
+  init() {
+    window.KeugeOcr = this;
+  },
+
+  isNativeAvailable() {
+    return !!(window.Android && typeof window.Android.recognizeTextFromBase64 === 'function');
+  },
+
+  _complete(payload) {
+    if (!payload || !payload.requestId) return;
+    const pending = this._pending[payload.requestId];
+    if (!pending) return;
+
+    clearTimeout(pending.timer);
+    delete this._pending[payload.requestId];
+
+    if (payload.success && payload.text) {
+      pending.resolve(String(payload.text).trim());
+      return;
+    }
+    pending.reject(new Error(payload.error || 'ocr_failed'));
+  },
+
+  _prepareImage(canvas) {
+    const maxWidth = 1280;
+    const quality = 0.75;
+    let targetW = canvas.width;
+    let targetH = canvas.height;
+
+    if (targetW > maxWidth) {
+      targetH = Math.round((targetH * maxWidth) / targetW);
+      targetW = maxWidth;
+    }
+
+    const output = document.createElement('canvas');
+    output.width = targetW;
+    output.height = targetH;
+    const ctx = output.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.drawImage(canvas, 0, 0, targetW, targetH);
+    const dataUrl = output.toDataURL('image/jpeg', quality);
+    return dataUrl.split(',')[1] || null;
+  },
+
+  recognizeCanvas(canvas) {
+    return new Promise((resolve, reject) => {
+      if (!canvas || !canvas.width || !canvas.height) {
+        reject(new Error('empty_image'));
+        return;
+      }
+      if (!this.isNativeAvailable()) {
+        reject(new Error('no_bridge'));
+        return;
+      }
+
+      const base64 = this._prepareImage(canvas);
+      if (!base64) {
+        reject(new Error('empty_image'));
+        return;
+      }
+
+      const requestId = 'ocr_' + Date.now();
+      const timer = setTimeout(() => {
+        if (!this._pending[requestId]) return;
+        delete this._pending[requestId];
+        reject(new Error('timeout'));
+      }, this._timeoutMs);
+
+      this._pending[requestId] = { resolve, reject, timer };
+
+      try {
+        window.Android.recognizeTextFromBase64(requestId, base64);
+      } catch (e) {
+        clearTimeout(timer);
+        delete this._pending[requestId];
+        reject(e);
+      }
+    });
+  }
+};
+
+const OcrResultUI = {
+  _currentText: '',
+
+  bindEvents(bindFn) {
+    if (!bindFn) return;
+    bindFn(document.getElementById('ocrSpeakBtn'), 'click', () => this.speakCurrent());
+    bindFn(document.getElementById('ocrCloseBtn'), 'click', () => this.hide());
+  },
+
+  _els() {
+    return {
+      modal: document.getElementById('ocrResultModal'),
+      loading: document.getElementById('ocrLoading'),
+      text: document.getElementById('ocrResultText'),
+      error: document.getElementById('ocrErrorMsg'),
+      speakBtn: document.getElementById('ocrSpeakBtn')
+    };
+  },
+
+  showLoading() {
+    const { modal, loading, text, error, speakBtn } = this._els();
+    if (!modal) return;
+    this._currentText = '';
+    if (text) text.textContent = '';
+    if (error) error.textContent = '';
+    if (loading) loading.hidden = false;
+    if (speakBtn) speakBtn.hidden = true;
+    modal.hidden = false;
+    modal.classList.add('show');
+  },
+
+  showResult(text) {
+    const { loading, text: textEl, error, speakBtn } = this._els();
+    this._currentText = text;
+    if (loading) loading.hidden = true;
+    if (error) error.textContent = '';
+    if (textEl) textEl.textContent = text;
+    if (speakBtn) speakBtn.hidden = false;
+    NavigationManager.announce('글자를 찾았습니다. 읽기 버튼을 눌러 들을 수 있습니다.');
+  },
+
+  showError(message) {
+    const { loading, text, error, speakBtn } = this._els();
+    this._currentText = '';
+    if (loading) loading.hidden = true;
+    if (text) text.textContent = '';
+    if (error) error.textContent = message;
+    if (speakBtn) speakBtn.hidden = true;
+    NavigationManager.announce(message);
+    showToast(message);
+  },
+
+  speakCurrent() {
+    if (!this._currentText) return;
+    vib();
+    SpeechManager.speakFromUserAction(this._currentText);
+  },
+
+  hide() {
+    const { modal } = this._els();
+    if (modal) {
+      modal.hidden = true;
+      modal.classList.remove('show');
+    }
+    this._currentText = '';
+    CameraManager.restartIfNeeded();
+  },
+
+  isOpen() {
+    const modal = document.getElementById('ocrResultModal');
+    return !!(modal && !modal.hidden);
+  }
+};
+
+// ═══════════════════════════════════════════
 //   CAMERA & OCR MODULE
 // ═══════════════════════════════════════════
 const CameraManager = {
@@ -400,48 +563,68 @@ const CameraManager = {
 
   async runOCR() {
     vib();
-    const video = document.getElementById('cameraVideo');
-    if (!this.stream || !video || video.readyState < 2) return;
+    const canvas = document.getElementById('capturedCanvas');
+    const overlay = document.getElementById('capturedOverlay');
+    const hasCapture = canvas && overlay && overlay.classList.contains('show') && canvas.width > 0;
 
-    showToast('글자를 읽는 중입니다...');
-    NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
-
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      NavigationManager.announce('글자를 인식하지 못했습니다.');
-      showToast('인식 실패');
+    if (!hasCapture) {
+      showToast('먼저 사진을 찍어 주세요');
+      NavigationManager.announce('먼저 사진을 찍어 주세요');
       return;
     }
-    ctx.drawImage(video, 0, 0);
 
-    let text = '';
-    try {
-      text = await this.recognizeText(canvas);
-    } catch (e) {
-      text = '';
+    if (!KeugeOcr.isNativeAvailable()) {
+      showToast('앱에서만 글자 읽기를 사용할 수 있습니다');
+      NavigationManager.announce('앱에서만 글자 읽기를 사용할 수 있습니다');
+      return;
     }
 
-    const ocrArea = document.getElementById('ocrResultArea');
-    if (text) {
-      NavigationManager.announce(`인식된 글자입니다: ${text}`);
-      if (ocrArea) ocrArea.textContent = text;
-      showToast('인식 완료!');
-    } else {
-      NavigationManager.announce('글자를 인식하지 못했습니다.');
-      showToast('인식 실패');
+    OcrResultUI.showLoading();
+    this.pauseStream();
+    NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
+
+    try {
+      const text = await KeugeOcr.recognizeCanvas(canvas);
+      if (!text) {
+        OcrResultUI.showError('글자를 찾지 못했습니다. 더 밝은 곳에서 선명하게 다시 찍어 주세요.');
+        return;
+      }
+      OcrResultUI.showResult(text);
+      showToast('글자를 찾았습니다');
+    } catch (e) {
+      OcrResultUI.showError(this.mapOcrError(e));
     }
   },
 
-  async recognizeText(canvas) {
-    // 실제 OCR 엔진(Tesseract.js 등) 연결 지점
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve("샘플 메뉴: 아메리카노 4,500원, 카페라떼 5,000원");
-      }, 1500);
-    });
+  mapOcrError(error) {
+    const code = error && error.message ? error.message : 'ocr_failed';
+    if (code === 'no_bridge') return '앱에서만 글자 읽기를 사용할 수 있습니다.';
+    if (code === 'timeout') return '글자 읽기 시간이 초과되었습니다. 다시 시도해 주세요.';
+    if (code === 'empty_image' || code === 'invalid_image') return '사진을 다시 찍어 주세요.';
+    if (code === 'empty_text') return '글자를 찾지 못했습니다. 더 선명하게 다시 찍어 주세요.';
+    return '글자를 인식하지 못했습니다. 사진을 더 선명하게 찍어 주세요.';
+  },
+
+  pauseStream() {
+    if (this.stream) {
+      try {
+        this.stream.getTracks().forEach(track => {
+          try { track.stop(); } catch (e) {}
+        });
+      } catch (e) {}
+      this.stream = null;
+    }
+    const video = document.getElementById('cameraVideo');
+    if (video) video.srcObject = null;
+  },
+
+  restartIfNeeded() {
+    const cameraScreen = document.getElementById('screen-camera');
+    if (!cameraScreen || !cameraScreen.classList.contains('active')) return;
+    if (OcrResultUI.isOpen()) return;
+    const overlay = document.getElementById('capturedOverlay');
+    if (overlay && overlay.classList.contains('show')) return;
+    if (!this.stream) this.start();
   }
 };
 

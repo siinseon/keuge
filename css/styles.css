@@ -902,8 +902,27 @@
   .captured-overlay.show { display: flex; }
   .captured-overlay canvas {
     max-width: 100%;
-    max-height: calc(100% - 100px);
+    max-height: calc(100% - 120px);
     border-radius: 12px;
+  }
+  .captured-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-grid);
+    width: 100%;
+    max-width: 320px;
+    margin-top: 16px;
+  }
+  .capture-ocr-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    padding: 16px 32px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    width: 100%;
   }
   .close-capture-btn {
     margin-top: 16px;
@@ -1049,6 +1068,95 @@
     font-weight: 700;
     width: 100%;
     line-height: var(--line-height-tight);
+  }
+
+  /* ─── OCR RESULT MODAL ─── */
+  .ocr-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    padding: var(--padding-screen);
+  }
+  .ocr-modal[hidden] {
+    display: none;
+  }
+  .ocr-modal-content {
+    background: var(--bg);
+    color: var(--text);
+    border: 2px solid var(--accent);
+    border-radius: 24px;
+    width: 100%;
+    max-width: 460px;
+    max-height: calc(100% - var(--bottom-nav-offset) - 24px);
+    padding: clamp(20px, 5vw, 28px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-grid);
+  }
+  .ocr-modal-title {
+    font-size: var(--fs-title);
+    font-weight: 800;
+    line-height: var(--line-height-tight);
+    text-align: center;
+  }
+  .ocr-loading {
+    font-size: var(--fs-body);
+    font-weight: 700;
+    text-align: center;
+    color: var(--accent);
+    padding: 24px 12px;
+  }
+  .ocr-result-text {
+    font-size: clamp(28px, 7vw, 36px);
+    font-weight: 700;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: keep-all;
+    max-height: 45vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+  .ocr-error-msg {
+    font-size: var(--fs-body);
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    line-height: var(--line-height);
+  }
+  .ocr-modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-grid);
+  }
+  .ocr-speak-btn {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 800;
+    width: 100%;
+  }
+  .ocr-close-btn {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    min-height: var(--btn-height);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    width: 100%;
   }
 
   @media (max-width: 380px) {

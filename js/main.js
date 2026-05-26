@@ -72,7 +72,16 @@ function toggleFav(name) {
   }
 }
 
-function closeCaptured() { vib(); document.getElementById('capturedOverlay').classList.remove('show'); }
+function closeCaptured() {
+  vib();
+  const overlay = document.getElementById('capturedOverlay');
+  if (overlay) overlay.classList.remove('show');
+  CameraManager.restartIfNeeded();
+}
+
+function closeOcrResult() {
+  OcrResultUI.hide();
+}
 
 const ScrollPerf = {
   isScrolling: false,
@@ -124,6 +133,8 @@ async function initApp() {
       SettingsManager.init();
       SpeechManager.init();
       ScrollPerf.init();
+      KeugeOcr.init();
+      OcrResultUI.bindEvents(bindElementListener);
 
       ['resultsList', 'favList'].forEach(id => {
         bindElementListener(document.getElementById(id), 'click', (e) => UI.handleBrandListClick(e));
@@ -154,6 +165,7 @@ async function initApp() {
       bindElementListener(document.getElementById('contrastBtn'), 'click', () => CameraManager.toggleContrast());
       bindElementListener(document.getElementById('captureBtn'), 'click', () => CameraManager.capture());
       bindElementListener(document.getElementById('ocrBtn'), 'click', () => CameraManager.runOCR());
+      bindElementListener(document.getElementById('ocrFromCaptureBtn'), 'click', () => CameraManager.runOCR());
 
       if (!_documentListenersBound) {
         _documentListenersBound = true;
