@@ -16,15 +16,51 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+const DEFAULT_SETTINGS = {
+  voiceEnabled: true,
+  fontSize: 'medium',
+  displayMode: 'normal',
+  reducedMotion: false
+};
+
+function safeParseJSON(raw, fallback) {
+  if (raw == null || raw === '') return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function loadStringArray(key) {
+  const parsed = safeParseJSON(localStorage.getItem(key), []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function loadSettings() {
+  const parsed = safeParseJSON(localStorage.getItem('settings'), DEFAULT_SETTINGS);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...DEFAULT_SETTINGS };
+  return { ...DEFAULT_SETTINGS, ...parsed };
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // ═══════════════════════════════════════════
 //   CORE MODULE: STATE & SETTINGS
 // ═══════════════════════════════════════════
 const AppState = {
   screenHistory: ['home'],
-  favorites: JSON.parse(localStorage.getItem('fav') || '[]'),
-  recentMenus: JSON.parse(localStorage.getItem('recentMenus') || '[]'),
-  recentSearches: JSON.parse(localStorage.getItem('recentSearches') || '[]'),
-  settings: JSON.parse(localStorage.getItem('settings') || '{"voiceEnabled": true, "fontSize": "medium", "displayMode": "normal", "reducedMotion": false}'),
+  favorites: loadStringArray('fav'),
+  recentMenus: loadStringArray('recentMenus'),
+  recentSearches: loadStringArray('recentSearches'),
+  settings: loadSettings(),
   brands: null,
   brandsLoading: false,
   brandsLoadFailed: false,
@@ -32,10 +68,10 @@ const AppState = {
   brandsSource: null,
 
   save() {
-    localStorage.setItem('fav', JSON.stringify(this.favorites));
-    localStorage.setItem('recentMenus', JSON.stringify(this.recentMenus));
-    localStorage.setItem('recentSearches', JSON.stringify(this.recentSearches));
-    localStorage.setItem('settings', JSON.stringify(this.settings));
+    safeSetItem('fav', JSON.stringify(this.favorites));
+    safeSetItem('recentMenus', JSON.stringify(this.recentMenus));
+    safeSetItem('recentSearches', JSON.stringify(this.recentSearches));
+    safeSetItem('settings', JSON.stringify(this.settings));
   }
 };
 
@@ -198,13 +234,17 @@ const CameraManager = {
   zoomTimer: null,
   contrastTimer: null,
 
+  _showCameraFallback(video, noSupport) {
+    if (video) video.style.display = 'none';
+    if (noSupport) noSupport.style.display = 'flex';
+  },
+
   async start() {
     const video = document.getElementById('cameraVideo');
     const noSupport = document.getElementById('cameraNoSupport');
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      video.style.display = 'none';
-      noSupport.style.display = 'flex';
+      this._showCameraFallback(video, noSupport);
       return;
     }
 
@@ -214,14 +254,17 @@ const CameraManager = {
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
       });
+      if (!video) {
+        this.stop();
+        return;
+      }
       video.srcObject = this.stream;
       video.style.display = 'block';
-      noSupport.style.display = 'none';
-      this.applyZoom();
+      if (noSupport) noSupport.style.display = 'none';
+      await this.applyZoom();
     } catch (err) {
-      video.style.display = 'none';
-      noSupport.style.display = 'flex';
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      this._showCameraFallback(video, noSupport);
+      if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
         this.showPermissionModal();
       }
       showToast('카메라 오류');
@@ -246,11 +289,21 @@ const CameraManager = {
 
   stop() {
     if (this.stream) {
-      this.stream.getTracks().forEach(t => t.stop());
+      try {
+        this.stream.getTracks().forEach(t => {
+          try {
+            t.stop();
+          } catch (e) {}
+        });
+      } catch (e) {}
       this.stream = null;
     }
     const video = document.getElementById('cameraVideo');
-    if (video) video.srcObject = null;
+    if (video) {
+      video.srcObject = null;
+      video.style.transform = '';
+      video.style.filter = '';
+    }
     this.zoomScale = 1;
     this.contrastOn = false;
     this.updateUI();
@@ -258,18 +311,21 @@ const CameraManager = {
 
   async applyZoom() {
     const video = document.getElementById('cameraVideo');
+    if (!video) return;
+
     if (this.stream) {
-      const track = this.stream.getVideoTracks()[0];
-      if (track && track.getCapabilities) {
-        const caps = track.getCapabilities();
-        if (caps.zoom) {
-          try {
+      const tracks = this.stream.getVideoTracks();
+      const track = tracks && tracks[0];
+      if (track && typeof track.getCapabilities === 'function') {
+        try {
+          const caps = track.getCapabilities();
+          if (caps && caps.zoom) {
             const nativeZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, this.zoomScale));
             await track.applyConstraints({ advanced: [{ zoom: nativeZoom }] });
             video.style.transform = '';
             return;
-          } catch(e) {}
-        }
+          }
+        } catch (e) {}
       }
     }
     video.style.transform = `scale(${this.zoomScale})`;
@@ -293,46 +349,59 @@ const CameraManager = {
     vib([30, 20, 30]);
     this.contrastOn = !this.contrastOn;
     const video = document.getElementById('cameraVideo');
-    video.style.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : '';
+    if (video) {
+      video.style.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : '';
+    }
     const btn = document.getElementById('contrastBtn');
-    btn.classList.toggle('active-contrast', this.contrastOn);
-    btn.setAttribute('aria-pressed', this.contrastOn);
-    
+    if (btn) {
+      btn.classList.toggle('active-contrast', this.contrastOn);
+      btn.setAttribute('aria-pressed', String(this.contrastOn));
+    }
+
     const ind = document.getElementById('contrastIndicator');
-    ind.textContent = this.contrastOn ? '대비 강화 ON' : '대비 강화 OFF';
-    ind.classList.add('show');
-    clearTimeout(this.contrastTimer);
-    this.contrastTimer = setTimeout(() => ind.classList.remove('show'), 1800);
+    if (ind) {
+      ind.textContent = this.contrastOn ? '대비 강화 ON' : '대비 강화 OFF';
+      ind.classList.add('show');
+      clearTimeout(this.contrastTimer);
+      this.contrastTimer = setTimeout(() => ind.classList.remove('show'), 1800);
+    }
     showToast(this.contrastOn ? '대비 강화 켜짐' : '대비 강화 꺼짐');
   },
 
   capture() {
     vib([50, 30, 50]);
     const video = document.getElementById('cameraVideo');
-    if (!this.stream || video.readyState < 2) return;
+    if (!this.stream || !video || video.readyState < 2) return;
 
     const flash = document.getElementById('flashOverlay');
-    flash.classList.add('flash');
-    setTimeout(() => flash.classList.remove('flash'), 200);
+    if (flash) {
+      flash.classList.add('flash');
+      setTimeout(() => flash.classList.remove('flash'), 200);
+    }
 
     const canvas = document.getElementById('capturedCanvas');
+    if (!canvas) return;
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     ctx.drawImage(video, 0, 0);
     if (this.contrastOn) {
       ctx.filter = 'contrast(2.5) brightness(1.1)';
       ctx.drawImage(canvas, 0, 0);
     }
 
-    document.getElementById('capturedOverlay').classList.add('show');
+    const overlay = document.getElementById('capturedOverlay');
+    if (overlay) overlay.classList.add('show');
     showToast('캡처 완료!');
   },
 
   async runOCR() {
     vib();
     const video = document.getElementById('cameraVideo');
-    if (!this.stream || video.readyState < 2) return;
+    if (!this.stream || !video || video.readyState < 2) return;
 
     showToast('글자를 읽는 중입니다...');
     NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
@@ -340,14 +409,25 @@ const CameraManager = {
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    
-    // OCR Placeholder
-    const text = await this.recognizeText(canvas);
-    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      NavigationManager.announce('글자를 인식하지 못했습니다.');
+      showToast('인식 실패');
+      return;
+    }
+    ctx.drawImage(video, 0, 0);
+
+    let text = '';
+    try {
+      text = await this.recognizeText(canvas);
+    } catch (e) {
+      text = '';
+    }
+
+    const ocrArea = document.getElementById('ocrResultArea');
     if (text) {
       NavigationManager.announce(`인식된 글자입니다: ${text}`);
-      document.getElementById('ocrResultArea').textContent = text;
+      if (ocrArea) ocrArea.textContent = text;
       showToast('인식 완료!');
     } else {
       NavigationManager.announce('글자를 인식하지 못했습니다.');
@@ -459,11 +539,6 @@ const DataLoader = {
         AppState.brands = this.normalizeBrands(data);
         AppState.brandsSource = url;
         AppState.brandsLoading = false;
-        console.log('[DataLoader] brands loaded', {
-          source: url,
-          cafe: AppState.brands['카페'].length,
-          restaurant: AppState.brands['식당'].length
-        });
         return true;
       } catch (e) {
         errors.push(`${url} (${e.message || e})`);
