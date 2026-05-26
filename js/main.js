@@ -166,7 +166,13 @@ async function initApp() {
       bindElementListener(document.getElementById('contrastBtn'), 'click', () => CameraManager.toggleContrast());
       const captureBtnEl = document.getElementById('captureBtn');
       CameraManager.captureBtnNodeAtInit = captureBtnEl || null;
-      if (captureBtnEl) bindElementListener(captureBtnEl, 'click', () => CameraManager.capture());
+      if (captureBtnEl) {
+        bindElementListener(captureBtnEl, 'click', () => {
+          void CameraManager.capture().catch(err => {
+            console.error('[OCR] capture async error', err && err.message);
+          });
+        });
+      }
       bindElementListener(document.getElementById('ocrBtn'), 'click', () => CameraManager.runOCR());
       bindElementListener(document.getElementById('ocrFromCaptureBtn'), 'click', () => CameraManager.runOCR());
 

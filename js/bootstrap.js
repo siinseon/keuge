@@ -433,29 +433,31 @@ const CameraManager = {
       video &&
       video.readyState >= 2 &&
       video.videoWidth > 0 &&
-      video.videoHeight > 0
+      video.videoHeight > 0 &&
+      video.currentTime > 0
     );
   },
 
-  /** 버튼은 스트림만 있으면 탭 가능. videoWidth 미보고 WebView에서 disabled면 click 자체가 안 뜸. */
+  /** 모바일: 프레임·해상도·currentTime까지 갖춰진 뒤에만 캡처 버튼 활성 */
   updateCaptureButtonState() {
     const video = document.getElementById('cameraVideo');
     const btn = document.getElementById('captureBtn');
     if (!btn) return;
-    const canTap = !!(this.stream && video);
+    const canTap = !!(this.stream && video && this.isVideoFrameReady(video));
     btn.disabled = !canTap;
     btn.setAttribute('aria-disabled', canTap ? 'false' : 'true');
   },
 
   _bindVideoReadyListeners(video) {
     if (!video) return;
+    const evs = ['loadedmetadata', 'loadeddata', 'playing', 'canplay', 'timeupdate'];
     if (this._boundVideoReady) {
-      ['loadedmetadata', 'loadeddata', 'playing', 'canplay'].forEach(ev => {
+      evs.forEach(ev => {
         video.removeEventListener(ev, this._boundVideoReady);
       });
     }
     this._boundVideoReady = () => this.updateCaptureButtonState();
-    ['loadedmetadata', 'loadeddata', 'playing', 'canplay'].forEach(ev => {
+    evs.forEach(ev => {
       video.addEventListener(ev, this._boundVideoReady, { passive: true });
     });
   },
@@ -463,7 +465,7 @@ const CameraManager = {
   _unbindVideoReadyListeners() {
     const video = document.getElementById('cameraVideo');
     if (!video || !this._boundVideoReady) return;
-    ['loadedmetadata', 'loadeddata', 'playing', 'canplay'].forEach(ev => {
+    ['loadedmetadata', 'loadeddata', 'playing', 'canplay', 'timeupdate'].forEach(ev => {
       video.removeEventListener(ev, this._boundVideoReady);
     });
     this._boundVideoReady = null;
@@ -492,22 +494,55 @@ const CameraManager = {
       sameAsInit: capLive === this.captureBtnNodeAtInit,
     });
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      console.error('[OCR] getUserMedia unavailable', {
+        hasMediaDevices: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      });
       this._showCameraFallback(video, noSupport);
       this.updateCaptureButtonState();
       return;
     }
 
+    if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+      try {
+        const permResult = await navigator.permissions.query({ name: 'camera' });
+        console.error('[OCR] permission.camera query', {
+          state: permResult.state,
+        });
+      } catch (pq) {
+        console.error('[OCR] permission.camera query failed', {
+          name: pq && pq.name,
+          message: pq && pq.message,
+        });
+      }
+    } else {
+      console.error('[OCR] permissions.query unavailable');
+    }
+
     showToast('카메라를 준비 중입니다...');
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false
+        video: true,
+        audio: false,
       });
       if (!video) {
         this.stop();
         return;
       }
+
+      console.error('[OCR] stream assigned', this.stream);
+      try {
+        const trackInfo = this.stream.getTracks().map(tr => ({
+          kind: tr.kind,
+          readyState: tr.readyState,
+          enabled: tr.enabled,
+          muted: tr.muted,
+        }));
+        console.error('[OCR] stream tracks', trackInfo);
+      } catch (te) {
+        console.error('[OCR] stream tracks log failed', te && te.message);
+      }
+
       video.srcObject = this.stream;
       video.style.display = 'block';
       if (noSupport) noSupport.style.display = 'none';
@@ -517,12 +552,35 @@ const CameraManager = {
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
       this._bindVideoReadyListeners(video);
+      if (typeof video.requestVideoFrameCallback === 'function') {
+        const primeFrame = () => {
+          try {
+            video.requestVideoFrameCallback(() => this.updateCaptureButtonState());
+          } catch (e) {
+            console.error('[OCR] prime requestVideoFrameCallback failed', e && e.message);
+          }
+        };
+        video.addEventListener('loadeddata', primeFrame, { once: true });
+      }
       try {
         await video.play();
-      } catch (e) {}
+      } catch (e) {
+        console.error('[OCR] video.play failed', {
+          name: e && e.name,
+          message: e && e.message,
+        });
+      }
       this.updateCaptureButtonState();
       await this.applyZoom();
     } catch (err) {
+      console.error('[OCR] getUserMedia failed', {
+        name: err && err.name,
+        message: err && err.message,
+        stack: err && err.stack,
+      });
+      try {
+        alert(String((err && err.name) || 'Error') + ': ' + String((err && err.message) || ''));
+      } catch (e) {}
       this._showCameraFallback(video, noSupport);
       if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
         this.showPermissionModal();
@@ -649,8 +707,28 @@ const CameraManager = {
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
+    console.error('[OCR] drawImage precheck (commit)', { paused: video.paused, ended: video.ended });
+    console.error('[OCR] canvas dimensions before assign', {
+      videoW: vw,
+      videoH: vh,
+      canvasW: canvas.width,
+      canvasH: canvas.height,
+    });
+
     canvas.width = vw;
     canvas.height = vh;
+    if (canvas.width < 1 || canvas.height < 1) {
+      console.error('[OCR] canvas zero after assign', {
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        videoW: vw,
+        videoH: vh,
+      });
+      this.invalidateCaptureBuffer();
+      showToast('카메라 화면이 준비될 때까지 잠깐만 기다렸다가 다시 눌러 주세요');
+      return;
+    }
+
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       console.log('[OCR] return:canvas-fail', { reason: 'no_2d_context' });
@@ -658,7 +736,18 @@ const CameraManager = {
     }
 
     ctx.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : 'none';
-    ctx.drawImage(video, 0, 0, vw, vh);
+    try {
+      ctx.drawImage(video, 0, 0, vw, vh);
+    } catch (de) {
+      console.error('[OCR] drawImage failed', {
+        name: de && de.name,
+        message: de && de.message,
+        stack: de && de.stack,
+      });
+      this.invalidateCaptureBuffer();
+      showToast('카메라 화면이 준비될 때까지 잠깐만 기다렸다가 다시 눌러 주세요');
+      return;
+    }
     ctx.filter = 'none';
 
     if (canvas.width < 1 || canvas.height < 1) {
@@ -682,10 +771,13 @@ const CameraManager = {
       canvasHeight: canvas.height,
       previewShown,
     });
+    try {
+      alert('capture success');
+    } catch (e) {}
     showToast('캡처 완료!');
   },
 
-  capture() {
+  async capture() {
     console.log('[OCR] capture entered');
     const video = document.getElementById('cameraVideo');
     const capBtn = document.getElementById('captureBtn');
@@ -694,6 +786,7 @@ const CameraManager = {
       readyState: video ? video.readyState : null,
       videoWidth: video ? video.videoWidth : null,
       videoHeight: video ? video.videoHeight : null,
+      currentTime: video ? video.currentTime : null,
       captureBtnDisabled: capBtn ? capBtn.disabled : null,
     });
     vib([50, 30, 50]);
@@ -702,25 +795,66 @@ const CameraManager = {
       return;
     }
 
+    const tryCommit = async () => {
+      const el = document.getElementById('cameraVideo');
+      if (!this.stream || !el) {
+        console.log('[OCR] return:no-stream');
+        return;
+      }
+
+      if (!this.isVideoFrameReady(el)) {
+        console.log('[OCR] return:not-ready');
+        showToast('카메라 화면이 준비될 때까지 잠깐만 기다렸다가 다시 눌러 주세요');
+        return;
+      }
+
+      await new Promise(r => requestAnimationFrame(r));
+      await new Promise(r => requestAnimationFrame(r));
+
+      if (typeof el.requestVideoFrameCallback === 'function') {
+        await new Promise(resolve => {
+          try {
+            el.requestVideoFrameCallback(() => resolve());
+          } catch (e) {
+            console.error('[OCR] capture requestVideoFrameCallback failed', e && e.message);
+            resolve();
+          }
+        });
+      }
+
+      const vFinal = document.getElementById('cameraVideo');
+      if (!this.stream || !vFinal) {
+        console.log('[OCR] return:no-stream');
+        return;
+      }
+
+      console.error('[OCR] capture pre-commit video', {
+        readyState: vFinal.readyState,
+        videoWidth: vFinal.videoWidth,
+        videoHeight: vFinal.videoHeight,
+        currentTime: vFinal.currentTime,
+      });
+
+      if (!this.isVideoFrameReady(vFinal)) {
+        console.log('[OCR] return:not-ready after wait');
+        showToast('카메라 화면이 준비될 때까지 잠깐만 기다렸다가 다시 눌러 주세요');
+        return;
+      }
+
+      console.error('[OCR] drawImage precheck', { paused: vFinal.paused, ended: vFinal.ended });
+
+      this._commitCaptureFrame(vFinal);
+    };
+
     if (!this.isVideoFrameReady(video)) {
-      console.log('[OCR] return:not-ready');
+      console.log('[OCR] return:not-ready defer');
       requestAnimationFrame(() => {
-        if (!this.stream) {
-          console.log('[OCR] return:no-stream');
-          return;
-        }
-        const v2 = document.getElementById('cameraVideo');
-        if (!this.isVideoFrameReady(v2)) {
-          console.log('[OCR] return:not-ready');
-          showToast('카메라 화면이 준비될 때까지 잠깐만 기다렸다가 다시 눌러 주세요');
-          return;
-        }
-        this._commitCaptureFrame(v2);
+        void tryCommit();
       });
       return;
     }
 
-    this._commitCaptureFrame(video);
+    await tryCommit();
   },
 
   async runOCR() {
