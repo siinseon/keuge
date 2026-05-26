@@ -98,99 +98,122 @@ const ScrollPerf = {
 // ═══════════════════════════════════════════
 //   INITIALIZATION
 // ═══════════════════════════════════════════
-let _initPromise = null;
+let _appInitialized = false;
+let _coreInitialized = false;
 let _documentListenersBound = false;
-const _boundElements = new WeakSet();
 
-function bindElementListener(el, type, handler, options) {
-  if (!el || _boundElements.has(el)) return;
-  _boundElements.add(el);
-  el.addEventListener(type, handler, options);
+function bindUIListeners() {
+  ['resultsList', 'favList'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', (e) => UI.handleBrandListClick(e));
+  });
+  const detailContent = document.getElementById('detailContent');
+  if (detailContent) detailContent.addEventListener('click', (e) => UI.handleDetailClick(e));
+
+  const homeSearchBtn = document.getElementById('homeSearchBtn');
+  if (homeSearchBtn) {
+    homeSearchBtn.addEventListener('click', () => {
+      const input = document.getElementById('homeSearchInput');
+      if (input) doSearch(input.value);
+    });
+  }
+  const voiceSearchBtn = document.getElementById('voiceSearchBtn');
+  if (voiceSearchBtn) voiceSearchBtn.addEventListener('click', () => SpeechManager.toggleVoiceSearch());
+  const homeSearchInput = document.getElementById('homeSearchInput');
+  if (homeSearchInput) {
+    homeSearchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch(e.target.value);
+    });
+  }
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+      vib();
+      CameraManager.zoomScale = Math.min(4, CameraManager.zoomScale + 0.5);
+      CameraManager.applyZoom();
+      CameraManager.updateUI();
+    });
+  }
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', () => {
+      vib();
+      CameraManager.zoomScale = Math.max(1, CameraManager.zoomScale - 0.5);
+      CameraManager.applyZoom();
+      CameraManager.updateUI();
+    });
+  }
+  const contrastBtn = document.getElementById('contrastBtn');
+  if (contrastBtn) contrastBtn.addEventListener('click', () => CameraManager.toggleContrast());
+  const captureBtn = document.getElementById('captureBtn');
+  if (captureBtn) captureBtn.addEventListener('click', () => CameraManager.capture());
+  const ocrBtn = document.getElementById('ocrBtn');
+  if (ocrBtn) ocrBtn.addEventListener('click', () => CameraManager.runOCR());
+}
+
+function bindDocumentListeners() {
+  if (_documentListenersBound) return;
+  _documentListenersBound = true;
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const target = e.target.closest('button, [tabindex="0"]');
+      if (target && !target.disabled) {
+        if (e.key === ' ') e.preventDefault();
+        target.click();
+      }
+    }
+  });
+
+  document.addEventListener('focusin', (e) => {
+    if (!AppState.settings.voiceEnabled || ScrollPerf.isScrolling) return;
+    const target = e.target.closest('button, input, [tabindex="0"]');
+    if (!target || target.classList.contains('tts-btn')) return;
+    const label = target.getAttribute('aria-label') || target.innerText || target.placeholder || '';
+    if (label) speak(label, true);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('button') || e.target.closest('.result-card')) {
+      if (navigator.vibrate) navigator.vibrate(25);
+    }
+  }, { passive: true });
+}
+
+function canBindUIListeners() {
+  return !!(document.getElementById('resultsList') && document.getElementById('detailContent'));
 }
 
 async function initApp() {
-  if (!_initPromise) {
-    _initPromise = (async () => {
-      let loaded = false;
-      try {
-        loaded = await DataLoader.loadBrands();
-      } catch (e) {
-        loaded = false;
-      }
-      if (!loaded) {
-        showToast('데이터를 가져올 수 없습니다');
-      }
+  if (_appInitialized) return;
 
-      SettingsManager.init();
-      SpeechManager.init();
-      ScrollPerf.init();
+  if (!_coreInitialized) {
+    _coreInitialized = true;
 
-      ['resultsList', 'favList'].forEach(id => {
-        bindElementListener(document.getElementById(id), 'click', (e) => UI.handleBrandListClick(e));
-      });
-      bindElementListener(document.getElementById('detailContent'), 'click', (e) => UI.handleDetailClick(e));
+    let loaded = false;
+    try {
+      loaded = await DataLoader.loadBrands();
+    } catch (e) {
+      loaded = false;
+    }
+    if (!loaded) {
+      showToast('데이터를 가져올 수 없습니다');
+    }
 
-      // 3. Event Listeners
-      bindElementListener(document.getElementById('homeSearchBtn'), 'click', () => {
-        const input = document.getElementById('homeSearchInput');
-        if (input) doSearch(input.value);
-      });
-      bindElementListener(document.getElementById('voiceSearchBtn'), 'click', () => SpeechManager.toggleVoiceSearch());
-      bindElementListener(document.getElementById('homeSearchInput'), 'keydown', e => {
-        if (e.key === 'Enter') doSearch(e.target.value);
-      });
-      bindElementListener(document.getElementById('zoomInBtn'), 'click', () => {
-        vib();
-        CameraManager.zoomScale = Math.min(4, CameraManager.zoomScale + 0.5);
-        CameraManager.applyZoom();
-        CameraManager.updateUI();
-      });
-      bindElementListener(document.getElementById('zoomOutBtn'), 'click', () => {
-        vib();
-        CameraManager.zoomScale = Math.max(1, CameraManager.zoomScale - 0.5);
-        CameraManager.applyZoom();
-        CameraManager.updateUI();
-      });
-      bindElementListener(document.getElementById('contrastBtn'), 'click', () => CameraManager.toggleContrast());
-      bindElementListener(document.getElementById('captureBtn'), 'click', () => CameraManager.capture());
-      bindElementListener(document.getElementById('ocrBtn'), 'click', () => CameraManager.runOCR());
-
-      if (!_documentListenersBound) {
-        _documentListenersBound = true;
-
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            const target = e.target.closest('button, [tabindex="0"]');
-            if (target && !target.disabled) {
-              if (e.key === ' ') e.preventDefault();
-              target.click();
-            }
-          }
-        });
-
-        document.addEventListener('focusin', (e) => {
-          if (!AppState.settings.voiceEnabled || ScrollPerf.isScrolling) return;
-          const target = e.target.closest('button, input, [tabindex="0"]');
-          if (target) {
-            const label = target.getAttribute('aria-label') || target.innerText || target.placeholder || '';
-            if (label) speak(label, true);
-          }
-        });
-
-        document.addEventListener('click', (e) => {
-          if (e.target.closest('button') || e.target.closest('.result-card')) {
-            if (navigator.vibrate) navigator.vibrate(25);
-          }
-        }, { passive: true });
-      }
-
-      // 4. Initial Render
-      UI.renderHomeScreen();
-    })();
+    SettingsManager.init();
+    SpeechManager.init();
+    ScrollPerf.init();
   }
-  return _initPromise;
+
+  if (!canBindUIListeners()) return;
+
+  bindUIListeners();
+  bindDocumentListeners();
+
+  // 4. Initial Render
+  UI.renderHomeScreen();
+  _appInitialized = true;
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  void initApp().catch(() => {});
-});
+window.addEventListener('DOMContentLoaded', initApp);
+window.addEventListener('load', initApp);
