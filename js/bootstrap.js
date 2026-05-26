@@ -236,7 +236,12 @@ const KeugeOcr = {
   },
 
   isNativeAvailable() {
-    return !!(window.Android && typeof window.Android.recognizeTextFromBase64 === 'function');
+    return this.isNativeCameraAvailable() ||
+      !!(window.Android && typeof window.Android.recognizeTextFromBase64 === 'function');
+  },
+
+  isNativeCameraAvailable() {
+    return !!(window.Android && typeof window.Android.captureAndRecognize === 'function');
   },
 
   _complete(payload) {
@@ -247,9 +252,15 @@ const KeugeOcr = {
     clearTimeout(pending.timer);
     delete this._pending[payload.requestId];
 
-    if (payload.success && payload.text) {
-      pending.resolve(String(payload.text).trim());
-      return;
+    if (payload.success) {
+      if (pending.captureOnly) {
+        pending.resolve('');
+        return;
+      }
+      if (payload.text) {
+        pending.resolve(String(payload.text).trim());
+        return;
+      }
     }
     pending.reject(new Error(payload.error || 'ocr_failed'));
   },
@@ -304,6 +315,32 @@ const KeugeOcr = {
 
       try {
         window.Android.recognizeTextFromBase64(requestId, base64);
+      } catch (e) {
+        clearTimeout(timer);
+        delete this._pending[requestId];
+        reject(e);
+      }
+    });
+  },
+
+  startNativeCapture(runOcr) {
+    return new Promise((resolve, reject) => {
+      if (!this.isNativeCameraAvailable()) {
+        reject(new Error('no_native_camera'));
+        return;
+      }
+
+      const requestId = 'ocr_' + Date.now();
+      const timer = setTimeout(() => {
+        if (!this._pending[requestId]) return;
+        delete this._pending[requestId];
+        reject(new Error('timeout'));
+      }, this._timeoutMs);
+
+      this._pending[requestId] = { resolve, reject, timer, captureOnly: !runOcr };
+
+      try {
+        window.Android.captureAndRecognize(requestId, runOcr ? 'true' : 'false');
       } catch (e) {
         clearTimeout(timer);
         delete this._pending[requestId];
@@ -470,7 +507,36 @@ const CameraManager = {
     if (noSupport) noSupport.style.display = 'flex';
   },
 
+  _enterNativeCameraMode() {
+    document.documentElement.classList.add('native-camera-mode');
+    const video = document.getElementById('cameraVideo');
+    if (video) video.style.display = 'none';
+    const hint = document.getElementById('nativeCameraHint');
+    if (hint) hint.hidden = false;
+    const noSupport = document.getElementById('cameraNoSupport');
+    if (noSupport) noSupport.style.display = 'none';
+    const overlay = document.getElementById('capturedOverlay');
+    if (overlay) overlay.classList.remove('show');
+    const btn = document.getElementById('captureBtn');
+    if (btn) {
+      btn.disabled = false;
+      btn.setAttribute('aria-disabled', 'false');
+    }
+    showToast('사진 찍기·글자 읽기를 눌러 주세요');
+  },
+
+  _exitNativeCameraMode() {
+    document.documentElement.classList.remove('native-camera-mode');
+    const hint = document.getElementById('nativeCameraHint');
+    if (hint) hint.hidden = true;
+  },
+
   async start() {
+    if (KeugeOcr.isNativeCameraAvailable()) {
+      this._enterNativeCameraMode();
+      return;
+    }
+
     const video = document.getElementById('cameraVideo');
     const noSupport = document.getElementById('cameraNoSupport');
 
@@ -558,6 +624,7 @@ const CameraManager = {
   },
 
   stop() {
+    this._exitNativeCameraMode();
     this._unbindVideoReadyListeners();
     if (this.stream) {
       try {
@@ -645,6 +712,19 @@ const CameraManager = {
 
   async capture() {
     vib([50, 30, 50]);
+
+    if (KeugeOcr.isNativeCameraAvailable()) {
+      try {
+        await KeugeOcr.startNativeCapture(false);
+        showToast('촬영 완료!');
+      } catch (e) {
+        if (e && e.message !== 'cancelled') {
+          showToast('촬영에 실패했습니다.');
+        }
+      }
+      return;
+    }
+
     const video = document.getElementById('cameraVideo');
     const canvas = document.getElementById('capturedCanvas');
     const overlay = document.getElementById('capturedOverlay');
@@ -712,6 +792,28 @@ const CameraManager = {
 
   async runOCR() {
     vib();
+
+    if (KeugeOcr.isNativeCameraAvailable()) {
+      OcrResultUI.showLoading();
+      NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
+      try {
+        const text = await KeugeOcr.startNativeCapture(true);
+        if (!text) {
+          OcrResultUI.showError('글자를 찾지 못했습니다. 더 밝은 곳에서 선명하게 다시 찍어 주세요.');
+          return;
+        }
+        OcrResultUI.showResult(text);
+        showToast('글자를 찾았습니다');
+      } catch (e) {
+        if (e && e.message === 'cancelled') {
+          OcrResultUI.hide();
+          return;
+        }
+        OcrResultUI.showError(this.mapOcrError(e));
+      }
+      return;
+    }
+
     const canvas = document.getElementById('capturedCanvas');
     const overlay = document.getElementById('capturedOverlay');
     const hasCapture =
@@ -754,6 +856,7 @@ const CameraManager = {
   mapOcrError(error) {
     const code = error && error.message ? error.message : 'ocr_failed';
     if (code === 'no_bridge') return '앱에서만 글자 읽기를 사용할 수 있습니다.';
+    if (code === 'cancelled') return '촬영을 취소했습니다.';
     if (code === 'timeout') return '글자 읽기 시간이 초과되었습니다. 다시 시도해 주세요.';
     if (code === 'empty_image' || code === 'invalid_image') return '사진을 다시 찍어 주세요.';
     if (code === 'empty_text') return '글자를 찾지 못했습니다. 더 선명하게 다시 찍어 주세요.';

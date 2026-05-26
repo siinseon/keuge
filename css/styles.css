@@ -1196,6 +1196,40 @@
     }
   }
 
+  /* Native CameraX mode (Android WebView) */
+  .native-camera-mode #cameraVideo,
+  .native-camera-mode .flash-overlay,
+  .native-camera-mode .zoom-indicator,
+  .native-camera-mode .contrast-indicator,
+  .native-camera-mode .camera-zoom-row,
+  .native-camera-mode .contrast-btn,
+  .native-camera-mode .captured-overlay {
+    display: none !important;
+  }
+  .native-camera-hint {
+    display: none;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: clamp(24px, 6vw, 40px);
+    background: var(--card);
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    margin: clamp(12px, 3vw, 20px);
+    font-size: var(--fs-body);
+    line-height: var(--line-height);
+    color: var(--text);
+  }
+  .native-camera-mode .native-camera-hint {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .native-camera-mode .capture-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
   /* scrollbar */
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
