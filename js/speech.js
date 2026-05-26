@@ -330,30 +330,32 @@ const SpeechManager = {
     this.initVoiceEngine();
     this.bindUserGestureWarmUp();
 
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      this.recognition = new SR();
-      this.recognition.lang = 'ko-KR';
-      this.recognition.onstart = () => {
-        this.setVoiceSearchListening(true);
-        showToast('듣고 있습니다...');
-        NavigationManager.announce('듣고 있습니다. 말씀해 주세요.');
-      };
-      this.recognition.onend = () => {
-        this.setVoiceSearchListening(false);
-      };
-      this.recognition.onerror = () => {
-        this.setVoiceSearchListening(false);
-        showToast('음성 인식 실패');
-        NavigationManager.announce('음성 인식에 실패했습니다.');
-      };
-      this.recognition.onresult = (e) => {
-        const t = e.results[0][0].transcript;
-        const input = document.getElementById('homeSearchInput');
-        if (input) input.value = t;
-        SearchManager.doSearch(t);
-      };
-    }
+    try {
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        this.recognition = new SR();
+        this.recognition.lang = 'ko-KR';
+        this.recognition.onstart = () => {
+          this.setVoiceSearchListening(true);
+          showToast('듣고 있습니다...');
+          NavigationManager.announce('듣고 있습니다. 말씀해 주세요.');
+        };
+        this.recognition.onend = () => {
+          this.setVoiceSearchListening(false);
+        };
+        this.recognition.onerror = () => {
+          this.setVoiceSearchListening(false);
+          showToast('음성 인식 실패');
+          NavigationManager.announce('음성 인식에 실패했습니다.');
+        };
+        this.recognition.onresult = (e) => {
+          const t = e.results[0][0].transcript;
+          const input = document.getElementById('homeSearchInput');
+          if (input) input.value = t;
+          SearchManager.doSearch(t);
+        };
+      }
+    } catch (e) {}
   },
 
   speak(text, skipToast = false) {
