@@ -240,9 +240,21 @@ const KeugeOcr = {
   },
 
   _complete(payload) {
-    if (!payload || !payload.requestId) return;
+    console.log('[OCR] KeugeOcr._complete invoked', payload && {
+      requestId: payload.requestId,
+      success: payload.success,
+      textLen: payload.text != null ? String(payload.text).length : 0,
+      error: payload.error || '',
+    });
+    if (!payload || !payload.requestId) {
+      console.log('[OCR] KeugeOcr._complete skip:no-payload');
+      return;
+    }
     const pending = this._pending[payload.requestId];
-    if (!pending) return;
+    if (!pending) {
+      console.log('[OCR] KeugeOcr._complete skip:no-pending', payload.requestId);
+      return;
+    }
 
     clearTimeout(pending.timer);
     delete this._pending[payload.requestId];
@@ -278,35 +290,49 @@ const KeugeOcr = {
 
   recognizeCanvas(canvas) {
     return new Promise((resolve, reject) => {
+      const bridge =
+        !!(window.Android && typeof window.Android.recognizeTextFromBase64 === 'function');
+      console.log('[OCR] recognizeCanvas start', {
+        canvasW: canvas ? canvas.width : 0,
+        canvasH: canvas ? canvas.height : 0,
+        androidBridgeRecognizeExists: bridge,
+      });
       if (!canvas || !canvas.width || !canvas.height) {
+        console.log('[OCR] recognizeCanvas reject:empty_canvas');
         reject(new Error('empty_image'));
         return;
       }
       if (!this.isNativeAvailable()) {
+        console.log('[OCR] recognizeCanvas reject:no_bridge');
         reject(new Error('no_bridge'));
         return;
       }
 
       const base64 = this._prepareImage(canvas);
       if (!base64) {
+        console.log('[OCR] recognizeCanvas reject:prepare-null');
         reject(new Error('empty_image'));
         return;
       }
+      console.log('[OCR] recognizeCanvas base64', { length: base64.length });
 
       const requestId = 'ocr_' + Date.now();
       const timer = setTimeout(() => {
         if (!this._pending[requestId]) return;
         delete this._pending[requestId];
+        console.log('[OCR] recognizeCanvas reject:timeout', requestId);
         reject(new Error('timeout'));
       }, this._timeoutMs);
 
       this._pending[requestId] = { resolve, reject, timer };
 
       try {
+        console.log('[OCR] recognizeCanvas bridge call', { requestId });
         window.Android.recognizeTextFromBase64(requestId, base64);
       } catch (e) {
         clearTimeout(timer);
         delete this._pending[requestId];
+        console.log('[OCR] recognizeCanvas reject:bridge-exception', e && e.message);
         reject(e);
       }
     });
@@ -396,6 +422,61 @@ const CameraManager = {
   contrastOn: false,
   zoomTimer: null,
   contrastTimer: null,
+  /** Android WebView: 캔버스에 유효 픽셀이 있을 때만 true (OCR 게이트와 동일) */
+  captureStateValid: false,
+  _boundVideoReady: null,
+  /** initApp에서 잡은 #captureBtn 노드(이후 DOM 교체 여부 비교용) */
+  captureBtnNodeAtInit: null,
+
+  isVideoFrameReady(video) {
+    return !!(
+      video &&
+      video.readyState >= 2 &&
+      video.videoWidth > 0 &&
+      video.videoHeight > 0
+    );
+  },
+
+  /** 버튼은 스트림만 있으면 탭 가능. videoWidth 미보고 WebView에서 disabled면 click 자체가 안 뜸. */
+  updateCaptureButtonState() {
+    const video = document.getElementById('cameraVideo');
+    const btn = document.getElementById('captureBtn');
+    if (!btn) return;
+    const canTap = !!(this.stream && video);
+    btn.disabled = !canTap;
+    btn.setAttribute('aria-disabled', canTap ? 'false' : 'true');
+  },
+
+  _bindVideoReadyListeners(video) {
+    if (!video) return;
+    if (this._boundVideoReady) {
+      ['loadedmetadata', 'loadeddata', 'playing', 'canplay'].forEach(ev => {
+        video.removeEventListener(ev, this._boundVideoReady);
+      });
+    }
+    this._boundVideoReady = () => this.updateCaptureButtonState();
+    ['loadedmetadata', 'loadeddata', 'playing', 'canplay'].forEach(ev => {
+      video.addEventListener(ev, this._boundVideoReady, { passive: true });
+    });
+  },
+
+  _unbindVideoReadyListeners() {
+    const video = document.getElementById('cameraVideo');
+    if (!video || !this._boundVideoReady) return;
+    ['loadedmetadata', 'loadeddata', 'playing', 'canplay'].forEach(ev => {
+      video.removeEventListener(ev, this._boundVideoReady);
+    });
+    this._boundVideoReady = null;
+  },
+
+  invalidateCaptureBuffer() {
+    this.captureStateValid = false;
+    const canvas = document.getElementById('capturedCanvas');
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  },
 
   _showCameraFallback(video, noSupport) {
     if (video) video.style.display = 'none';
@@ -405,9 +486,15 @@ const CameraManager = {
   async start() {
     const video = document.getElementById('cameraVideo');
     const noSupport = document.getElementById('cameraNoSupport');
+    const capLive = document.getElementById('captureBtn');
+    console.log('[OCR] camera start captureBtn', {
+      present: !!capLive,
+      sameAsInit: capLive === this.captureBtnNodeAtInit,
+    });
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       this._showCameraFallback(video, noSupport);
+      this.updateCaptureButtonState();
       return;
     }
 
@@ -424,6 +511,16 @@ const CameraManager = {
       video.srcObject = this.stream;
       video.style.display = 'block';
       if (noSupport) noSupport.style.display = 'none';
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+      this._bindVideoReadyListeners(video);
+      try {
+        await video.play();
+      } catch (e) {}
+      this.updateCaptureButtonState();
       await this.applyZoom();
     } catch (err) {
       this._showCameraFallback(video, noSupport);
@@ -431,6 +528,7 @@ const CameraManager = {
         this.showPermissionModal();
       }
       showToast('카메라 오류');
+      this.updateCaptureButtonState();
     }
   },
 
@@ -451,6 +549,7 @@ const CameraManager = {
   },
 
   stop() {
+    this._unbindVideoReadyListeners();
     if (this.stream) {
       try {
         this.stream.getTracks().forEach(t => {
@@ -467,9 +566,13 @@ const CameraManager = {
       video.style.transform = '';
       video.style.filter = '';
     }
+    const overlay = document.getElementById('capturedOverlay');
+    if (overlay) overlay.classList.remove('show');
+    this.invalidateCaptureBuffer();
     this.zoomScale = 1;
     this.contrastOn = false;
     this.updateUI();
+    this.updateCaptureButtonState();
   },
 
   async applyZoom() {
@@ -531,11 +634,7 @@ const CameraManager = {
     showToast(this.contrastOn ? '대비 강화 켜짐' : '대비 강화 꺼짐');
   },
 
-  capture() {
-    vib([50, 30, 50]);
-    const video = document.getElementById('cameraVideo');
-    if (!this.stream || !video || video.readyState < 2) return;
-
+  _commitCaptureFrame(video) {
     const flash = document.getElementById('flashOverlay');
     if (flash) {
       flash.classList.add('flash');
@@ -543,37 +642,110 @@ const CameraManager = {
     }
 
     const canvas = document.getElementById('capturedCanvas');
-    if (!canvas) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0);
-    if (this.contrastOn) {
-      ctx.filter = 'contrast(2.5) brightness(1.1)';
-      ctx.drawImage(canvas, 0, 0);
+    if (!canvas) {
+      console.log('[OCR] return:canvas-fail', { reason: 'no_canvas_element' });
+      return;
     }
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    canvas.width = vw;
+    canvas.height = vh;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.log('[OCR] return:canvas-fail', { reason: 'no_2d_context' });
+      return;
+    }
+
+    ctx.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : 'none';
+    ctx.drawImage(video, 0, 0, vw, vh);
+    ctx.filter = 'none';
+
+    if (canvas.width < 1 || canvas.height < 1) {
+      this.invalidateCaptureBuffer();
+      console.log('[OCR] return:canvas-fail', {
+        reason: 'zero_dimensions',
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+      });
+      showToast('카메라 화면이 준비될 때까지 잠깐만 기다렸다가 다시 눌러 주세요');
+      return;
+    }
+
+    this.captureStateValid = true;
 
     const overlay = document.getElementById('capturedOverlay');
     if (overlay) overlay.classList.add('show');
+    const previewShown = !!(overlay && overlay.classList.contains('show'));
+    console.log('[OCR] capture success', {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      previewShown,
+    });
     showToast('캡처 완료!');
+  },
+
+  capture() {
+    console.log('[OCR] capture entered');
+    const video = document.getElementById('cameraVideo');
+    const capBtn = document.getElementById('captureBtn');
+    console.log('[OCR] capture entered snapshot', {
+      hasStream: !!this.stream,
+      readyState: video ? video.readyState : null,
+      videoWidth: video ? video.videoWidth : null,
+      videoHeight: video ? video.videoHeight : null,
+      captureBtnDisabled: capBtn ? capBtn.disabled : null,
+    });
+    vib([50, 30, 50]);
+    if (!this.stream || !video) {
+      console.log('[OCR] return:no-stream');
+      return;
+    }
+
+    if (!this.isVideoFrameReady(video)) {
+      console.log('[OCR] return:not-ready');
+      requestAnimationFrame(() => {
+        if (!this.stream) {
+          console.log('[OCR] return:no-stream');
+          return;
+        }
+        const v2 = document.getElementById('cameraVideo');
+        if (!this.isVideoFrameReady(v2)) {
+          console.log('[OCR] return:not-ready');
+          showToast('카메라 화면이 준비될 때까지 잠깐만 기다렸다가 다시 눌러 주세요');
+          return;
+        }
+        this._commitCaptureFrame(v2);
+      });
+      return;
+    }
+
+    this._commitCaptureFrame(video);
   },
 
   async runOCR() {
     vib();
     const canvas = document.getElementById('capturedCanvas');
     const overlay = document.getElementById('capturedOverlay');
-    const hasCapture = canvas && overlay && overlay.classList.contains('show') && canvas.width > 0;
+    const hasCapture =
+      this.captureStateValid &&
+      canvas &&
+      overlay &&
+      overlay.classList.contains('show') &&
+      canvas.width > 0 &&
+      canvas.height > 0;
+
+    console.log('[OCR] runOCR start', { hasCapture, captureStateValid: this.captureStateValid });
 
     if (!hasCapture) {
+      console.log('[OCR] runOCR skip:no-capture');
       showToast('먼저 사진을 찍어 주세요');
       NavigationManager.announce('먼저 사진을 찍어 주세요');
       return;
     }
 
     if (!KeugeOcr.isNativeAvailable()) {
+      console.log('[OCR] runOCR skip:no-bridge');
       showToast('앱에서만 글자 읽기를 사용할 수 있습니다');
       NavigationManager.announce('앱에서만 글자 읽기를 사용할 수 있습니다');
       return;
@@ -586,12 +758,15 @@ const CameraManager = {
     try {
       const text = await KeugeOcr.recognizeCanvas(canvas);
       if (!text) {
+        console.log('[OCR] runOCR empty-text');
         OcrResultUI.showError('글자를 찾지 못했습니다. 더 밝은 곳에서 선명하게 다시 찍어 주세요.');
         return;
       }
+      console.log('[OCR] runOCR OK', { textLen: String(text).length });
       OcrResultUI.showResult(text);
       showToast('글자를 찾았습니다');
     } catch (e) {
+      console.log('[OCR] runOCR catch', { message: e && e.message });
       OcrResultUI.showError(this.mapOcrError(e));
     }
   },

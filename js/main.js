@@ -76,6 +76,7 @@ function closeCaptured() {
   vib();
   const overlay = document.getElementById('capturedOverlay');
   if (overlay) overlay.classList.remove('show');
+  CameraManager.invalidateCaptureBuffer();
   CameraManager.restartIfNeeded();
 }
 
@@ -163,7 +164,9 @@ async function initApp() {
         CameraManager.updateUI();
       });
       bindElementListener(document.getElementById('contrastBtn'), 'click', () => CameraManager.toggleContrast());
-      bindElementListener(document.getElementById('captureBtn'), 'click', () => CameraManager.capture());
+      const captureBtnEl = document.getElementById('captureBtn');
+      CameraManager.captureBtnNodeAtInit = captureBtnEl || null;
+      if (captureBtnEl) bindElementListener(captureBtnEl, 'click', () => CameraManager.capture());
       bindElementListener(document.getElementById('ocrBtn'), 'click', () => CameraManager.runOCR());
       bindElementListener(document.getElementById('ocrFromCaptureBtn'), 'click', () => CameraManager.runOCR());
 
@@ -190,7 +193,11 @@ async function initApp() {
         });
 
         document.addEventListener('click', (e) => {
-          if (e.target.closest('button') || e.target.closest('.result-card')) {
+          const raw = e.target;
+          const origin = raw instanceof Element ? raw : raw && raw.parentElement;
+          if (!origin || !origin.closest) return;
+
+          if (origin.closest('button') || origin.closest('.result-card')) {
             if (navigator.vibrate) navigator.vibrate(25);
           }
         }, { passive: true });

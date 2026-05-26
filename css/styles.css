@@ -732,6 +732,9 @@
   }
   #screen-camera .camera-controls {
     flex: 0 0 auto;
+    /* 하단 네비 z-index:200 위로 — 탭이 nav로 소비되어 capture 무반응되는 경우 방지 */
+    position: relative;
+    z-index: 210;
   }
   .camera-controls {
     background: var(--bg);
@@ -804,6 +807,10 @@
     width: 100%;
     overflow-wrap: break-word;
     word-break: keep-all;
+  }
+  .capture-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .contrast-btn {
     background: var(--card);
@@ -901,9 +908,14 @@
   }
   .captured-overlay.show { display: flex; }
   .captured-overlay canvas {
+    flex: 1 1 auto;
+    width: auto;
     max-width: 100%;
     max-height: calc(100% - 120px);
+    min-height: min(240px, 40vh);
+    object-fit: contain;
     border-radius: 12px;
+    background: #111;
   }
   .captured-actions {
     display: flex;
@@ -957,10 +969,13 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
     overflow: hidden;
     backface-visibility: hidden;
+    /* 바 영역은 터치 통과: 카메라 하단 조작 버튼이 가려져도 탭 가능 */
+    pointer-events: none;
   }
   .bottom-nav .nav-tab {
     min-height: 0;
     height: auto;
+    pointer-events: auto;
   }
   .nav-tab {
     flex: 1 1 0;
