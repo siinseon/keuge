@@ -503,11 +503,6 @@ const DataLoader = {
         AppState.brands = this.normalizeBrands(data);
         AppState.brandsSource = url;
         AppState.brandsLoading = false;
-        console.log('[DataLoader] brands loaded', {
-          source: url,
-          cafe: AppState.brands['카페'].length,
-          restaurant: AppState.brands['식당'].length
-        });
         return true;
       } catch (e) {
         errors.push(`${url} (${e.message || e})`);
