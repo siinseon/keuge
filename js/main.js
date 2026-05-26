@@ -165,11 +165,10 @@ async function initApp() {
       });
       bindElementListener(document.getElementById('contrastBtn'), 'click', () => CameraManager.toggleContrast());
       const captureBtnEl = document.getElementById('captureBtn');
-      CameraManager.captureBtnNodeAtInit = captureBtnEl || null;
       if (captureBtnEl) {
         bindElementListener(captureBtnEl, 'click', () => {
-          void CameraManager.capture().catch(err => {
-            console.error('[OCR] capture async error', err && err.message);
+          void CameraManager.capture().catch(() => {
+            showToast('캡처에 실패했습니다.');
           });
         });
       }
