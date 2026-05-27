@@ -172,19 +172,41 @@ const UI = {
 
   renderSearchScreen() {
     const zone = document.querySelector('#screen-search .home-search-zone');
+    if (!zone) return;
+
     const existingRecent = zone.querySelector('.recent-searches');
     if (existingRecent) existingRecent.remove();
-    if (AppState.recentSearches.length > 0) {
-      const recentDiv = document.createElement('div');
-      recentDiv.className = 'recent-searches';
-      recentDiv.innerHTML = `
-        <h2 class="section-heading">최근 검색어</h2>
-        <div class="recent-tags">
-          ${AppState.recentSearches.map(s => `<button class="result-card recent-tag-btn" onclick="doSearch('${s}')" aria-label="${s} 검색하기">${s}</button>`).join('')}
-        </div>
-      `;
-      zone.appendChild(recentDiv);
-    }
+
+    const searches = Array.isArray(AppState.recentSearches) ? AppState.recentSearches : [];
+    if (searches.length === 0) return;
+
+    const recentDiv = document.createElement('div');
+    recentDiv.className = 'recent-searches';
+
+    const heading = document.createElement('h2');
+    heading.className = 'section-heading';
+    heading.textContent = '최근 검색어';
+    recentDiv.appendChild(heading);
+
+    const tagsWrap = document.createElement('div');
+    tagsWrap.className = 'recent-tags';
+
+    searches.forEach(raw => {
+      if (raw == null) return;
+      const term = String(raw);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'result-card recent-tag-btn';
+      btn.textContent = term;
+      btn.setAttribute('aria-label', `${term} 검색하기`);
+      btn.addEventListener('click', () => doSearch(term));
+      tagsWrap.appendChild(btn);
+    });
+
+    if (tagsWrap.childElementCount === 0) return;
+
+    recentDiv.appendChild(tagsWrap);
+    zone.appendChild(recentDiv);
   },
 
   renderFavScreen() {

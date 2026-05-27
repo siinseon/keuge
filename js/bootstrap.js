@@ -16,15 +16,51 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+const DEFAULT_SETTINGS = {
+  voiceEnabled: true,
+  fontSize: 'medium',
+  displayMode: 'normal',
+  reducedMotion: false
+};
+
+function safeParseJSON(raw, fallback) {
+  if (raw == null || raw === '') return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function loadStringArray(key) {
+  const parsed = safeParseJSON(localStorage.getItem(key), []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function loadSettings() {
+  const parsed = safeParseJSON(localStorage.getItem('settings'), DEFAULT_SETTINGS);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...DEFAULT_SETTINGS };
+  return { ...DEFAULT_SETTINGS, ...parsed };
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // ═══════════════════════════════════════════
 //   CORE MODULE: STATE & SETTINGS
 // ═══════════════════════════════════════════
 const AppState = {
   screenHistory: ['home'],
-  favorites: JSON.parse(localStorage.getItem('fav') || '[]'),
-  recentMenus: JSON.parse(localStorage.getItem('recentMenus') || '[]'),
-  recentSearches: JSON.parse(localStorage.getItem('recentSearches') || '[]'),
-  settings: JSON.parse(localStorage.getItem('settings') || '{"voiceEnabled": true, "fontSize": "medium", "displayMode": "normal", "reducedMotion": false}'),
+  favorites: loadStringArray('fav'),
+  recentMenus: loadStringArray('recentMenus'),
+  recentSearches: loadStringArray('recentSearches'),
+  settings: loadSettings(),
   brands: null,
   brandsLoading: false,
   brandsLoadFailed: false,
@@ -32,10 +68,10 @@ const AppState = {
   brandsSource: null,
 
   save() {
-    localStorage.setItem('fav', JSON.stringify(this.favorites));
-    localStorage.setItem('recentMenus', JSON.stringify(this.recentMenus));
-    localStorage.setItem('recentSearches', JSON.stringify(this.recentSearches));
-    localStorage.setItem('settings', JSON.stringify(this.settings));
+    safeSetItem('fav', JSON.stringify(this.favorites));
+    safeSetItem('recentMenus', JSON.stringify(this.recentMenus));
+    safeSetItem('recentSearches', JSON.stringify(this.recentSearches));
+    safeSetItem('settings', JSON.stringify(this.settings));
   }
 };
 
@@ -503,11 +539,6 @@ const DataLoader = {
         AppState.brands = this.normalizeBrands(data);
         AppState.brandsSource = url;
         AppState.brandsLoading = false;
-        console.log('[DataLoader] brands loaded', {
-          source: url,
-          cafe: AppState.brands['카페'].length,
-          restaurant: AppState.brands['식당'].length
-        });
         return true;
       } catch (e) {
         errors.push(`${url} (${e.message || e})`);
