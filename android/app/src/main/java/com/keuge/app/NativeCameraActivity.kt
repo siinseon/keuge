@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
@@ -36,12 +38,14 @@ class NativeCameraActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("OCR", "NativeCameraActivity onCreate")
         binding = ActivityNativeCameraBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         requestId = intent.getStringExtra(EXTRA_REQUEST_ID).orEmpty()
         runOcr = intent.getBooleanExtra(EXTRA_RUN_OCR, true)
         cameraExecutor = Executors.newSingleThreadExecutor()
+        Log.d("OCR", "cameraExecutor created")
 
         binding.hintText.setText(
             if (runOcr) R.string.camera_hint_ocr else R.string.camera_hint_photo
@@ -67,9 +71,12 @@ class NativeCameraActivity : AppCompatActivity() {
     }
 
     private fun startCamera() {
+        Log.d("OCR", "startCamera entered")
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
+            Log.d("OCR", "cameraProvider acquired")
+
             val preview = Preview.Builder().build().also {
                 it.surfaceProvider = binding.previewView.surfaceProvider
             }
@@ -77,16 +84,24 @@ class NativeCameraActivity : AppCompatActivity() {
             imageCapture = ImageCapture.Builder()
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                 .build()
+            Log.d("OCR", "imageCapture created")
+            Log.d("OCR", "previewView isAttachedToWindow: ${binding.previewView.isAttachedToWindow}")
 
             try {
                 cameraProvider.unbindAll()
+                Log.d("OCR", "bindToLifecycle start")
                 cameraProvider.bindToLifecycle(
                     this,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
                     imageCapture
                 )
+                Log.d("OCR", "bindToLifecycle success")
             } catch (e: Exception) {
+                Log.e("OCR", "bindToLifecycle failed", e)
+                runOnUiThread {
+                    Toast.makeText(this, "camera_bind_failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
                 finishWithError("camera_bind_failed")
             }
         }, ContextCompat.getMainExecutor(this))
