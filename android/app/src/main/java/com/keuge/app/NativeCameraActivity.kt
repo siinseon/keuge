@@ -36,9 +36,17 @@ class NativeCameraActivity : AppCompatActivity() {
         if (granted) startCamera() else finishWithError("permission_denied")
     }
 
+    // TEMP DEBUG
+    private fun dbgToast(msg: String) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        Log.d("OCR", msg)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // TEMP DEBUG
         Log.d("OCR", "NativeCameraActivity onCreate")
+        dbgToast("onCreate")
         binding = ActivityNativeCameraBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -71,11 +79,13 @@ class NativeCameraActivity : AppCompatActivity() {
     }
 
     private fun startCamera() {
-        Log.d("OCR", "startCamera entered")
+        // TEMP DEBUG
+        dbgToast("startCamera")
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-            Log.d("OCR", "cameraProvider acquired")
+            // TEMP DEBUG
+            dbgToast("cameraProvider acquired")
 
             val preview = Preview.Builder().build().also {
                 it.surfaceProvider = binding.previewView.surfaceProvider
@@ -84,24 +94,26 @@ class NativeCameraActivity : AppCompatActivity() {
             imageCapture = ImageCapture.Builder()
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                 .build()
-            Log.d("OCR", "imageCapture created")
+            // TEMP DEBUG
+            dbgToast("imageCapture created")
             Log.d("OCR", "previewView isAttachedToWindow: ${binding.previewView.isAttachedToWindow}")
 
             try {
                 cameraProvider.unbindAll()
-                Log.d("OCR", "bindToLifecycle start")
+                // TEMP DEBUG
+                dbgToast("bind start")
                 cameraProvider.bindToLifecycle(
                     this,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
                     imageCapture
                 )
-                Log.d("OCR", "bindToLifecycle success")
+                // TEMP DEBUG
+                dbgToast("bind success")
             } catch (e: Exception) {
                 Log.e("OCR", "bindToLifecycle failed", e)
-                runOnUiThread {
-                    Toast.makeText(this, "camera_bind_failed: ${e.message}", Toast.LENGTH_LONG).show()
-                }
+                // TEMP DEBUG
+                dbgToast("bind failed: ${e.message}")
                 finishWithError("camera_bind_failed")
             }
         }, ContextCompat.getMainExecutor(this))
@@ -111,6 +123,8 @@ class NativeCameraActivity : AppCompatActivity() {
         val capture = imageCapture ?: return
         isProcessing = true
         setUiBusy(true)
+        // TEMP DEBUG
+        dbgToast("takePhoto")
 
         val photoFile = File(cacheDir, "keuge_capture_${System.currentTimeMillis()}.jpg")
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
@@ -121,10 +135,14 @@ class NativeCameraActivity : AppCompatActivity() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     if (runOcr) {
+                        // TEMP DEBUG
+                        runOnUiThread { dbgToast("ocr start") }
                         processOcr(photoFile)
                     } else {
                         photoFile.delete()
                         runOnUiThread {
+                            // TEMP DEBUG
+                            dbgToast("capture success")
                             finishWithSuccess("")
                         }
                     }
@@ -148,14 +166,20 @@ class NativeCameraActivity : AppCompatActivity() {
                 photoFile.delete()
                 runOnUiThread {
                     if (text.isBlank()) {
+                        // TEMP DEBUG
+                        dbgToast("ocr failed")
                         finishWithError("empty_text")
                     } else {
+                        // TEMP DEBUG
+                        dbgToast("ocr success")
                         finishWithSuccess(text)
                     }
                 }
             } catch (e: Exception) {
                 photoFile.delete()
                 runOnUiThread {
+                    // TEMP DEBUG
+                    dbgToast("ocr failed: ${e.message}")
                     finishWithError(e.message ?: "ocr_failed")
                 }
             }
