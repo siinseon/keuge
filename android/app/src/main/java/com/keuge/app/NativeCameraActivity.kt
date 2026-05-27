@@ -108,6 +108,7 @@ class NativeCameraActivity : AppCompatActivity() {
                     if (runOcr) {
                         processOcr(photoFile)
                     } else {
+                        photoFile.delete()
                         runOnUiThread {
                             finishWithSuccess("")
                         }
