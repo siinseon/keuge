@@ -1196,22 +1196,13 @@
     }
   }
 
-  /* Native CameraX mode (Android WebView) */
-  .native-camera-mode #cameraVideo,
-  .native-camera-mode .flash-overlay,
-  .native-camera-mode .zoom-indicator,
-  .native-camera-mode .contrast-indicator,
-  .native-camera-mode .camera-zoom-row,
-  .native-camera-mode .contrast-btn,
-  .native-camera-mode .captured-overlay {
-    display: none !important;
-  }
   .native-camera-hint {
-    display: none;
-    flex: 1;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
+    gap: 16px;
     padding: clamp(24px, 6vw, 40px);
     background: var(--card);
     border: 2px dashed var(--border);
@@ -1220,14 +1211,13 @@
     font-size: var(--fs-body);
     line-height: var(--line-height);
     color: var(--text);
+    flex: 1;
   }
-  .native-camera-mode .native-camera-hint {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .native-camera-hint p {
+    margin: 0;
   }
-  .native-camera-mode .capture-row {
-    grid-template-columns: 1fr 1fr;
+  .capture-row {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) !important;
   }
 
   /* scrollbar */

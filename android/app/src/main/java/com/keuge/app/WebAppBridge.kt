@@ -1,6 +1,5 @@
 package com.keuge.app
 
-import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -10,7 +9,7 @@ import java.util.Locale
 class WebAppBridge(
     private val activity: MainActivity,
     private val webView: WebView,
-    private val onCaptureRequested: (requestId: String, runOcr: Boolean) -> Unit
+    private val onCameraRequested: () -> Unit
 ) : TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
@@ -22,9 +21,7 @@ class WebAppBridge(
 
     override fun onInit(status: Int) {
         ttsReady = status == TextToSpeech.SUCCESS
-        if (ttsReady) {
-            tts?.language = Locale.KOREAN
-        }
+        if (ttsReady) tts?.language = Locale.KOREAN
     }
 
     @JavascriptInterface
@@ -38,48 +35,30 @@ class WebAppBridge(
 
     @JavascriptInterface
     fun stopSpeak() {
-        activity.runOnUiThread {
-            tts?.stop()
-        }
+        activity.runOnUiThread { tts?.stop() }
     }
 
     @JavascriptInterface
     fun isTtsReady(): Boolean = ttsReady
 
-    /** CameraX 촬영 + ML Kit OCR (Android 전용) */
+    /** JS → Android: 카메라 열기 + OCR 요청 */
     @JavascriptInterface
-    fun captureAndRecognize(requestId: String?, runOcr: String?) {
-        if (requestId.isNullOrBlank()) return
-        val ocr = runOcr != "false"
-        activity.runOnUiThread {
-            onCaptureRequested(requestId, ocr)
-        }
+    fun openNativeCamera() {
+        activity.runOnUiThread { onCameraRequested() }
     }
 
-    /** 레거시: base64 JPEG → ML Kit (PC 디버그·호환) */
-    @JavascriptInterface
-    fun recognizeTextFromBase64(requestId: String?, base64: String?) {
-        if (requestId.isNullOrBlank() || base64.isNullOrBlank()) return
-        activity.runOnUiThread {
-            activity.runOcrOnBase64(requestId, base64)
-        }
+    /** Android → JS: OCR 결과 전달 */
+    fun deliverResult(success: Boolean, text: String?, error: String?) {
+        val successStr = success.toString()
+        val textJson  = if (!text.isNullOrBlank())  JSONObject.quote(text)  else "null"
+        val errorJson = if (!error.isNullOrBlank()) JSONObject.quote(error) else "null"
+        val js = "window.KeugeOcr&&window.KeugeOcr._onResult($successStr,$textJson,$errorJson)"
+        webView.post { webView.evaluateJavascript(js, null) }
     }
 
-    fun deliverOcrResult(
-        requestId: String,
-        success: Boolean,
-        text: String?,
-        error: String?
-    ) {
-        val payload = JSONObject().apply {
-            put("requestId", requestId)
-            put("success", success)
-            if (!text.isNullOrBlank()) put("text", text)
-            if (!error.isNullOrBlank()) put("error", error)
-        }
-        val js = "window.KeugeOcr&&window.KeugeOcr._complete(${payload})"
-        webView.post {
-            webView.evaluateJavascript(js, null)
-        }
+    fun destroy() {
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
     }
 }

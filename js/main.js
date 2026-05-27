@@ -74,10 +74,6 @@ function toggleFav(name) {
 
 function closeCaptured() {
   vib();
-  const overlay = document.getElementById('capturedOverlay');
-  if (overlay) overlay.classList.remove('show');
-  CameraManager.invalidateCaptureBuffer();
-  CameraManager.restartIfNeeded();
 }
 
 function closeOcrResult() {
@@ -151,19 +147,6 @@ async function initApp() {
       bindElementListener(document.getElementById('homeSearchInput'), 'keydown', e => {
         if (e.key === 'Enter') doSearch(e.target.value);
       });
-      bindElementListener(document.getElementById('zoomInBtn'), 'click', () => {
-        vib();
-        CameraManager.zoomScale = Math.min(4, CameraManager.zoomScale + 0.5);
-        CameraManager.applyZoom();
-        CameraManager.updateUI();
-      });
-      bindElementListener(document.getElementById('zoomOutBtn'), 'click', () => {
-        vib();
-        CameraManager.zoomScale = Math.max(1, CameraManager.zoomScale - 0.5);
-        CameraManager.applyZoom();
-        CameraManager.updateUI();
-      });
-      bindElementListener(document.getElementById('contrastBtn'), 'click', () => CameraManager.toggleContrast());
       const captureBtnEl = document.getElementById('captureBtn');
       if (captureBtnEl) {
         bindElementListener(captureBtnEl, 'click', () => {
@@ -173,7 +156,6 @@ async function initApp() {
         });
       }
       bindElementListener(document.getElementById('ocrBtn'), 'click', () => CameraManager.runOCR());
-      bindElementListener(document.getElementById('ocrFromCaptureBtn'), 'click', () => CameraManager.runOCR());
 
       if (!_documentListenersBound) {
         _documentListenersBound = true;

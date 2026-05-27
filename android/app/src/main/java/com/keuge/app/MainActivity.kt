@@ -1,8 +1,6 @@
 package com.keuge.app
 
-import android.graphics.BitmapFactory
 import android.os.Bundle
-import android.util.Base64
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -20,45 +18,24 @@ class MainActivity : AppCompatActivity() {
     private val cameraLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val requestId = pendingCameraRequestId
-        pendingCameraRequestId = null
-        if (requestId.isNullOrBlank()) return@registerForActivityResult
-
         if (result.resultCode != RESULT_OK) {
-            webBridge.deliverOcrResult(
-                requestId,
-                success = false,
-                text = null,
-                error = "cancelled"
-            )
+            webBridge.deliverResult(false, null, "cancelled")
             return@registerForActivityResult
         }
-
         val data = result.data
         val success = data?.getBooleanExtra(NativeCameraActivity.EXTRA_SUCCESS, false) ?: false
-        val text = data?.getStringExtra(NativeCameraActivity.EXTRA_TEXT)
-        val error = data?.getStringExtra(NativeCameraActivity.EXTRA_ERROR) ?: "ocr_failed"
-
-        webBridge.deliverOcrResult(
-            requestId,
-            success = success,
-            text = text,
-            error = error
-        )
+        val text    = data?.getStringExtra(NativeCameraActivity.EXTRA_TEXT)
+        val error   = if (!success) (data?.getStringExtra(NativeCameraActivity.EXTRA_ERROR) ?: "ocr_failed") else null
+        webBridge.deliverResult(success, text, error)
     }
-
-    private var pendingCameraRequestId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webView)
-        webBridge = WebAppBridge(this, webView) { requestId, runOcr ->
-            pendingCameraRequestId = requestId
-            cameraLauncher.launch(
-                NativeCameraActivity.createIntent(this, requestId, runOcr)
-            )
+        webBridge = WebAppBridge(this, webView) {
+            cameraLauncher.launch(NativeCameraActivity.createIntent(this))
         }
 
         configureWebView()
@@ -88,46 +65,19 @@ class MainActivity : AppCompatActivity() {
             mediaPlaybackRequiresUserGesture = false
             cacheMode = WebSettings.LOAD_DEFAULT
         }
-
         webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false
-            }
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?) = false
         }
-
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
                 request?.grant(request.resources)
             }
         }
-
         webView.addJavascriptInterface(webBridge, "Android")
     }
 
-    fun runOcrOnBase64(requestId: String, base64: String) {
-        Thread {
-            try {
-                val bytes = Base64.decode(base64, Base64.DEFAULT)
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    ?: throw IllegalArgumentException("invalid_image")
-                val text = OcrProcessor.recognizeBitmap(bitmap)
-                runOnUiThread {
-                    if (text.isBlank()) {
-                        webBridge.deliverOcrResult(requestId, false, null, "empty_text")
-                    } else {
-                        webBridge.deliverOcrResult(requestId, true, text, null)
-                    }
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    webBridge.deliverOcrResult(
-                        requestId,
-                        false,
-                        null,
-                        e.message ?: "ocr_failed"
-                    )
-                }
-            }
-        }.start()
+    override fun onDestroy() {
+        super.onDestroy()
+        webBridge.destroy()
     }
 }
