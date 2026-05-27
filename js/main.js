@@ -72,7 +72,17 @@ function toggleFav(name) {
   }
 }
 
-function closeCaptured() { vib(); document.getElementById('capturedOverlay').classList.remove('show'); }
+function closeCaptured() {
+  vib();
+  const overlay = document.getElementById('capturedOverlay');
+  if (overlay) overlay.classList.remove('show');
+  CameraManager.invalidateCaptureBuffer();
+  CameraManager.restartIfNeeded();
+}
+
+function closeOcrResult() {
+  OcrResultUI.hide();
+}
 
 const ScrollPerf = {
   isScrolling: false,
@@ -124,6 +134,8 @@ async function initApp() {
       SettingsManager.init();
       SpeechManager.init();
       ScrollPerf.init();
+      KeugeOcr.init();
+      OcrResultUI.bindEvents(bindElementListener);
 
       ['resultsList', 'favList'].forEach(id => {
         bindElementListener(document.getElementById(id), 'click', (e) => UI.handleBrandListClick(e));
@@ -152,8 +164,16 @@ async function initApp() {
         CameraManager.updateUI();
       });
       bindElementListener(document.getElementById('contrastBtn'), 'click', () => CameraManager.toggleContrast());
-      bindElementListener(document.getElementById('captureBtn'), 'click', () => CameraManager.capture());
+      const captureBtnEl = document.getElementById('captureBtn');
+      if (captureBtnEl) {
+        bindElementListener(captureBtnEl, 'click', () => {
+          void CameraManager.capture().catch(() => {
+            showToast('캡처에 실패했습니다.');
+          });
+        });
+      }
       bindElementListener(document.getElementById('ocrBtn'), 'click', () => CameraManager.runOCR());
+      bindElementListener(document.getElementById('ocrFromCaptureBtn'), 'click', () => CameraManager.runOCR());
 
       if (!_documentListenersBound) {
         _documentListenersBound = true;
@@ -178,7 +198,11 @@ async function initApp() {
         });
 
         document.addEventListener('click', (e) => {
-          if (e.target.closest('button') || e.target.closest('.result-card')) {
+          const raw = e.target;
+          const origin = raw instanceof Element ? raw : raw && raw.parentElement;
+          if (!origin || !origin.closest) return;
+
+          if (origin.closest('button') || origin.closest('.result-card')) {
             if (navigator.vibrate) navigator.vibrate(25);
           }
         }, { passive: true });

@@ -151,10 +151,23 @@
       <span>카메라를 사용할 수 없습니다.<br>권한을 허용해 주세요.</span>
     </div>
 
+    <!-- Native camera hint (Android app) -->
+    <div class="native-camera-hint" id="nativeCameraHint" hidden>
+      <p>앱 카메라로 촬영합니다.</p>
+      <p>아래 <strong>사진 찍기</strong> 또는 <strong>글자 읽기</strong>를 눌러 주세요.</p>
+    </div>
+
+    <!-- Hidden native camera input (web browser fallback) -->
+    <input type="file" accept="image/*" capture="environment"
+           id="nativeCameraInput" style="display:none" aria-hidden="true" tabindex="-1">
+
     <!-- Captured image overlay -->
     <div class="captured-overlay" id="capturedOverlay" role="dialog" aria-label="캡처된 사진">
       <canvas id="capturedCanvas" aria-label="캡처된 이미지 미리보기"></canvas>
-      <button class="close-capture-btn" onclick="closeCaptured()" aria-label="사진 닫기">✕ 닫기</button>
+      <div class="captured-actions">
+        <button class="capture-ocr-btn" id="ocrFromCaptureBtn" type="button" aria-label="사진 속 글자 읽기">글자 읽기</button>
+        <button class="close-capture-btn" onclick="closeCaptured()" type="button" aria-label="사진 닫기">✕ 닫기</button>
+      </div>
     </div>
   </div>
 
@@ -170,7 +183,7 @@
       <button class="contrast-btn" id="contrastBtn" aria-label="글씨 뚜렷하게 보기 토글">
         <span>글씨 뚜렷하게</span>
       </button>
-      <button class="capture-btn" id="captureBtn" aria-label="사진 찍기">
+      <button type="button" class="capture-btn" id="captureBtn" aria-label="사진 찍기">
         사진 찍기
       </button>
       <button class="contrast-btn" id="ocrBtn" aria-label="글자 읽기">
@@ -235,6 +248,20 @@
 <!-- TOAST -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<!-- OCR RESULT MODAL -->
+<div id="ocrResultModal" class="ocr-modal" role="dialog" aria-modal="true" aria-labelledby="ocrModalTitle" hidden>
+  <div class="ocr-modal-content">
+    <h2 id="ocrModalTitle" class="ocr-modal-title">사진 속 글자</h2>
+    <div id="ocrLoading" class="ocr-loading" hidden>글자를 읽는 중입니다...</div>
+    <div id="ocrResultText" class="ocr-result-text" aria-live="polite"></div>
+    <p id="ocrErrorMsg" class="ocr-error-msg" role="alert"></p>
+    <div class="ocr-modal-actions">
+      <button id="ocrSpeakBtn" class="ocr-speak-btn" type="button" aria-label="인식된 글자 읽기">읽기</button>
+      <button id="ocrCloseBtn" class="ocr-close-btn" type="button" aria-label="글자 읽기 결과 닫기">닫기</button>
+    </div>
+  </div>
+</div>
+
 
 
 <!-- ════════════════════════════════════════════
@@ -285,6 +312,7 @@
   </button>
 </nav>
 
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="/js/bootstrap.js"></script>
 <script src="/js/speech.js"></script>
 <script src="/js/ui.js"></script>
