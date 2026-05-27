@@ -120,20 +120,38 @@ class NativeCameraActivity : AppCompatActivity() {
     }
 
     private fun takePhoto() {
-        val capture = imageCapture ?: return
+        // TEMP DEBUG
+        Log.d("OCR", "takePhoto clicked")
+        dbgToast("takePhoto clicked")
+
+        val capture = imageCapture ?: run {
+            // TEMP DEBUG
+            Log.e("OCR", "imageCapture is null — takePicture skipped")
+            runOnUiThread { dbgToast("imageCapture null!") }
+            return
+        }
         isProcessing = true
         setUiBusy(true)
-        // TEMP DEBUG
-        dbgToast("takePhoto")
 
         val photoFile = File(cacheDir, "keuge_capture_${System.currentTimeMillis()}.jpg")
+        // TEMP DEBUG
+        Log.d("OCR", "photoFile: ${photoFile.absolutePath}")
+
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+        // TEMP DEBUG
+        Log.d("OCR", "outputOptions created")
+        Log.d("OCR", "takePicture start")
+        dbgToast("takePicture start")
 
         capture.takePicture(
             outputOptions,
             cameraExecutor,
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    // TEMP DEBUG
+                    Log.d("OCR", "image saved — runOcr=$runOcr")
+                    runOnUiThread { dbgToast("image saved") }
+
                     if (runOcr) {
                         // TEMP DEBUG
                         runOnUiThread { dbgToast("ocr start") }
@@ -149,7 +167,10 @@ class NativeCameraActivity : AppCompatActivity() {
                 }
 
                 override fun onError(exception: ImageCaptureException) {
+                    // TEMP DEBUG
+                    Log.e("OCR", "takePicture failed", exception)
                     runOnUiThread {
+                        dbgToast("takePicture failed: ${exception.message}")
                         finishWithError("capture_failed")
                     }
                 }
