@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
@@ -34,14 +36,24 @@ class NativeCameraActivity : AppCompatActivity() {
         if (granted) startCamera() else finishWithError("permission_denied")
     }
 
+    // TEMP DEBUG
+    private fun dbgToast(msg: String) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        Log.d("OCR", msg)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // TEMP DEBUG
+        Log.d("OCR", "NativeCameraActivity onCreate")
+        dbgToast("onCreate")
         binding = ActivityNativeCameraBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         requestId = intent.getStringExtra(EXTRA_REQUEST_ID).orEmpty()
         runOcr = intent.getBooleanExtra(EXTRA_RUN_OCR, true)
         cameraExecutor = Executors.newSingleThreadExecutor()
+        Log.d("OCR", "cameraExecutor created")
 
         binding.hintText.setText(
             if (runOcr) R.string.camera_hint_ocr else R.string.camera_hint_photo
@@ -67,9 +79,14 @@ class NativeCameraActivity : AppCompatActivity() {
     }
 
     private fun startCamera() {
+        // TEMP DEBUG
+        dbgToast("startCamera")
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
+            // TEMP DEBUG
+            dbgToast("cameraProvider acquired")
+
             val preview = Preview.Builder().build().also {
                 it.surfaceProvider = binding.previewView.surfaceProvider
             }
@@ -77,45 +94,83 @@ class NativeCameraActivity : AppCompatActivity() {
             imageCapture = ImageCapture.Builder()
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                 .build()
+            // TEMP DEBUG
+            dbgToast("imageCapture created")
+            Log.d("OCR", "previewView isAttachedToWindow: ${binding.previewView.isAttachedToWindow}")
 
             try {
                 cameraProvider.unbindAll()
+                // TEMP DEBUG
+                dbgToast("bind start")
                 cameraProvider.bindToLifecycle(
                     this,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
                     imageCapture
                 )
+                // TEMP DEBUG
+                dbgToast("bind success")
             } catch (e: Exception) {
+                Log.e("OCR", "bindToLifecycle failed", e)
+                // TEMP DEBUG
+                dbgToast("bind failed: ${e.message}")
                 finishWithError("camera_bind_failed")
             }
         }, ContextCompat.getMainExecutor(this))
     }
 
     private fun takePhoto() {
-        val capture = imageCapture ?: return
+        // TEMP DEBUG
+        Log.d("OCR", "takePhoto clicked")
+        dbgToast("takePhoto clicked")
+
+        val capture = imageCapture ?: run {
+            // TEMP DEBUG
+            Log.e("OCR", "imageCapture is null — takePicture skipped")
+            runOnUiThread { dbgToast("imageCapture null!") }
+            return
+        }
         isProcessing = true
         setUiBusy(true)
 
         val photoFile = File(cacheDir, "keuge_capture_${System.currentTimeMillis()}.jpg")
+        // TEMP DEBUG
+        Log.d("OCR", "photoFile: ${photoFile.absolutePath}")
+
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+        // TEMP DEBUG
+        Log.d("OCR", "outputOptions created")
+        Log.d("OCR", "takePicture start")
+        dbgToast("takePicture start")
 
         capture.takePicture(
             outputOptions,
             cameraExecutor,
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    // TEMP DEBUG
+                    Log.d("OCR", "image saved — runOcr=$runOcr")
+                    runOnUiThread { dbgToast("image saved") }
+
                     if (runOcr) {
+                        // TEMP DEBUG
+                        runOnUiThread { dbgToast("ocr start") }
                         processOcr(photoFile)
                     } else {
+                        photoFile.delete()
                         runOnUiThread {
+                            // TEMP DEBUG
+                            dbgToast("capture success")
                             finishWithSuccess("")
                         }
                     }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
+                    // TEMP DEBUG
+                    Log.e("OCR", "takePicture failed", exception)
                     runOnUiThread {
+                        dbgToast("takePicture failed: ${exception.message}")
                         finishWithError("capture_failed")
                     }
                 }
@@ -132,14 +187,20 @@ class NativeCameraActivity : AppCompatActivity() {
                 photoFile.delete()
                 runOnUiThread {
                     if (text.isBlank()) {
+                        // TEMP DEBUG
+                        dbgToast("ocr failed")
                         finishWithError("empty_text")
                     } else {
+                        // TEMP DEBUG
+                        dbgToast("ocr success")
                         finishWithSuccess(text)
                     }
                 }
             } catch (e: Exception) {
                 photoFile.delete()
                 runOnUiThread {
+                    // TEMP DEBUG
+                    dbgToast("ocr failed: ${e.message}")
                     finishWithError(e.message ?: "ocr_failed")
                 }
             }
