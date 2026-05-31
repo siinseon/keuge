@@ -87,23 +87,40 @@ class WebAppBridge(
         // 안전하게 JSON 문자열로 만들어 JS의 JSON.parse 로 복원한다.
         val payloadJson = payload.toString()
         val jsLiteral = jsStringLiteral(payloadJson)
+
+        // 추가 안전망:
+        //   1) window.__keugeLastOcrPayload 에 항상 결과를 저장한다.
+        //      _complete 가 어떤 이유로든 모달을 표시하지 못하면 JS 쪽 폴러가
+        //      이 값을 읽어 강제로 결과 모달을 띄울 수 있게 한다.
+        //   2) _complete 호출은 try/catch 로 감싸 한 곳이 실패해도 다른 흐름은 진행되게 한다.
         val js = "(function(){try{" +
             "var p=JSON.parse($jsLiteral);" +
+            "window.__keugeLastOcrPayload=p;" +
             "if(window.console)console.log('[KeugeOcr] deliver',p);" +
-            "if(window.KeugeOcr&&typeof window.KeugeOcr._complete==='function'){" +
-            "window.KeugeOcr._complete(p);}else{" +
-            "if(window.console)console.warn('[KeugeOcr] _complete not ready');}" +
+            "try{if(window.KeugeOcr&&typeof window.KeugeOcr._complete==='function'){" +
+            "window.KeugeOcr._complete(p);}}catch(e1){if(window.console)console.error('[KeugeOcr] _complete threw',e1);}" +
+            "try{if(typeof window.__keugeForceShowResult==='function'){" +
+            "window.__keugeForceShowResult(p);}}catch(e2){if(window.console)console.error('[KeugeOcr] forceShow threw',e2);}" +
             "}catch(e){if(window.console)console.error('[KeugeOcr] deliver error',e);}})();"
 
         Log.d(
             TAG,
             "deliverOcrResult: requestId=$requestId success=$success " +
-                "hasText=${!text.isNullOrBlank()} error=$error"
+                "textLen=${text?.length ?: 0} error=$error"
         )
 
-        webView.post {
+        // 메인 스레드에서 두 가지 채널 모두 시도한다.
+        activity.runOnUiThread {
+            // 채널 1: evaluateJavascript (정식 경로)
             webView.evaluateJavascript(js) { result ->
                 Log.d(TAG, "deliverOcrResult: evaluateJavascript result=$result")
+            }
+            // 채널 2: loadUrl("javascript:...") (구형 fallback). 일부 단말/상태에서
+            //         evaluateJavascript 가 silent fail 하는 경우를 대비한다.
+            try {
+                webView.loadUrl("javascript:$js")
+            } catch (e: Exception) {
+                Log.e(TAG, "loadUrl(javascript:) failed", e)
             }
         }
     }

@@ -65,4 +65,7 @@ dependencies {
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+    // ML Kit Task 를 동기적으로 await 하기 위해 사용 (Tasks.await).
+    // 보통 ML Kit 가 transitive 로 가져오지만 명시해 둔다.
+    implementation("com.google.android.gms:play-services-tasks:18.2.0")
 }
