@@ -42,6 +42,7 @@ class NativeCameraActivity : AppCompatActivity() {
     private val cameraIntentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        Log.d(TAG, "cameraIntentLauncher result: resultCode=${result.resultCode}")
         when (result.resultCode) {
             Activity.RESULT_OK -> handleCaptureSuccess()
             Activity.RESULT_CANCELED -> finishCancelled()
@@ -58,7 +59,26 @@ class NativeCameraActivity : AppCompatActivity() {
         runOcr = intent.getBooleanExtra(EXTRA_RUN_OCR, true)
         ocrExecutor = Executors.newSingleThreadExecutor()
 
+        // 시스템 카메라 도중 액티비티가 재생성되었을 때 임시 파일 경로/launch 상태를 복원한다.
+        if (savedInstanceState != null) {
+            cameraLaunched = savedInstanceState.getBoolean(STATE_CAMERA_LAUNCHED, false)
+            savedInstanceState.getString(STATE_PHOTO_PATH)?.let { path ->
+                photoFile = File(path)
+            }
+        }
+
+        Log.d(
+            TAG,
+            "onCreate: requestId=$requestId runOcr=$runOcr " +
+                "cameraLaunched=$cameraLaunched photoFile=${photoFile?.absolutePath}"
+        )
         setStatus(getString(R.string.camera_status_launching), busy = false)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_CAMERA_LAUNCHED, cameraLaunched)
+        photoFile?.absolutePath?.let { outState.putString(STATE_PHOTO_PATH, it) }
     }
 
     override fun onResume() {
@@ -98,6 +118,11 @@ class NativeCameraActivity : AppCompatActivity() {
 
     private fun handleCaptureSuccess() {
         val file = photoFile
+        Log.d(
+            TAG,
+            "handleCaptureSuccess: file=${file?.absolutePath} " +
+                "exists=${file?.exists()} length=${file?.length()}"
+        )
         if (file == null || !file.exists() || file.length() == 0L) {
             finishWithError("empty_image")
             return
@@ -113,9 +138,12 @@ class NativeCameraActivity : AppCompatActivity() {
 
         ocrExecutor.execute {
             try {
+                Log.d(TAG, "OCR: decoding bitmap")
                 val bitmap = loadOrientedBitmap(file)
                     ?: throw IllegalArgumentException("invalid_image")
+                Log.d(TAG, "OCR: bitmap ${bitmap.width}x${bitmap.height}, running ML Kit")
                 val text = OcrProcessor.recognizeBitmap(bitmap)
+                Log.d(TAG, "OCR: completed, text length=${text.length}")
                 file.delete()
                 runOnUiThread {
                     if (text.isBlank()) finishWithError("empty_text")
@@ -192,6 +220,7 @@ class NativeCameraActivity : AppCompatActivity() {
     }
 
     private fun finishWithSuccess(text: String) {
+        Log.d(TAG, "finishWithSuccess: text length=${text.length}")
         val data = Intent().apply {
             putExtra(EXTRA_SUCCESS, true)
             putExtra(EXTRA_TEXT, text)
@@ -201,6 +230,7 @@ class NativeCameraActivity : AppCompatActivity() {
     }
 
     private fun finishWithError(code: String) {
+        Log.w(TAG, "finishWithError: code=$code")
         val data = Intent().apply {
             putExtra(EXTRA_SUCCESS, false)
             putExtra(EXTRA_ERROR, code)
@@ -210,6 +240,7 @@ class NativeCameraActivity : AppCompatActivity() {
     }
 
     private fun finishCancelled() {
+        Log.d(TAG, "finishCancelled")
         setResult(RESULT_CANCELED)
         finish()
     }
@@ -220,8 +251,10 @@ class NativeCameraActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val TAG = "OCR"
+        private const val TAG = "KeugeNative"
         private const val MAX_DECODE_DIM = 2048
+        private const val STATE_CAMERA_LAUNCHED = "cameraLaunched"
+        private const val STATE_PHOTO_PATH = "photoPath"
 
         const val EXTRA_REQUEST_ID = "request_id"
         const val EXTRA_RUN_OCR = "run_ocr"
