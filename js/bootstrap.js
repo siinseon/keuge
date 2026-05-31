@@ -453,407 +453,54 @@ const OcrResultUI = {
 
 // ═══════════════════════════════════════════
 //   CAMERA & OCR MODULE
+//   - WebView 카메라(getUserMedia)는 사용하지 않는다.
+//   - Android: 시스템 카메라 인텐트(ACTION_IMAGE_CAPTURE)로 위임.
+//   - 브라우저: <input type="file" capture="environment"> fallback.
 // ═══════════════════════════════════════════
 const CameraManager = {
+  // 호환용 필드 (기존 코드 참조 대비; 동작은 없음)
   stream: null,
   zoomScale: 1,
   contrastOn: false,
-  zoomTimer: null,
-  contrastTimer: null,
   captureStateValid: false,
-  _boundVideoReady: null,
 
-  _frameReadyForCapture(video) {
-    // NOTE: 모바일 Chrome/WebView에서 영상이 정상 표시되는데도 currentTime이
-    // 0으로 남는 경우가 있어 캡처 진입이 차단되므로 currentTime 조건을 제거함.
-    return !!(
-      video &&
-      this.stream &&
-      video.readyState >= 2 &&
-      video.videoWidth > 0 &&
-      video.videoHeight > 0
-    );
-  },
-
-  updateCaptureButtonState() {
-    const video = document.getElementById('cameraVideo');
-    const btn = document.getElementById('captureBtn');
-    if (!btn) return;
-    const ok = this._frameReadyForCapture(video);
-    btn.disabled = !ok;
-    btn.setAttribute('aria-disabled', ok ? 'false' : 'true');
-  },
-
-  _bindVideoReadyListeners(video) {
-    if (!video) return;
-    const evs = ['loadedmetadata', 'loadeddata', 'playing', 'canplay', 'timeupdate'];
-    if (this._boundVideoReady) {
-      evs.forEach(ev => {
-        video.removeEventListener(ev, this._boundVideoReady);
-      });
-    }
-    this._boundVideoReady = () => this.updateCaptureButtonState();
-    evs.forEach(ev => {
-      video.addEventListener(ev, this._boundVideoReady, { passive: true });
-    });
-  },
-
-  _unbindVideoReadyListeners() {
-    const video = document.getElementById('cameraVideo');
-    if (!video || !this._boundVideoReady) return;
-    ['loadedmetadata', 'loadeddata', 'playing', 'canplay', 'timeupdate'].forEach(ev => {
-      video.removeEventListener(ev, this._boundVideoReady);
-    });
-    this._boundVideoReady = null;
-  },
-
-  invalidateCaptureBuffer() {
-    this.captureStateValid = false;
-    const canvas = document.getElementById('capturedCanvas');
-    if (canvas) {
-      canvas.width = 0;
-      canvas.height = 0;
-    }
-  },
-
-  /** 모바일: 다음 디코드된 프레임 시점까지 대기(지원 시) */
-  _waitVideoFrame(video) {
-    if (!video || typeof video.requestVideoFrameCallback !== 'function') {
-      return Promise.resolve();
-    }
-    return new Promise(resolve => {
-      try {
-        video.requestVideoFrameCallback(() => resolve());
-      } catch (e) {
-        resolve();
-      }
-    });
-  },
-
-  _showCameraFallback(video, noSupport) {
-    if (video) video.style.display = 'none';
-    if (noSupport) noSupport.style.display = 'flex';
-  },
-
-  _enterNativeCameraMode() {
-    document.documentElement.classList.add('native-camera-mode');
-    const video = document.getElementById('cameraVideo');
-    if (video) video.style.display = 'none';
+  /** 카메라 화면 진입 시 호출. 별도의 프리뷰 준비가 없으므로 안내만 한다. */
+  start() {
     const hint = document.getElementById('nativeCameraHint');
     if (hint) hint.hidden = false;
-    const noSupport = document.getElementById('cameraNoSupport');
-    if (noSupport) noSupport.style.display = 'none';
-    const overlay = document.getElementById('capturedOverlay');
-    if (overlay) overlay.classList.remove('show');
-    const btn = document.getElementById('captureBtn');
-    if (btn) {
-      btn.disabled = false;
-      btn.setAttribute('aria-disabled', 'false');
+    if (KeugeOcr.isNativeCameraAvailable()) {
+      showToast('사진 찍기·글자 읽기를 눌러 주세요');
+    } else {
+      showToast('사진 찍기·글자 읽기를 눌러 주세요');
     }
-    showToast('사진 찍기·글자 읽기를 눌러 주세요');
   },
 
-  _exitNativeCameraMode() {
-    document.documentElement.classList.remove('native-camera-mode');
+  /** 카메라 화면 이탈 시 호출. */
+  stop() {
     const hint = document.getElementById('nativeCameraHint');
     if (hint) hint.hidden = true;
   },
 
-  async start() {
-    if (KeugeOcr.isNativeCameraAvailable()) {
-      this._enterNativeCameraMode();
-      return;
-    }
-
-    const video = document.getElementById('cameraVideo');
-    const noSupport = document.getElementById('cameraNoSupport');
-
-    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
-      showToast('카메라를 사용할 수 없습니다.');
-      this._showCameraFallback(video, noSupport);
-      this.updateCaptureButtonState();
-      return;
-    }
-
-    showToast('카메라 준비 중입니다...');
-    const requestCameraStream = async () => {
-      try {
-        return await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-          audio: false,
-        });
-      } catch (firstErr) {
-        const fallback =
-          firstErr &&
-          (firstErr.name === 'OverconstrainedError' ||
-            firstErr.name === 'ConstraintNotSatisfiedError' ||
-            firstErr.name === 'NotFoundError');
-        if (!fallback) throw firstErr;
-        return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      }
-    };
-
-    try {
-      this.stream = await requestCameraStream();
-    } catch (err) {
-      this._showCameraFallback(video, noSupport);
-      if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
-        this.showPermissionModal();
-      }
-      showToast('카메라 준비 중 오류입니다.');
-      this.updateCaptureButtonState();
-      return;
-    }
-
-    if (!video) {
-      this.stop();
-      return;
-    }
-
-    video.srcObject = this.stream;
-    video.style.display = 'block';
-    if (noSupport) noSupport.style.display = 'none';
-    video.muted = true;
-    video.defaultMuted = true;
-    video.playsInline = true;
-    video.setAttribute('playsinline', '');
-    video.setAttribute('webkit-playsinline', '');
-
-    this._bindVideoReadyListeners(video);
-
-    try {
-      await video.play();
-    } catch (e) {
-      this._showCameraFallback(video, noSupport);
-      showToast('카메라 준비 중입니다. 잠시 후 다시 열어 주세요.');
-      this.updateCaptureButtonState();
-      return;
-    }
-
-    await this._waitVideoFrame(video);
-    this.updateCaptureButtonState();
-    await this.applyZoom();
-  },
-
-  showPermissionModal() {
-    let modal = document.getElementById('cameraPermModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'cameraPermModal';
-      modal.className = 'modal-overlay';
-      modal.innerHTML = `
-        <div class="modal-content">
-          <div class="modal-title">카메라 권한 필요</div>
-          <div class="modal-desc">카메라 권한을 허용해야 돋보기를 사용할 수 있습니다.</div>
-          <button class="modal-btn" onclick="document.getElementById('cameraPermModal').remove()">확인</button>
-        </div>`;
-      document.body.appendChild(modal);
-    }
-  },
-
-  stop() {
-    this._exitNativeCameraMode();
-    this._unbindVideoReadyListeners();
-    if (this.stream) {
-      try {
-        this.stream.getTracks().forEach(t => {
-          try {
-            t.stop();
-          } catch (e) {}
-        });
-      } catch (e) {}
-      this.stream = null;
-    }
-    const video = document.getElementById('cameraVideo');
-    if (video) {
-      video.srcObject = null;
-      video.style.transform = '';
-      video.style.filter = '';
-    }
-    const overlay = document.getElementById('capturedOverlay');
-    if (overlay) overlay.classList.remove('show');
-    this.invalidateCaptureBuffer();
-    this.zoomScale = 1;
-    this.contrastOn = false;
-    this.updateUI();
-    this.updateCaptureButtonState();
-  },
-
-  async applyZoom() {
-    const video = document.getElementById('cameraVideo');
-    if (!video) return;
-
-    if (this.stream) {
-      const tracks = this.stream.getVideoTracks();
-      const track = tracks && tracks[0];
-      if (track && typeof track.getCapabilities === 'function') {
-        try {
-          const caps = track.getCapabilities();
-          if (caps && caps.zoom) {
-            const nativeZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, this.zoomScale));
-            await track.applyConstraints({ advanced: [{ zoom: nativeZoom }] });
-            video.style.transform = '';
-            return;
-          }
-        } catch (e) {}
-      }
-    }
-    video.style.transform = `scale(${this.zoomScale})`;
-  },
-
-  updateUI() {
-    requestAnimationFrame(() => {
-      const val = this.zoomScale.toFixed(1).replace('.0', '') + '×';
-      const zoomValue = document.getElementById('zoomValue');
-      const ind = document.getElementById('zoomIndicator');
-      if (zoomValue) zoomValue.textContent = val;
-      if (!ind) return;
-      ind.textContent = '확대 ' + val;
-      ind.classList.add('show');
-      clearTimeout(this.zoomTimer);
-      this.zoomTimer = setTimeout(() => ind.classList.remove('show'), 1800);
-    });
-  },
-
-  toggleContrast() {
-    vib([30, 20, 30]);
-    this.contrastOn = !this.contrastOn;
-    const video = document.getElementById('cameraVideo');
-    if (video) {
-      video.style.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : '';
-    }
-    const btn = document.getElementById('contrastBtn');
-    if (btn) {
-      btn.classList.toggle('active-contrast', this.contrastOn);
-      btn.setAttribute('aria-pressed', String(this.contrastOn));
-    }
-
-    const ind = document.getElementById('contrastIndicator');
-    if (ind) {
-      ind.textContent = this.contrastOn ? '대비 강화 ON' : '대비 강화 OFF';
-      ind.classList.add('show');
-      clearTimeout(this.contrastTimer);
-      this.contrastTimer = setTimeout(() => ind.classList.remove('show'), 1800);
-    }
-    showToast(this.contrastOn ? '대비 강화 켜짐' : '대비 강화 꺼짐');
-  },
-
+  /** 사진 찍기: 시스템 카메라 인텐트 또는 파일 입력 fallback. OCR은 실행하지 않음. */
   async capture() {
-    // DEBUG: 모바일 캡처 진입 확인용 임시 alert (확인 후 제거 예정)
-    alert('capture entered');
     vib([50, 30, 50]);
-
     if (KeugeOcr.isNativeCameraAvailable()) {
       try {
         await KeugeOcr.startNativeCapture(false);
         showToast('촬영 완료!');
       } catch (e) {
         if (e && e.message !== 'cancelled') {
-          showToast('촬영에 실패했습니다.');
+          showToast(this.mapOcrError(e));
         }
       }
       return;
     }
-
-    const video = document.getElementById('cameraVideo');
-    const canvas = document.getElementById('capturedCanvas');
-    const overlay = document.getElementById('capturedOverlay');
-    const flash = document.getElementById('flashOverlay');
-
-    // DEBUG: 모바일 캡처 차단 원인 진단용 로그 (확인 후 제거 예정)
-    console.log('[capture] video state', {
-      readyState: video ? video.readyState : null,
-      videoWidth: video ? video.videoWidth : null,
-      videoHeight: video ? video.videoHeight : null,
-      currentTime: video ? video.currentTime : null,
-      hasStream: !!this.stream
-    });
-
-    if (!this.stream || !video || !this._frameReadyForCapture(video)) {
-      const input = document.getElementById('nativeCameraInput');
-      if (input) {
-        const onFileChange = async () => {
-          input.removeEventListener('change', onFileChange);
-          const file = input.files && input.files[0];
-          if (!file) return;
-          input.value = '';
-          await this._processPhotoFile(file);
-        };
-        input.addEventListener('change', onFileChange);
-        input.click();
-        return;
-      }
-      showToast('카메라 준비 중입니다. 잠시 후 다시 눌러 주세요.');
-      return;
-    }
-
-    await new Promise(r => requestAnimationFrame(r));
-    await new Promise(r => requestAnimationFrame(r));
-    await this._waitVideoFrame(video);
-
-    const v = document.getElementById('cameraVideo');
-    if (!this.stream || !v || !this._frameReadyForCapture(v)) {
-      showToast('프레임이 없습니다.');
-      return;
-    }
-
-    if (!canvas) {
-      showToast('캡처에 실패했습니다.');
-      return;
-    }
-
-    const vw = v.videoWidth;
-    const vh = v.videoHeight;
-    canvas.width = vw;
-    canvas.height = vh;
-    if (vw < 1 || vh < 1 || canvas.width < 1 || canvas.height < 1) {
-      this.invalidateCaptureBuffer();
-      showToast('프레임이 없습니다.');
-      return;
-    }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      showToast('캡처에 실패했습니다.');
-      return;
-    }
-
-    ctx.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : 'none';
-    // DEBUG: drawImage 호출 직전 확인 (확인 후 제거 예정)
-    alert('drawImage start');
-    try {
-      ctx.drawImage(v, 0, 0, vw, vh);
-    } catch (e) {
-      this.invalidateCaptureBuffer();
-      showToast('캡처에 실패했습니다.');
-      return;
-    }
-    // DEBUG: drawImage 정상 호출 확인 (확인 후 제거 예정)
-    alert('drawImage success');
-    ctx.filter = 'none';
-
-    this.captureStateValid = true;
-    // 캡처 성공 시 overlay 강제 표시 (모바일에서 누락되는 경우 대비)
-    if (overlay) {
-      overlay.classList.add('show');
-      overlay.hidden = false;
-      overlay.style.display = '';
-    }
-    if (flash) {
-      flash.classList.add('flash');
-      setTimeout(() => flash.classList.remove('flash'), 200);
-    }
-
-    if (BrowserOcr.available() || KeugeOcr.isNativeAvailable()) {
-      await this._autoRunOcr(canvas);
-    } else {
-      showToast('캡처 완료!');
-    }
+    this._launchFileInput(false);
   },
 
+  /** 글자 읽기: 시스템 카메라 인텐트로 촬영 + ML Kit OCR. */
   async runOCR() {
     vib();
-
     if (KeugeOcr.isNativeCameraAvailable()) {
       OcrResultUI.showLoading();
       NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
@@ -866,102 +513,34 @@ const CameraManager = {
         OcrResultUI.showResult(text);
         showToast('글자를 찾았습니다');
       } catch (e) {
-        if (e && e.message === 'cancelled') {
-          OcrResultUI.hide();
-          return;
-        }
+        if (e && e.message === 'cancelled') { OcrResultUI.hide(); return; }
         OcrResultUI.showError(this.mapOcrError(e));
       }
       return;
     }
+    this._launchFileInput(true);
+  },
 
-    const canvas = document.getElementById('capturedCanvas');
-    const overlay = document.getElementById('capturedOverlay');
-    const hasCapture =
-      this.captureStateValid &&
-      canvas &&
-      overlay &&
-      overlay.classList.contains('show') &&
-      canvas.width > 0 &&
-      canvas.height > 0;
-
-    if (!hasCapture) {
-      showToast('먼저 사진을 찍어 주세요');
-      NavigationManager.announce('먼저 사진을 찍어 주세요');
+  /** 브라우저 fallback: 숨겨진 file input 으로 카메라/사진 선택. */
+  _launchFileInput(withOcr) {
+    const input = document.getElementById('nativeCameraInput');
+    if (!input) {
+      showToast('카메라를 사용할 수 없습니다.');
       return;
     }
-
-    if (!KeugeOcr.isNativeAvailable()) {
-      if (BrowserOcr.available()) {
-        if (!hasCapture) {
-          showToast('먼저 사진을 찍어 주세요');
-          NavigationManager.announce('먼저 사진을 찍어 주세요');
-          return;
-        }
-        await this._autoRunOcr(canvas);
-      } else {
-        showToast('글자 읽기 기능을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
-        NavigationManager.announce('글자 읽기 기능을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
-      }
-      return;
-    }
-
-    OcrResultUI.showLoading();
-    this.pauseStream();
-    NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
-
-    try {
-      const text = await KeugeOcr.recognizeCanvas(canvas);
-      if (!text) {
-        OcrResultUI.showError('글자를 찾지 못했습니다. 더 밝은 곳에서 선명하게 다시 찍어 주세요.');
-        return;
-      }
-      OcrResultUI.showResult(text);
-      showToast('글자를 찾았습니다');
-    } catch (e) {
-      OcrResultUI.showError(this.mapOcrError(e));
-    }
+    const handler = async () => {
+      input.removeEventListener('change', handler);
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      await this._processPhotoFile(file, withOcr);
+    };
+    input.addEventListener('change', handler);
+    input.click();
   },
 
-  mapOcrError(error) {
-    const code = error && error.message ? error.message : 'ocr_failed';
-    if (code === 'no_bridge') return '앱에서만 글자 읽기를 사용할 수 있습니다.';
-    if (code === 'tesseract_not_loaded') return '글자 읽기 기능을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.';
-    if (code === 'cancelled') return '촬영을 취소했습니다.';
-    if (code === 'timeout') return '글자 읽기 시간이 초과되었습니다. 다시 시도해 주세요.';
-    if (code === 'empty_image' || code === 'invalid_image') return '사진을 다시 찍어 주세요.';
-    if (code === 'empty_text') return '글자를 찾지 못했습니다. 더 선명하게 다시 찍어 주세요.';
-    return '글자를 인식하지 못했습니다. 사진을 더 선명하게 찍어 주세요.';
-  },
-
-  pauseStream() {
-    if (this.stream) {
-      try {
-        this.stream.getTracks().forEach(track => {
-          try { track.stop(); } catch (e) {}
-        });
-      } catch (e) {}
-      this.stream = null;
-    }
-    const video = document.getElementById('cameraVideo');
-    if (video) video.srcObject = null;
-  },
-
-  restartIfNeeded() {
-    const cameraScreen = document.getElementById('screen-camera');
-    if (!cameraScreen || !cameraScreen.classList.contains('active')) return;
-    if (OcrResultUI.isOpen()) return;
-    const overlay = document.getElementById('capturedOverlay');
-    if (overlay && overlay.classList.contains('show')) return;
-    if (!this.stream) this.start();
-  },
-
-  async _processPhotoFile(file) {
-    const canvas = document.getElementById('capturedCanvas');
-    const overlay = document.getElementById('capturedOverlay');
-    const flash = document.getElementById('flashOverlay');
-    if (!canvas || !file) return;
-
+  async _processPhotoFile(file, withOcr) {
+    const canvas = document.createElement('canvas');
     await new Promise((resolve) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
@@ -971,15 +550,7 @@ const CameraManager = {
         canvas.height = img.naturalHeight;
         const ctx = canvas.getContext('2d');
         if (!ctx) { resolve(); return; }
-        ctx.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : 'none';
         ctx.drawImage(img, 0, 0);
-        ctx.filter = 'none';
-        this.captureStateValid = true;
-        if (overlay) overlay.classList.add('show');
-        if (flash) {
-          flash.classList.add('flash');
-          setTimeout(() => flash.classList.remove('flash'), 200);
-        }
         vib([50, 30, 50]);
         resolve();
       };
@@ -991,14 +562,13 @@ const CameraManager = {
       img.src = url;
     });
 
-    if (BrowserOcr.available() || KeugeOcr.isNativeAvailable()) {
-      await this._autoRunOcr(canvas);
-    } else {
-      showToast('사진 저장 완료. 글자 읽기를 눌러주세요.');
-    }
-  },
+    if (!canvas.width || !canvas.height) return;
 
-  async _autoRunOcr(canvas) {
+    if (!withOcr) {
+      showToast('촬영 완료!');
+      return;
+    }
+
     OcrResultUI.showLoading();
     NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
     try {
@@ -1006,8 +576,11 @@ const CameraManager = {
       if (BrowserOcr.available()) {
         showToast('글자를 읽는 중...');
         text = await BrowserOcr.recognize(canvas);
-      } else {
+      } else if (KeugeOcr.isNativeAvailable()) {
         text = await KeugeOcr.recognizeCanvas(canvas);
+      } else {
+        OcrResultUI.showError('글자 읽기 기능을 사용할 수 없습니다.');
+        return;
       }
       if (!text) {
         OcrResultUI.showError('글자를 찾지 못했습니다. 더 밝은 곳에서 선명하게 다시 찍어 주세요.');
@@ -1019,7 +592,32 @@ const CameraManager = {
       if (e && e.message === 'cancelled') { OcrResultUI.hide(); return; }
       OcrResultUI.showError(this.mapOcrError(e));
     }
-  }
+  },
+
+  mapOcrError(error) {
+    const code = error && error.message ? error.message : 'ocr_failed';
+    if (code === 'no_bridge') return '앱에서만 글자 읽기를 사용할 수 있습니다.';
+    if (code === 'no_native_camera') return '카메라를 사용할 수 없습니다.';
+    if (code === 'no_camera_app') return '사진 촬영이 가능한 카메라 앱이 없습니다.';
+    if (code === 'camera_launch_failed') return '카메라 앱을 여는 데 실패했습니다.';
+    if (code === 'capture_failed') return '촬영에 실패했습니다. 다시 시도해 주세요.';
+    if (code === 'tesseract_not_loaded') return '글자 읽기 기능을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.';
+    if (code === 'cancelled') return '촬영을 취소했습니다.';
+    if (code === 'timeout') return '글자 읽기 시간이 초과되었습니다. 다시 시도해 주세요.';
+    if (code === 'empty_image' || code === 'invalid_image') return '사진을 다시 찍어 주세요.';
+    if (code === 'empty_text') return '글자를 찾지 못했습니다. 더 선명하게 다시 찍어 주세요.';
+    return '글자를 인식하지 못했습니다. 사진을 더 선명하게 찍어 주세요.';
+  },
+
+  // ── 기존 UI 핸들러 호환용 no-op들 ───────────────────────
+  applyZoom() {},
+  updateUI() {},
+  updateCaptureButtonState() {},
+  invalidateCaptureBuffer() {},
+  pauseStream() {},
+  restartIfNeeded() {},
+  toggleContrast() {},
+  showPermissionModal() {}
 };
 
 // ═══════════════════════════════════════════

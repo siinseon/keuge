@@ -61,10 +61,8 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.activity:activity-ktx:1.9.1")
 
-    val cameraX = "1.3.4"
-    implementation("androidx.camera:camera-camera2:$cameraX")
-    implementation("androidx.camera:camera-lifecycle:$cameraX")
-    implementation("androidx.camera:camera-view:$cameraX")
+    // 시스템 카메라 결과(JPEG)의 회전 메타데이터를 읽기 위해 사용.
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
 }
