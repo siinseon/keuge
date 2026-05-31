@@ -3,6 +3,8 @@ package com.keuge.app
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -14,6 +16,11 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        private const val TAG = "KeugeMain"
+        private const val STATE_PENDING_REQUEST_ID = "pendingCameraRequestId"
+    }
+
     private lateinit var webView: WebView
     private lateinit var webBridge: WebAppBridge
 
@@ -22,7 +29,12 @@ class MainActivity : AppCompatActivity() {
     ) { result ->
         val requestId = pendingCameraRequestId
         pendingCameraRequestId = null
-        if (requestId.isNullOrBlank()) return@registerForActivityResult
+        Log.d(TAG, "cameraLauncher result: resultCode=${result.resultCode} requestId=$requestId")
+
+        if (requestId.isNullOrBlank()) {
+            Log.w(TAG, "cameraLauncher: pendingCameraRequestId was lost; cannot deliver result")
+            return@registerForActivityResult
+        }
 
         if (result.resultCode != RESULT_OK) {
             webBridge.deliverOcrResult(
@@ -38,6 +50,10 @@ class MainActivity : AppCompatActivity() {
         val success = data?.getBooleanExtra(NativeCameraActivity.EXTRA_SUCCESS, false) ?: false
         val text = data?.getStringExtra(NativeCameraActivity.EXTRA_TEXT)
         val error = data?.getStringExtra(NativeCameraActivity.EXTRA_ERROR) ?: "ocr_failed"
+        Log.d(
+            TAG,
+            "cameraLauncher: success=$success textLen=${text?.length ?: 0} error=$error"
+        )
 
         webBridge.deliverOcrResult(
             requestId,
@@ -49,12 +65,25 @@ class MainActivity : AppCompatActivity() {
 
     private var pendingCameraRequestId: String? = null
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(STATE_PENDING_REQUEST_ID, pendingCameraRequestId)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // 카메라 인텐트 도중 시스템이 MainActivity를 재생성하더라도
+        // requestId를 잃지 않도록 복원한다. (없으면 결과를 JS로 전달 못 함)
+        pendingCameraRequestId =
+            savedInstanceState?.getString(STATE_PENDING_REQUEST_ID)
+                ?: pendingCameraRequestId
+        Log.d(TAG, "onCreate: restored pendingCameraRequestId=$pendingCameraRequestId")
+
         webView = findViewById(R.id.webView)
         webBridge = WebAppBridge(this, webView) { requestId, runOcr ->
+            Log.d(TAG, "launching NativeCameraActivity: requestId=$requestId runOcr=$runOcr")
             pendingCameraRequestId = requestId
             cameraLauncher.launch(
                 NativeCameraActivity.createIntent(this, requestId, runOcr)
@@ -98,6 +127,19 @@ class MainActivity : AppCompatActivity() {
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
                 request?.grant(request.resources)
+            }
+
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                if (consoleMessage != null) {
+                    val tag = "KeugeWeb"
+                    val msg = "${consoleMessage.message()} [${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}]"
+                    when (consoleMessage.messageLevel()) {
+                        ConsoleMessage.MessageLevel.ERROR -> Log.e(tag, msg)
+                        ConsoleMessage.MessageLevel.WARNING -> Log.w(tag, msg)
+                        else -> Log.d(tag, msg)
+                    }
+                }
+                return true
             }
         }
 

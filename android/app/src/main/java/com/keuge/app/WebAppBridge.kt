@@ -1,7 +1,7 @@
 package com.keuge.app
 
-import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONObject
@@ -46,11 +46,15 @@ class WebAppBridge(
     @JavascriptInterface
     fun isTtsReady(): Boolean = ttsReady
 
-    /** CameraX 촬영 + ML Kit OCR (Android 전용) */
+    /** 시스템 카메라 촬영 + (선택) ML Kit OCR */
     @JavascriptInterface
     fun captureAndRecognize(requestId: String?, runOcr: String?) {
-        if (requestId.isNullOrBlank()) return
+        if (requestId.isNullOrBlank()) {
+            Log.w(TAG, "captureAndRecognize: blank requestId")
+            return
+        }
         val ocr = runOcr != "false"
+        Log.d(TAG, "captureAndRecognize: requestId=$requestId runOcr=$ocr")
         activity.runOnUiThread {
             onCaptureRequested(requestId, ocr)
         }
@@ -77,9 +81,54 @@ class WebAppBridge(
             if (!text.isNullOrBlank()) put("text", text)
             if (!error.isNullOrBlank()) put("error", error)
         }
-        val js = "window.KeugeOcr&&window.KeugeOcr._complete(${payload})"
+
+        // 핵심: 결과를 JS 코드 안에 그대로 인라인하면 OCR 텍스트에 포함된
+        // 줄바꿈(\u2028, \u2029 등) / 따옴표로 JS 파싱이 깨질 수 있다.
+        // 안전하게 JSON 문자열로 만들어 JS의 JSON.parse 로 복원한다.
+        val payloadJson = payload.toString()
+        val jsLiteral = jsStringLiteral(payloadJson)
+        val js = "(function(){try{" +
+            "var p=JSON.parse($jsLiteral);" +
+            "if(window.console)console.log('[KeugeOcr] deliver',p);" +
+            "if(window.KeugeOcr&&typeof window.KeugeOcr._complete==='function'){" +
+            "window.KeugeOcr._complete(p);}else{" +
+            "if(window.console)console.warn('[KeugeOcr] _complete not ready');}" +
+            "}catch(e){if(window.console)console.error('[KeugeOcr] deliver error',e);}})();"
+
+        Log.d(
+            TAG,
+            "deliverOcrResult: requestId=$requestId success=$success " +
+                "hasText=${!text.isNullOrBlank()} error=$error"
+        )
+
         webView.post {
-            webView.evaluateJavascript(js, null)
+            webView.evaluateJavascript(js) { result ->
+                Log.d(TAG, "deliverOcrResult: evaluateJavascript result=$result")
+            }
         }
+    }
+
+    /** Kotlin String → 안전한 JS 문자열 리터럴(작은따옴표로 감쌈). */
+    private fun jsStringLiteral(src: String): String {
+        val sb = StringBuilder(src.length + 16)
+        sb.append('\'')
+        for (c in src) {
+            when (c) {
+                '\\' -> sb.append("\\\\")
+                '\'' -> sb.append("\\'")
+                '\n' -> sb.append("\\n")
+                '\r' -> sb.append("\\r")
+                '\t' -> sb.append("\\t")
+                '\u2028' -> sb.append("\\u2028")
+                '\u2029' -> sb.append("\\u2029")
+                else -> sb.append(c)
+            }
+        }
+        sb.append('\'')
+        return sb.toString()
+    }
+
+    companion object {
+        private const val TAG = "KeugeBridge"
     }
 }

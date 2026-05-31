@@ -229,7 +229,8 @@ const NavigationManager = {
 // ═══════════════════════════════════════════
 const KeugeOcr = {
   _pending: {},
-  _timeoutMs: 30000,
+  // 시스템 카메라는 사용자의 촬영 시간을 포함하므로 타임아웃을 충분히 길게 둔다.
+  _timeoutMs: 300000,
 
   init() {
     window.KeugeOcr = this;
@@ -245,9 +246,16 @@ const KeugeOcr = {
   },
 
   _complete(payload) {
-    if (!payload || !payload.requestId) return;
+    try { console.log('[KeugeOcr] _complete', payload); } catch (_) {}
+    if (!payload || !payload.requestId) {
+      try { console.warn('[KeugeOcr] _complete: missing requestId'); } catch (_) {}
+      return;
+    }
     const pending = this._pending[payload.requestId];
-    if (!pending) return;
+    if (!pending) {
+      try { console.warn('[KeugeOcr] _complete: no pending for', payload.requestId); } catch (_) {}
+      return;
+    }
 
     clearTimeout(pending.timer);
     delete this._pending[payload.requestId];
@@ -330,14 +338,16 @@ const KeugeOcr = {
         return;
       }
 
-      const requestId = 'ocr_' + Date.now();
+      const requestId = 'ocr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const timer = setTimeout(() => {
         if (!this._pending[requestId]) return;
         delete this._pending[requestId];
+        try { console.warn('[KeugeOcr] timeout', requestId); } catch (_) {}
         reject(new Error('timeout'));
       }, this._timeoutMs);
 
       this._pending[requestId] = { resolve, reject, timer, captureOnly: !runOcr };
+      try { console.log('[KeugeOcr] startNativeCapture', { requestId, runOcr }); } catch (_) {}
 
       try {
         window.Android.captureAndRecognize(requestId, runOcr ? 'true' : 'false');
@@ -396,7 +406,16 @@ const OcrResultUI = {
     };
   },
 
+  _forceShow(modal) {
+    if (!modal) return;
+    modal.hidden = false;
+    modal.removeAttribute('hidden');
+    modal.style.display = '';
+    modal.classList.add('show');
+  },
+
   showLoading() {
+    try { console.log('[OcrResultUI] showLoading'); } catch (_) {}
     const { modal, loading, text, error, speakBtn } = this._els();
     if (!modal) return;
     this._currentText = '';
@@ -404,27 +423,32 @@ const OcrResultUI = {
     if (error) error.textContent = '';
     if (loading) loading.hidden = false;
     if (speakBtn) speakBtn.hidden = true;
-    modal.hidden = false;
-    modal.classList.add('show');
+    this._forceShow(modal);
   },
 
   showResult(text) {
-    const { loading, text: textEl, error, speakBtn } = this._els();
+    try { console.log('[OcrResultUI] showResult length=', (text || '').length); } catch (_) {}
+    const { modal, loading, text: textEl, error, speakBtn } = this._els();
     this._currentText = text;
     if (loading) loading.hidden = true;
     if (error) error.textContent = '';
     if (textEl) textEl.textContent = text;
     if (speakBtn) speakBtn.hidden = false;
+    // 결과가 도착하기까지 라이프사이클을 거치며 모달이 숨겨졌을 수 있으므로
+    // 결과 표시 시 항상 모달을 강제로 표시한다.
+    this._forceShow(modal);
     NavigationManager.announce('글자를 찾았습니다. 읽기 버튼을 눌러 들을 수 있습니다.');
   },
 
   showError(message) {
-    const { loading, text, error, speakBtn } = this._els();
+    try { console.warn('[OcrResultUI] showError', message); } catch (_) {}
+    const { modal, loading, text, error, speakBtn } = this._els();
     this._currentText = '';
     if (loading) loading.hidden = true;
     if (text) text.textContent = '';
     if (error) error.textContent = message;
     if (speakBtn) speakBtn.hidden = true;
+    this._forceShow(modal);
     NavigationManager.announce(message);
     showToast(message);
   },
@@ -501,11 +525,13 @@ const CameraManager = {
   /** 글자 읽기: 시스템 카메라 인텐트로 촬영 + ML Kit OCR. */
   async runOCR() {
     vib();
+    try { console.log('[CameraManager] runOCR start, native=', KeugeOcr.isNativeCameraAvailable()); } catch (_) {}
     if (KeugeOcr.isNativeCameraAvailable()) {
       OcrResultUI.showLoading();
       NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
       try {
         const text = await KeugeOcr.startNativeCapture(true);
+        try { console.log('[CameraManager] runOCR got text length=', (text || '').length); } catch (_) {}
         if (!text) {
           OcrResultUI.showError('글자를 찾지 못했습니다. 더 밝은 곳에서 선명하게 다시 찍어 주세요.');
           return;
@@ -513,6 +539,7 @@ const CameraManager = {
         OcrResultUI.showResult(text);
         showToast('글자를 찾았습니다');
       } catch (e) {
+        try { console.warn('[CameraManager] runOCR error', e); } catch (_) {}
         if (e && e.message === 'cancelled') { OcrResultUI.hide(); return; }
         OcrResultUI.showError(this.mapOcrError(e));
       }
