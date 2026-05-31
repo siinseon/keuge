@@ -254,6 +254,12 @@ const KeugeOcr = {
     const pending = this._pending[payload.requestId];
     if (!pending) {
       try { console.warn('[KeugeOcr] _complete: no pending for', payload.requestId); } catch (_) {}
+      // pending 이 없어도(=타임아웃 등으로 이미 정리됨) 결과가 있으면 화면에 표시.
+      if (payload.success && payload.text) {
+        try { OcrResultUI.showResult(String(payload.text).trim()); } catch (_) {}
+      } else if (!payload.success) {
+        try { OcrResultUI.showError(CameraManager.mapOcrError({ message: payload.error || 'ocr_failed' })); } catch (_) {}
+      }
       return;
     }
 
@@ -396,21 +402,60 @@ const OcrResultUI = {
     bindFn(document.getElementById('ocrCloseBtn'), 'click', () => this.hide());
   },
 
+  /**
+   * 원본 모달 또는, 어떤 이유로든 사용 불가하면 동적으로 생성한 fallback 모달의
+   * 엘리먼트 묶음을 반환한다. 결과를 못 보여주는 상황이 절대 없도록 보장.
+   */
   _els() {
+    let modal = document.getElementById('ocrResultModal');
+    if (!modal) modal = this._buildFallbackModal();
     return {
-      modal: document.getElementById('ocrResultModal'),
-      loading: document.getElementById('ocrLoading'),
-      text: document.getElementById('ocrResultText'),
-      error: document.getElementById('ocrErrorMsg'),
-      speakBtn: document.getElementById('ocrSpeakBtn')
+      modal,
+      loading: modal.querySelector('#ocrLoading'),
+      text: modal.querySelector('#ocrResultText'),
+      error: modal.querySelector('#ocrErrorMsg'),
+      speakBtn: modal.querySelector('#ocrSpeakBtn'),
+      closeBtn: modal.querySelector('#ocrCloseBtn')
     };
+  },
+
+  _buildFallbackModal() {
+    try { console.warn('[OcrResultUI] building fallback modal'); } catch (_) {}
+    const modal = document.createElement('div');
+    modal.id = 'ocrResultModal';
+    modal.className = 'ocr-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:2147483000',
+      'background:rgba(0,0,0,0.92)', 'display:flex',
+      'align-items:center', 'justify-content:center', 'padding:16px'
+    ].join(';');
+    modal.innerHTML = ''
+      + '<div style="background:#fff;color:#111;border-radius:16px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:12px;padding:20px;">'
+      + '  <h2 style="font-size:22px;font-weight:800;margin:0;text-align:center;">사진 속 글자</h2>'
+      + '  <div id="ocrLoading" hidden style="text-align:center;font-weight:700;color:#2563EB;padding:16px;">글자를 읽는 중입니다...</div>'
+      + '  <div id="ocrResultText" style="font-size:24px;font-weight:700;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow-y:auto;padding:12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:12px;"></div>'
+      + '  <p id="ocrErrorMsg" style="color:#b91c1c;font-weight:700;text-align:center;margin:0;"></p>'
+      + '  <button id="ocrSpeakBtn" type="button" hidden style="background:#2563EB;color:#fff;border:none;border-radius:12px;min-height:56px;font-size:18px;font-weight:800;">읽기</button>'
+      + '  <button id="ocrCloseBtn" type="button" style="background:#fff;color:#111;border:1px solid #d1d5db;border-radius:12px;min-height:56px;font-size:18px;font-weight:700;">닫기</button>'
+      + '</div>';
+    document.body.appendChild(modal);
+    const speak = modal.querySelector('#ocrSpeakBtn');
+    if (speak) speak.addEventListener('click', () => this.speakCurrent());
+    const close = modal.querySelector('#ocrCloseBtn');
+    if (close) close.addEventListener('click', () => this.hide());
+    return modal;
   },
 
   _forceShow(modal) {
     if (!modal) return;
     modal.hidden = false;
     modal.removeAttribute('hidden');
-    modal.style.display = '';
+    if (!modal.style.display || modal.style.display === 'none') {
+      modal.style.display = 'flex';
+    }
+    modal.style.zIndex = '2147483000';
     modal.classList.add('show');
   },
 
@@ -434,10 +479,8 @@ const OcrResultUI = {
     if (error) error.textContent = '';
     if (textEl) textEl.textContent = text;
     if (speakBtn) speakBtn.hidden = false;
-    // 결과가 도착하기까지 라이프사이클을 거치며 모달이 숨겨졌을 수 있으므로
-    // 결과 표시 시 항상 모달을 강제로 표시한다.
     this._forceShow(modal);
-    NavigationManager.announce('글자를 찾았습니다. 읽기 버튼을 눌러 들을 수 있습니다.');
+    try { NavigationManager.announce('글자를 찾았습니다. 읽기 버튼을 눌러 들을 수 있습니다.'); } catch (_) {}
   },
 
   showError(message) {
@@ -449,29 +492,50 @@ const OcrResultUI = {
     if (error) error.textContent = message;
     if (speakBtn) speakBtn.hidden = true;
     this._forceShow(modal);
-    NavigationManager.announce(message);
-    showToast(message);
+    try { NavigationManager.announce(message); } catch (_) {}
+    try { showToast(message); } catch (_) {}
   },
 
   speakCurrent() {
     if (!this._currentText) return;
-    vib();
-    SpeechManager.speakFromUserAction(this._currentText);
+    try { vib(); } catch (_) {}
+    try { SpeechManager.speakFromUserAction(this._currentText); } catch (_) {}
   },
 
   hide() {
-    const { modal } = this._els();
+    const modal = document.getElementById('ocrResultModal');
     if (modal) {
       modal.hidden = true;
       modal.classList.remove('show');
+      modal.style.display = 'none';
     }
     this._currentText = '';
-    CameraManager.restartIfNeeded();
+    try { CameraManager.restartIfNeeded(); } catch (_) {}
   },
 
   isOpen() {
     const modal = document.getElementById('ocrResultModal');
     return !!(modal && !modal.hidden);
+  }
+};
+
+// 안전망: Android 가 직접 호출하여 결과 모달을 강제로 표시한다.
+// _complete / Promise 체인이 어떤 이유로든 모달을 띄우지 못해도 이 경로로 결과가 보장된다.
+window.__keugeForceShowResult = function (payload) {
+  try { console.log('[KeugeOcr] __keugeForceShowResult', payload); } catch (_) {}
+  if (!payload) return;
+  try {
+    if (payload.success && payload.text) {
+      OcrResultUI.showResult(String(payload.text).trim());
+    } else if (!payload.success) {
+      const code = payload.error || 'ocr_failed';
+      const msg = (typeof CameraManager !== 'undefined' && CameraManager.mapOcrError)
+        ? CameraManager.mapOcrError({ message: code })
+        : '글자를 인식하지 못했습니다.';
+      OcrResultUI.showError(msg);
+    }
+  } catch (e) {
+    try { console.error('[KeugeOcr] __keugeForceShowResult error', e); } catch (_) {}
   }
 };
 
