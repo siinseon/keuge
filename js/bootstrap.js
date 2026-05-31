@@ -464,13 +464,14 @@ const CameraManager = {
   _boundVideoReady: null,
 
   _frameReadyForCapture(video) {
+    // NOTE: 모바일 Chrome/WebView에서 영상이 정상 표시되는데도 currentTime이
+    // 0으로 남는 경우가 있어 캡처 진입이 차단되므로 currentTime 조건을 제거함.
     return !!(
       video &&
       this.stream &&
       video.readyState >= 2 &&
       video.videoWidth > 0 &&
-      video.videoHeight > 0 &&
-      video.currentTime > 0
+      video.videoHeight > 0
     );
   },
 
@@ -738,6 +739,8 @@ const CameraManager = {
   },
 
   async capture() {
+    // DEBUG: 모바일 캡처 진입 확인용 임시 alert (확인 후 제거 예정)
+    alert('capture entered');
     vib([50, 30, 50]);
 
     if (KeugeOcr.isNativeCameraAvailable()) {
@@ -756,6 +759,15 @@ const CameraManager = {
     const canvas = document.getElementById('capturedCanvas');
     const overlay = document.getElementById('capturedOverlay');
     const flash = document.getElementById('flashOverlay');
+
+    // DEBUG: 모바일 캡처 차단 원인 진단용 로그 (확인 후 제거 예정)
+    console.log('[capture] video state', {
+      readyState: video ? video.readyState : null,
+      videoWidth: video ? video.videoWidth : null,
+      videoHeight: video ? video.videoHeight : null,
+      currentTime: video ? video.currentTime : null,
+      hasStream: !!this.stream
+    });
 
     if (!this.stream || !video || !this._frameReadyForCapture(video)) {
       const input = document.getElementById('nativeCameraInput');
@@ -807,6 +819,8 @@ const CameraManager = {
     }
 
     ctx.filter = this.contrastOn ? 'contrast(2.5) brightness(1.1)' : 'none';
+    // DEBUG: drawImage 호출 직전 확인 (확인 후 제거 예정)
+    alert('drawImage start');
     try {
       ctx.drawImage(v, 0, 0, vw, vh);
     } catch (e) {
@@ -814,10 +828,17 @@ const CameraManager = {
       showToast('캡처에 실패했습니다.');
       return;
     }
+    // DEBUG: drawImage 정상 호출 확인 (확인 후 제거 예정)
+    alert('drawImage success');
     ctx.filter = 'none';
 
     this.captureStateValid = true;
-    if (overlay) overlay.classList.add('show');
+    // 캡처 성공 시 overlay 강제 표시 (모바일에서 누락되는 경우 대비)
+    if (overlay) {
+      overlay.classList.add('show');
+      overlay.hidden = false;
+      overlay.style.display = '';
+    }
     if (flash) {
       flash.classList.add('flash');
       setTimeout(() => flash.classList.remove('flash'), 200);
