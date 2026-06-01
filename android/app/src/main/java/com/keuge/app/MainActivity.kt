@@ -1,6 +1,8 @@
 package com.keuge.app
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
@@ -13,6 +15,8 @@ import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.exifinterface.media.ExifInterface
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -50,16 +54,21 @@ class MainActivity : AppCompatActivity() {
         val success = data?.getBooleanExtra(NativeCameraActivity.EXTRA_SUCCESS, false) ?: false
         val text = data?.getStringExtra(NativeCameraActivity.EXTRA_TEXT)
         val error = data?.getStringExtra(NativeCameraActivity.EXTRA_ERROR) ?: "ocr_failed"
+        val photoPath = data?.getStringExtra(NativeCameraActivity.EXTRA_PHOTO_PATH)
+        val previewDataUrl = data?.getStringExtra(NativeCameraActivity.EXTRA_PREVIEW_DATA_URL)
         Log.d(
             TAG,
-            "cameraLauncher: success=$success textLen=${text?.length ?: 0} error=$error"
+            "cameraLauncher: success=$success textLen=${text?.length ?: 0} " +
+                "path=${photoPath != null} preview=${previewDataUrl != null} error=$error"
         )
 
         webBridge.deliverOcrResult(
             requestId,
             success = success,
             text = text,
-            error = error
+            error = error,
+            photoPath = photoPath,
+            previewDataUrl = previewDataUrl
         )
     }
 
@@ -171,5 +180,86 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }.start()
+    }
+
+    /**
+     * 이미 디스크에 저장된 사진(시스템 카메라로 찍은 파일)을 OCR 한다.
+     * "글자 읽기" 가 새 카메라를 열지 않고 마지막 촬영본을 인식하도록 하기 위한 진입점.
+     */
+    fun runOcrOnStoredPath(requestId: String, path: String) {
+        Log.d(TAG, "runOcrOnStoredPath: requestId=$requestId path=$path")
+        Thread {
+            try {
+                val file = File(path)
+                if (!file.exists() || file.length() == 0L) {
+                    runOnUiThread {
+                        webBridge.deliverOcrResult(requestId, false, null, "empty_image")
+                    }
+                    return@Thread
+                }
+                val bitmap = loadOrientedBitmapForOcr(file)
+                    ?: throw IllegalArgumentException("invalid_image")
+                val text = OcrProcessor.recognizeBitmap(bitmap)
+                runOnUiThread {
+                    if (text.isBlank()) {
+                        webBridge.deliverOcrResult(requestId, false, null, "empty_text")
+                    } else {
+                        webBridge.deliverOcrResult(requestId, true, text, null)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "runOcrOnStoredPath failed", e)
+                runOnUiThread {
+                    webBridge.deliverOcrResult(
+                        requestId,
+                        false,
+                        null,
+                        e.message ?: "ocr_failed"
+                    )
+                }
+            }
+        }.start()
+    }
+
+    private fun loadOrientedBitmapForOcr(file: File): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val sample = computeInSampleSize(bounds.outWidth, bounds.outHeight, 2048)
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val raw = BitmapFactory.decodeFile(file.absolutePath, opts) ?: return null
+
+        val rotation = try {
+            val exif = ExifInterface(file.absolutePath)
+            when (exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
+        } catch (e: Exception) {
+            0f
+        }
+
+        if (rotation == 0f) return raw
+        val matrix = Matrix().apply { postRotate(rotation) }
+        return try {
+            Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
+        } catch (e: OutOfMemoryError) {
+            raw
+        }
+    }
+
+    private fun computeInSampleSize(width: Int, height: Int, reqMax: Int): Int {
+        if (width <= 0 || height <= 0) return 1
+        val longer = maxOf(width, height)
+        var inSampleSize = 1
+        while (longer / inSampleSize > reqMax) inSampleSize *= 2
+        return inSampleSize
     }
 }
