@@ -60,6 +60,22 @@ class WebAppBridge(
         }
     }
 
+    /**
+     * 디스크에 저장된 사진 파일(시스템 카메라로 촬영해 둔)을 OCR 한다.
+     * "글자 읽기" 가 카메라를 다시 열지 않고 마지막 촬영본만 인식하도록 하는 경로.
+     */
+    @JavascriptInterface
+    fun recognizeStoredImage(requestId: String?, path: String?) {
+        if (requestId.isNullOrBlank() || path.isNullOrBlank()) {
+            Log.w(TAG, "recognizeStoredImage: blank requestId or path")
+            return
+        }
+        Log.d(TAG, "recognizeStoredImage: requestId=$requestId path=$path")
+        activity.runOnUiThread {
+            activity.runOcrOnStoredPath(requestId, path)
+        }
+    }
+
     /** 레거시: base64 JPEG → ML Kit (PC 디버그·호환) */
     @JavascriptInterface
     fun recognizeTextFromBase64(requestId: String?, base64: String?) {
@@ -73,13 +89,17 @@ class WebAppBridge(
         requestId: String,
         success: Boolean,
         text: String?,
-        error: String?
+        error: String?,
+        photoPath: String? = null,
+        previewDataUrl: String? = null
     ) {
         val payload = JSONObject().apply {
             put("requestId", requestId)
             put("success", success)
             if (!text.isNullOrBlank()) put("text", text)
             if (!error.isNullOrBlank()) put("error", error)
+            if (!photoPath.isNullOrBlank()) put("photoPath", photoPath)
+            if (!previewDataUrl.isNullOrBlank()) put("previewDataUrl", previewDataUrl)
         }
 
         // 핵심: 결과를 JS 코드 안에 그대로 인라인하면 OCR 텍스트에 포함된
@@ -106,7 +126,8 @@ class WebAppBridge(
         Log.d(
             TAG,
             "deliverOcrResult: requestId=$requestId success=$success " +
-                "textLen=${text?.length ?: 0} error=$error"
+                "textLen=${text?.length ?: 0} hasPath=${!photoPath.isNullOrBlank()} " +
+                "hasPreview=${!previewDataUrl.isNullOrBlank()} error=$error"
         )
 
         // 메인 스레드에서 두 가지 채널 모두 시도한다.

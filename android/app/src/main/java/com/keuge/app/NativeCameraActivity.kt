@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Base64
 import android.util.Log
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
 import com.keuge.app.databinding.ActivityNativeCameraBinding
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -129,8 +131,28 @@ class NativeCameraActivity : AppCompatActivity() {
         }
 
         if (!runOcr) {
-            file.delete()
-            finishWithSuccess("")
+            // 사진을 보존하고, 미리보기용 작은 썸네일 base64 만 만들어 JS 로 돌려준다.
+            // OCR 은 JS 가 "글자 읽기" 를 눌렀을 때 recognizeStoredImage(path) 로
+            // 동일 파일에 대해 실행된다.
+            setStatus(getString(R.string.camera_status_preview), busy = true)
+            ocrExecutor.execute {
+                // 새 촬영이 성공했으니 이전 캡처 파일들을 정리한다.
+                cleanOldCaptures(keep = file)
+                val previewDataUrl = try {
+                    buildThumbnailDataUrl(file)
+                } catch (e: Exception) {
+                    Log.w(TAG, "thumbnail failed", e)
+                    null
+                }
+                Log.d(
+                    TAG,
+                    "capture-only success: path=${file.absolutePath} " +
+                        "previewBytes=${previewDataUrl?.length ?: 0}"
+                )
+                runOnUiThread {
+                    finishWithCapture(file.absolutePath, previewDataUrl)
+                }
+            }
             return
         }
 
@@ -157,6 +179,35 @@ class NativeCameraActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /** 보존된 사진 파일을 base64 data URL 로 인코딩(작게 다운샘플 + JPEG 압축). */
+    private fun buildThumbnailDataUrl(file: File): String {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val sample = computeInSampleSize(bounds.outWidth, bounds.outHeight, THUMBNAIL_MAX_DIM)
+
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val raw = BitmapFactory.decodeFile(file.absolutePath, opts)
+            ?: throw IllegalArgumentException("invalid_image")
+
+        val rotation = readExifRotation(file)
+        val oriented = if (rotation == 0f) raw else {
+            val matrix = Matrix().apply { postRotate(rotation) }
+            try {
+                Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
+            } catch (e: OutOfMemoryError) {
+                raw
+            }
+        }
+
+        val baos = ByteArrayOutputStream()
+        oriented.compress(Bitmap.CompressFormat.JPEG, 70, baos)
+        val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+        return "data:image/jpeg;base64,$base64"
     }
 
     private fun loadOrientedBitmap(file: File): Bitmap? {
@@ -211,7 +262,21 @@ class NativeCameraActivity : AppCompatActivity() {
 
     private fun createTempPhotoFile(): File {
         val dir = File(cacheDir, "captures").apply { if (!exists()) mkdirs() }
+        // 주의: 여기서 이전 파일을 삭제하면 안 된다.
+        //   - 사용자가 재촬영을 위해 카메라를 열었다가 취소하는 경우,
+        //     JS 가 추적 중인 직전 캡처본까지 사라져 "글자 읽기" 가 실패한다.
+        // 이전 캡처는 새 촬영이 "성공" 했을 때만 정리한다(cleanOldCaptures).
         return File(dir, "keuge_capture_${System.currentTimeMillis()}.jpg")
+    }
+
+    /** [keep] 파일만 남기고 captures/ 디렉토리의 나머지 파일을 정리. */
+    private fun cleanOldCaptures(keep: File) {
+        val dir = File(cacheDir, "captures")
+        dir.listFiles()?.forEach { f ->
+            if (f.isFile && f.absolutePath != keep.absolutePath) {
+                try { f.delete() } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun setStatus(message: String, busy: Boolean) {
@@ -224,6 +289,20 @@ class NativeCameraActivity : AppCompatActivity() {
         val data = Intent().apply {
             putExtra(EXTRA_SUCCESS, true)
             putExtra(EXTRA_TEXT, text)
+        }
+        setResult(RESULT_OK, data)
+        finish()
+    }
+
+    /** 촬영(OCR 없이)만 성공한 경우. 파일 경로 + 미리보기 data URL 을 함께 반환. */
+    private fun finishWithCapture(path: String, previewDataUrl: String?) {
+        Log.d(TAG, "finishWithCapture: path=$path hasPreview=${previewDataUrl != null}")
+        val data = Intent().apply {
+            putExtra(EXTRA_SUCCESS, true)
+            putExtra(EXTRA_PHOTO_PATH, path)
+            if (previewDataUrl != null) {
+                putExtra(EXTRA_PREVIEW_DATA_URL, previewDataUrl)
+            }
         }
         setResult(RESULT_OK, data)
         finish()
@@ -253,6 +332,7 @@ class NativeCameraActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "KeugeNative"
         private const val MAX_DECODE_DIM = 2048
+        private const val THUMBNAIL_MAX_DIM = 900
         private const val STATE_CAMERA_LAUNCHED = "cameraLaunched"
         private const val STATE_PHOTO_PATH = "photoPath"
 
@@ -261,6 +341,8 @@ class NativeCameraActivity : AppCompatActivity() {
         const val EXTRA_SUCCESS = "success"
         const val EXTRA_TEXT = "text"
         const val EXTRA_ERROR = "error"
+        const val EXTRA_PHOTO_PATH = "photo_path"
+        const val EXTRA_PREVIEW_DATA_URL = "preview_data_url"
 
         fun createIntent(context: Context, requestId: String, runOcr: Boolean): Intent {
             return Intent(context, NativeCameraActivity::class.java).apply {
