@@ -127,6 +127,7 @@ async function initApp() {
       SpeechManager.init();
       ScrollPerf.init();
       KeugeOcr.init();
+      if (typeof MenuPreviewZoom !== 'undefined') MenuPreviewZoom.init();
       OcrResultUI.bindEvents(bindElementListener);
 
       ['resultsList', 'favList'].forEach(id => {

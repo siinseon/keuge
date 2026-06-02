@@ -724,6 +724,8 @@
   #screen-camera .camera-view {
     flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   #screen-camera .camera-controls {
     flex: 0 0 auto;
@@ -1211,6 +1213,107 @@
     color: var(--text);
     flex-direction: column;
     gap: 12px;
+  }
+
+  .preview-container {
+    display: none;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    width: 100%;
+    min-height: 60vh;
+    padding: clamp(8px, 2vw, 12px);
+    gap: clamp(8px, 2vw, 12px);
+    box-sizing: border-box;
+  }
+  .preview-container.is-visible {
+    display: flex;
+  }
+  #screen-camera.has-menu-preview .photo-picker-hint {
+    display: none;
+  }
+  #screen-camera.has-menu-preview .camera-view {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .preview-image {
+    width: 100%;
+    max-width: none;
+    max-height: 70vh;
+    min-height: min(50vh, 480px);
+    height: auto;
+    object-fit: contain;
+    object-position: center center;
+    border-radius: 16px;
+    background: #111;
+    display: block;
+    flex-shrink: 0;
+    touch-action: manipulation;
+    cursor: zoom-in;
+  }
+
+  .preview-tap-hint {
+    flex-shrink: 0;
+    text-align: center;
+    font-size: clamp(18px, 4.5vw, 22px);
+    line-height: var(--line-height);
+    color: var(--sub);
+    padding: 0 clamp(8px, 2vw, 12px);
+  }
+
+  .preview-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(0, 0, 0, 0.96);
+    display: none;
+    flex-direction: column;
+    padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+      env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  }
+  .preview-fullscreen.is-open {
+    display: flex;
+  }
+  .preview-fullscreen-toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    padding: clamp(12px, 3vw, 16px);
+  }
+  .preview-fullscreen-close {
+    background: var(--accent);
+    color: var(--btn-text);
+    border: none;
+    border-radius: 16px;
+    min-height: var(--touch-min);
+    min-width: clamp(120px, 30vw, 160px);
+    font-size: var(--fs-btn);
+    font-weight: 700;
+    padding: 12px 20px;
+  }
+  .preview-fullscreen-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+    padding: clamp(8px, 2vw, 16px);
+  }
+  .preview-fullscreen-img {
+    max-width: none;
+    width: 100%;
+    max-height: 100%;
+    height: auto;
+    object-fit: contain;
+    object-position: center center;
+    transform-origin: center center;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-drag: none;
   }
 
   /* scrollbar */
