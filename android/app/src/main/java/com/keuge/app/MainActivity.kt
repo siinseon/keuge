@@ -16,22 +16,30 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 
+/**
+ * WebView 셸. UI/기능(JS)는 수정하지 않고, 앱 패키징·로딩·뒤로가기만 안정화한다.
+ */
 class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "KeugeMain"
         private const val STATE_PENDING_REQUEST_ID = "pendingImagePickRequestId"
+        private const val ASSETS_INDEX = "file:///android_asset/www/index.html"
+        private const val BACK_JS_FALLBACK_MS = 300L
     }
 
     private lateinit var webView: WebView
     private lateinit var webBridge: WebAppBridge
+
+    private var pendingImagePickRequestId: String? = null
+    private var backJsAcknowledged = false
 
     private val imagePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
         val requestId = pendingImagePickRequestId
         pendingImagePickRequestId = null
-        Log.d(TAG, "imagePickerLauncher result: uri=${uri != null} requestId=$requestId")
+        Log.d(TAG, "imagePickerLauncher: uri=${uri != null} requestId=$requestId")
 
         if (requestId.isNullOrBlank()) {
             Log.w(TAG, "imagePickerLauncher: pending requestId was lost; cannot deliver result")
@@ -51,8 +59,6 @@ class MainActivity : AppCompatActivity() {
         runOcrOnUri(requestId, uri)
     }
 
-    private var pendingImagePickRequestId: String? = null
-
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(STATE_PENDING_REQUEST_ID, pendingImagePickRequestId)
@@ -62,8 +68,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 사진 선택 도중 시스템이 MainActivity를 재생성하더라도
-        // requestId를 잃지 않도록 복원한다. (없으면 결과를 JS로 전달 못 함)
         pendingImagePickRequestId =
             savedInstanceState?.getString(STATE_PENDING_REQUEST_ID)
                 ?: pendingImagePickRequestId
@@ -77,19 +81,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         configureWebView()
-        webView.loadUrl("file:///android_asset/www/index.html")
+        webView.loadUrl(ASSETS_INDEX)
 
+        // 구형 WebView: evaluateJavascript 콜백이 null이면 onBackPressed()를 다시 호출해
+        // 앱이 즉시 종료되던 문제 → JS goBack()만 호출하고 시스템 back 재전달은 하지 않음.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                webView.evaluateJavascript(
-                    "(function(){ if(typeof goBack==='function'){ goBack(); return true; } return false; })();"
-                ) { result ->
-                    if (result == "false" || result == "null") {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
-                        isEnabled = true
-                    }
-                }
+                dispatchBackToWeb()
             }
         })
     }
@@ -99,12 +97,49 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    private fun dispatchBackToWeb() {
+        backJsAcknowledged = false
+        val js =
+            "(function(){try{if(typeof goBack==='function'){goBack();return '1';}}catch(e){}" +
+            "return '0';})();"
+
+        try {
+            webView.evaluateJavascript(js) { result ->
+                backJsAcknowledged = true
+                Log.d(TAG, "dispatchBackToWeb evaluateJavascript result=$result")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "dispatchBackToWeb evaluateJavascript failed", e)
+            fallbackBackViaLoadUrl()
+        }
+
+        webView.postDelayed({
+            if (!backJsAcknowledged) {
+                Log.w(TAG, "dispatchBackToWeb: callback timeout, loadUrl fallback")
+                fallbackBackViaLoadUrl()
+            }
+        }, BACK_JS_FALLBACK_MS)
+    }
+
+    private fun fallbackBackViaLoadUrl() {
+        try {
+            webView.loadUrl("javascript:try{if(typeof goBack==='function')goBack();}catch(e){}")
+        } catch (e: Exception) {
+            Log.e(TAG, "fallbackBackViaLoadUrl failed", e)
+        }
+    }
+
     private fun configureWebView() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+            // file:///android_asset/ 에서 css/js 상대 경로 로드 (UI 변경 없음, 로딩만 수정)
+            @Suppress("DEPRECATION")
+            allowFileAccessFromFileURLs = true
+            @Suppress("DEPRECATION")
+            allowUniversalAccessFromFileURLs = true
             mediaPlaybackRequiresUserGesture = false
             cacheMode = WebSettings.LOAD_DEFAULT
         }
@@ -113,13 +148,24 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 return false
             }
+
+            override fun onReceivedError(
+                view: WebView?,
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?
+            ) {
+                Log.e(TAG, "WebView error $errorCode $description url=$failingUrl")
+                super.onReceivedError(view, errorCode, description, failingUrl)
+            }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 if (consoleMessage != null) {
                     val tag = "KeugeWeb"
-                    val msg = "${consoleMessage.message()} [${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}]"
+                    val msg =
+                        "${consoleMessage.message()} [${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}]"
                     when (consoleMessage.messageLevel()) {
                         ConsoleMessage.MessageLevel.ERROR -> Log.e(tag, msg)
                         ConsoleMessage.MessageLevel.WARNING -> Log.w(tag, msg)
@@ -148,6 +194,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "runOcrOnBase64 failed", e)
                 runOnUiThread {
                     webBridge.deliverOcrResult(
                         requestId,

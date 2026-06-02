@@ -61,17 +61,9 @@ class WebAppBridge(
             if (!error.isNullOrBlank()) put("error", error)
         }
 
-        // 핵심: 결과를 JS 코드 안에 그대로 인라인하면 OCR 텍스트에 포함된
-        // 줄바꿈(\u2028, \u2029 등) / 따옴표로 JS 파싱이 깨질 수 있다.
-        // 안전하게 JSON 문자열로 만들어 JS의 JSON.parse 로 복원한다.
         val payloadJson = payload.toString()
         val jsLiteral = jsStringLiteral(payloadJson)
 
-        // 추가 안전망:
-        //   1) window.__keugeLastOcrPayload 에 항상 결과를 저장한다.
-        //      _complete 가 어떤 이유로든 모달을 표시하지 못하면 JS 쪽 폴러가
-        //      이 값을 읽어 강제로 결과 모달을 띄울 수 있게 한다.
-        //   2) _complete 호출은 try/catch 로 감싸 한 곳이 실패해도 다른 흐름은 진행되게 한다.
         val js = "(function(){try{" +
             "var p=JSON.parse($jsLiteral);" +
             "window.__keugeLastOcrPayload=p;" +
@@ -88,23 +80,22 @@ class WebAppBridge(
                 "textLen=${text?.length ?: 0} error=$error"
         )
 
-        // 메인 스레드에서 두 가지 채널 모두 시도한다.
         activity.runOnUiThread {
-            // 채널 1: evaluateJavascript (정식 경로)
-            webView.evaluateJavascript(js) { result ->
-                Log.d(TAG, "deliverOcrResult: evaluateJavascript result=$result")
+            try {
+                webView.evaluateJavascript(js) { result ->
+                    Log.d(TAG, "deliverOcrResult: evaluateJavascript result=$result")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "deliverOcrResult evaluateJavascript failed", e)
             }
-            // 채널 2: loadUrl("javascript:...") (구형 fallback). 일부 단말/상태에서
-            //         evaluateJavascript 가 silent fail 하는 경우를 대비한다.
             try {
                 webView.loadUrl("javascript:$js")
             } catch (e: Exception) {
-                Log.e(TAG, "loadUrl(javascript:) failed", e)
+                Log.e(TAG, "deliverOcrResult loadUrl failed", e)
             }
         }
     }
 
-    /** Kotlin String → 안전한 JS 문자열 리터럴(작은따옴표로 감쌈). */
     private fun jsStringLiteral(src: String): String {
         val sb = StringBuilder(src.length + 16)
         sb.append('\'')
