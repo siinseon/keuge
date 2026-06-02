@@ -15,6 +15,7 @@ import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import java.io.ByteArrayOutputStream
 
 /**
  * WebView 셸. UI/기능(JS)는 수정하지 않고, 앱 패키징·로딩·뒤로가기만 안정화한다.
@@ -26,6 +27,8 @@ class MainActivity : AppCompatActivity() {
         private const val STATE_PENDING_REQUEST_ID = "pendingImagePickRequestId"
         private const val ASSETS_INDEX = "file:///android_asset/www/index.html"
         private const val BACK_JS_FALLBACK_MS = 300L
+        private const val PREVIEW_MAX_SIDE = 1920
+        private const val PREVIEW_JPEG_QUALITY = 88
     }
 
     private lateinit var webView: WebView
@@ -179,12 +182,53 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(webBridge, "Android")
     }
 
+    private fun bitmapToPreviewDataUrl(bitmap: Bitmap): String? {
+        val scaled = scaleBitmapForPreview(bitmap) ?: return null
+        val out = ByteArrayOutputStream()
+        if (!scaled.compress(Bitmap.CompressFormat.JPEG, PREVIEW_JPEG_QUALITY, out)) return null
+        val encoded = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+        return "data:image/jpeg;base64,$encoded"
+    }
+
+    private fun scaleBitmapForPreview(source: Bitmap): Bitmap? {
+        val maxSide = maxOf(source.width, source.height)
+        if (maxSide <= PREVIEW_MAX_SIDE) return source
+        val ratio = PREVIEW_MAX_SIDE.toFloat() / maxSide.toFloat()
+        val w = (source.width * ratio).toInt().coerceAtLeast(1)
+        val h = (source.height * ratio).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(source, w, h, true)
+    }
+
+    private fun loadPreviewDataUrlFromUri(uri: Uri): String? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, bounds)
+        } ?: return null
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sample = 1
+        while (bounds.outWidth / sample > PREVIEW_MAX_SIDE ||
+            bounds.outHeight / sample > PREVIEW_MAX_SIDE
+        ) {
+            sample *= 2
+        }
+
+        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val bitmap = contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, decodeOpts)
+        } ?: return null
+        return bitmapToPreviewDataUrl(bitmap)
+    }
+
     fun runOcrOnBase64(requestId: String, base64: String) {
         Thread {
             try {
                 val bytes = Base64.decode(base64, Base64.DEFAULT)
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                     ?: throw IllegalArgumentException("invalid_image")
+                bitmapToPreviewDataUrl(bitmap)?.let { preview ->
+                    runOnUiThread { webBridge.deliverImagePreview(preview) }
+                }
                 val text = OcrProcessor.recognizeBitmap(bitmap)
                 runOnUiThread {
                     if (text.isBlank()) {
@@ -211,6 +255,9 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "runOcrOnUri: requestId=$requestId uri=$uri")
         Thread {
             try {
+                loadPreviewDataUrlFromUri(uri)?.let { preview ->
+                    runOnUiThread { webBridge.deliverImagePreview(preview) }
+                }
                 val text = NativeOcrManager.recognizeImageUri(this, uri)
                 runOnUiThread {
                     if (text.isBlank()) {

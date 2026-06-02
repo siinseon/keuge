@@ -48,6 +48,25 @@ class WebAppBridge(
         }
     }
 
+    fun deliverImagePreview(dataUrl: String) {
+        if (dataUrl.isBlank()) return
+        val jsLiteral = jsStringLiteral(dataUrl)
+        val js = "(function(){try{" +
+            "var u=$jsLiteral;" +
+            "if(typeof window.__keugeShowMenuPreview==='function'){window.__keugeShowMenuPreview(u);}" +
+            "}catch(e){if(window.console)console.error('[KeugeOcr] preview',e);}})();"
+
+        Log.d(TAG, "deliverImagePreview: len=${dataUrl.length}")
+
+        activity.runOnUiThread {
+            try {
+                webView.evaluateJavascript(js, null)
+            } catch (e: Exception) {
+                Log.e(TAG, "deliverImagePreview evaluateJavascript failed", e)
+            }
+        }
+    }
+
     fun deliverOcrResult(
         requestId: String,
         success: Boolean,

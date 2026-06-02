@@ -179,6 +179,11 @@ const NavigationManager = {
 
   goBack() {
     vib();
+    const fs = document.getElementById('previewFullscreen');
+    if (fs && fs.classList.contains('is-open') && typeof MenuPreviewZoom !== 'undefined') {
+      MenuPreviewZoom.close();
+      return;
+    }
     if (AppState.screenHistory.length <= 1) {
       const root = AppState.screenHistory[0] || 'home';
       this.navTo(root === 'camera' ? 'camera' : root === 'fav' ? 'fav' : root === 'settings' ? 'settings' : 'home');
@@ -227,6 +232,16 @@ const NavigationManager = {
 // ═══════════════════════════════════════════
 //   OCR BRIDGE & RESULT UI
 // ═══════════════════════════════════════════
+window.__keugeShowMenuPreview = function (dataUrl) {
+  try {
+    if (typeof CameraManager !== 'undefined' && typeof CameraManager._showPreview === 'function') {
+      CameraManager._showPreview(dataUrl);
+    }
+  } catch (e) {
+    try { console.warn('[KeugeOcr] __keugeShowMenuPreview failed', e); } catch (_) {}
+  }
+};
+
 const KeugeOcr = {
   _pending: {},
   _timeoutMs: 120000,
@@ -539,6 +554,160 @@ window.__keugeForceShowResult = function (payload) {
 };
 
 // ═══════════════════════════════════════════
+//   MENU PHOTO PREVIEW (large + fullscreen pinch)
+// ═══════════════════════════════════════════
+const MenuPreviewZoom = {
+  _boundMain: false,
+  _boundFullscreen: false,
+  _scale: 1,
+  _translateX: 0,
+  _translateY: 0,
+  _pinchStartDist: 0,
+  _pinchStartScale: 1,
+  _lastTouchX: 0,
+  _lastTouchY: 0,
+  _panning: false,
+
+  init() {
+    const closeBtn = document.getElementById('previewFullscreenClose');
+    const overlay = document.getElementById('previewFullscreen');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.close());
+    }
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) this.close();
+      });
+    }
+    this.bindMainImage();
+  },
+
+  bindMainImage() {
+    if (this._boundMain) return;
+    const img = document.getElementById('capturedPreview');
+    if (!img) return;
+    this._boundMain = true;
+    const open = () => {
+      if (!img.src) return;
+      this.open(img.src);
+    };
+    img.addEventListener('click', open);
+    img.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        open();
+      }
+    });
+  },
+
+  _applyTransform(img) {
+    if (!img) return;
+    img.style.transform =
+      'translate(' + this._translateX + 'px,' + this._translateY + 'px) scale(' + this._scale + ')';
+  },
+
+  _resetTransform() {
+    this._scale = 1;
+    this._translateX = 0;
+    this._translateY = 0;
+    const img = document.getElementById('previewFullscreenImg');
+    this._applyTransform(img);
+  },
+
+  _touchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  },
+
+  _bindFullscreenGestures() {
+    if (this._boundFullscreen) return;
+    const stage = document.getElementById('previewFullscreenStage');
+    const img = document.getElementById('previewFullscreenImg');
+    if (!stage || !img) return;
+    this._boundFullscreen = true;
+
+    stage.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        this._pinchStartDist = this._touchDistance(e.touches);
+        this._pinchStartScale = this._scale;
+      } else if (e.touches.length === 1 && this._scale > 1) {
+        this._panning = true;
+        this._lastTouchX = e.touches[0].clientX;
+        this._lastTouchY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    stage.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && this._pinchStartDist > 0) {
+        e.preventDefault();
+        const dist = this._touchDistance(e.touches);
+        const next = (this._pinchStartScale * dist) / this._pinchStartDist;
+        this._scale = Math.min(4, Math.max(1, next));
+        this._applyTransform(img);
+      } else if (e.touches.length === 1 && this._panning) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - this._lastTouchX;
+        const dy = e.touches[0].clientY - this._lastTouchY;
+        this._lastTouchX = e.touches[0].clientX;
+        this._lastTouchY = e.touches[0].clientY;
+        this._translateX += dx;
+        this._translateY += dy;
+        this._applyTransform(img);
+      }
+    }, { passive: false });
+
+    const end = () => {
+      this._pinchStartDist = 0;
+      this._panning = false;
+      if (this._scale < 1) {
+        this._resetTransform();
+      }
+    };
+    stage.addEventListener('touchend', end, { passive: true });
+    stage.addEventListener('touchcancel', end, { passive: true });
+
+    img.addEventListener('dblclick', () => {
+      if (this._scale > 1) this._resetTransform();
+      else {
+        this._scale = 2;
+        this._applyTransform(img);
+      }
+    });
+  },
+
+  open(src) {
+    const overlay = document.getElementById('previewFullscreen');
+    const img = document.getElementById('previewFullscreenImg');
+    if (!overlay || !img || !src) return;
+    this._bindFullscreenGestures();
+    this._resetTransform();
+    img.src = src;
+    overlay.hidden = false;
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    vib([20]);
+    NavigationManager.announce('메뉴 사진을 크게 보여 드립니다. 두 손가락으로 확대할 수 있습니다.');
+  },
+
+  close() {
+    const overlay = document.getElementById('previewFullscreen');
+    const img = document.getElementById('previewFullscreenImg');
+    if (!overlay) return;
+    overlay.classList.remove('is-open');
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    if (img) {
+      img.removeAttribute('src');
+      img.src = '';
+    }
+    document.body.style.overflow = '';
+    this._resetTransform();
+  }
+};
+
+// ═══════════════════════════════════════════
 //   PHOTO PICKER & OCR MODULE
 //   사용자 흐름:
 //     [메뉴 사진 선택] 갤러리/최근 사진 선택 → OCR → 결과 모달
@@ -639,7 +808,7 @@ const CameraManager = {
       showToast('사진을 불러오는 데 실패했습니다.');
       return;
     }
-    const previewDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+    const previewDataUrl = canvas.toDataURL('image/jpeg', 0.92);
     this._showPreview(previewDataUrl);
     await this._runOcr(async () => {
       if (BrowserOcr.available()) {
@@ -686,26 +855,37 @@ const CameraManager = {
   },
 
   _showPreview(dataUrl) {
+    if (!dataUrl) return;
     const img = document.getElementById('capturedPreview');
-    if (img && dataUrl) {
+    const container = document.getElementById('previewContainer');
+    const screen = document.getElementById('screen-camera');
+    if (img) {
       img.src = dataUrl;
       img.hidden = false;
-      img.style.display = 'block';
     }
-    const hint = document.getElementById('photoPickerHint');
-    if (hint) hint.hidden = true;
+    if (container) {
+      container.hidden = false;
+      container.classList.add('is-visible');
+    }
+    if (screen) screen.classList.add('has-menu-preview');
+    MenuPreviewZoom.bindMainImage();
   },
 
   _hidePreview() {
+    MenuPreviewZoom.close();
     const img = document.getElementById('capturedPreview');
+    const container = document.getElementById('previewContainer');
+    const screen = document.getElementById('screen-camera');
     if (img) {
       img.removeAttribute('src');
       img.src = '';
       img.hidden = true;
-      img.style.display = 'none';
     }
-    const hint = document.getElementById('photoPickerHint');
-    if (hint) hint.hidden = false;
+    if (container) {
+      container.hidden = true;
+      container.classList.remove('is-visible');
+    }
+    if (screen) screen.classList.remove('has-menu-preview');
   },
 
   _setSpeakButtonEnabled(enabled) {
