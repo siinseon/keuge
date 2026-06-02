@@ -13,6 +13,22 @@ class WebAppBridge(
 
     private val ttsManager = NativeTtsManager(activity)
 
+    /**
+     * JS 가 [NavigationManager.syncNavBackState] 로 갱신하는 하드웨어 뒤로가기 상태.
+     * evaluateJavascript 콜백이 구형 WebView 에서 누락될 때 동기 fallback 으로 사용한다.
+     * splash | home | inner | modal
+     */
+    @Volatile
+    var navBackState: String = "splash"
+
+    @JavascriptInterface
+    fun setNavBackState(state: String?) {
+        if (!state.isNullOrBlank()) {
+            navBackState = state
+            Log.d(TAG, "setNavBackState: $state")
+        }
+    }
+
     @JavascriptInterface
     fun speakText(text: String?) {
         ttsManager.speak(text)

@@ -188,6 +188,7 @@ async function initApp() {
 
       // 4. Initial Render
       UI.renderHomeScreen();
+      NavigationManager.syncNavBackState();
     })();
   }
   return _initPromise;

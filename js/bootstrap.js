@@ -175,24 +175,100 @@ const NavigationManager = {
     
     if (name === 'camera') CameraManager.start();
     else CameraManager.stop();
+    this.syncNavBackState();
   },
 
+  /** 현재 화면이 Android 하드웨어 뒤로가기에서 어떻게 처리될지 동기 상태로 반영. */
+  syncNavBackState() {
+    let state = 'inner';
+    try {
+      if (typeof OcrResultUI !== 'undefined' && OcrResultUI.isOpen()) {
+        state = 'modal';
+      } else if (document.getElementById('screen-splash')?.classList.contains('active')) {
+        state = 'splash';
+      } else if (this.isAtHomeScreen()) {
+        state = 'home';
+      }
+      if (window.Android && typeof window.Android.setNavBackState === 'function') {
+        window.Android.setNavBackState(state);
+      }
+    } catch (_) {}
+    return state;
+  },
+
+  isAtHomeScreen() {
+    const cur = AppState.screenHistory[AppState.screenHistory.length - 1] || 'home';
+    if (cur !== 'home' || AppState.screenHistory.length > 1) return false;
+    return !!document.getElementById('screen-home')?.classList.contains('active');
+  },
+
+  /**
+   * Android 하드웨어 뒤로가기 전용.
+   * @returns {{ action: 'back'|'exit'|'close_modal' }}
+   */
+  handleHardwareBack() {
+    try {
+      if (typeof OcrResultUI !== 'undefined' && OcrResultUI.isOpen()) {
+        OcrResultUI.hide();
+        this.syncNavBackState();
+        return { action: 'close_modal' };
+      }
+      if (document.getElementById('screen-splash')?.classList.contains('active')) {
+        this.navTo('home');
+        this.syncNavBackState();
+        return { action: 'back' };
+      }
+      if (this.isAtHomeScreen()) {
+        return { action: 'exit' };
+      }
+      const cur = AppState.screenHistory[AppState.screenHistory.length - 1] || 'home';
+      if (AppState.screenHistory.length <= 1 && cur !== 'home') {
+        this.navTo('home');
+        this.syncNavBackState();
+        return { action: 'back' };
+      }
+      if (AppState.screenHistory.length > 1) {
+        AppState.screenHistory.pop();
+        const prev = AppState.screenHistory[AppState.screenHistory.length - 1];
+        this.switchScreen(prev);
+        const rootTabs = ['home', 'camera', 'fav', 'settings'];
+        if (rootTabs.includes(prev)) {
+          this._setActiveNavTab(prev);
+        }
+        this.syncNavBackState();
+        return { action: 'back' };
+      }
+      return { action: 'exit' };
+    } catch (e) {
+      try { console.error('[NavigationManager] handleHardwareBack', e); } catch (_) {}
+      return { action: 'exit' };
+    }
+  },
+
+  /** 화면 UI의 ◀ 뒤로 버튼용 (앱 종료 없음). */
   goBack() {
     vib();
+    if (typeof OcrResultUI !== 'undefined' && OcrResultUI.isOpen()) {
+      OcrResultUI.hide();
+      this.syncNavBackState();
+      return;
+    }
     if (AppState.screenHistory.length <= 1) {
-      const root = AppState.screenHistory[0] || 'home';
-      this.navTo(root === 'camera' ? 'camera' : root === 'fav' ? 'fav' : root === 'settings' ? 'settings' : 'home');
+      const cur = AppState.screenHistory[0] || 'home';
+      if (cur !== 'home') {
+        this.navTo('home');
+      }
+      this.syncNavBackState();
       return;
     }
     AppState.screenHistory.pop();
     const prev = AppState.screenHistory[AppState.screenHistory.length - 1];
     this.switchScreen(prev);
-    
-    // Update bottom nav active state
     const rootTabs = ['home', 'camera', 'fav', 'settings'];
     if (rootTabs.includes(prev)) {
       this._setActiveNavTab(prev);
     }
+    this.syncNavBackState();
   },
 
   announce(msg, forceTTS = false) {
@@ -217,6 +293,16 @@ const NavigationManager = {
       'settings': '설정 화면입니다.'
     };
     this.announce(titles[name] || '화면이 전환되었습니다.');
+  }
+};
+
+// Android 하드웨어 뒤로가기 → evaluateJavascript 에서 호출 (JSON 문자열 반환).
+window.__keugeHandleBack = function () {
+  try {
+    return JSON.stringify(NavigationManager.handleHardwareBack());
+  } catch (e) {
+    try { console.error('[__keugeHandleBack]', e); } catch (_) {}
+    return JSON.stringify({ action: 'exit' });
   }
 };
 
@@ -462,6 +548,7 @@ const OcrResultUI = {
     if (loading) loading.hidden = false;
     if (speakBtn) speakBtn.hidden = true;
     this._forceShow(modal);
+    try { NavigationManager.syncNavBackState(); } catch (_) {}
   },
 
   showResult(text) {
@@ -473,6 +560,7 @@ const OcrResultUI = {
     if (textEl) textEl.textContent = text;
     if (speakBtn) speakBtn.hidden = false;
     this._forceShow(modal);
+    try { NavigationManager.syncNavBackState(); } catch (_) {}
     try { NavigationManager.announce('글자를 찾았습니다. 읽기 버튼을 눌러 들을 수 있습니다.'); } catch (_) {}
   },
 
@@ -485,6 +573,7 @@ const OcrResultUI = {
     if (error) error.textContent = message;
     if (speakBtn) speakBtn.hidden = true;
     this._forceShow(modal);
+    try { NavigationManager.syncNavBackState(); } catch (_) {}
     try { NavigationManager.announce(message); } catch (_) {}
     try { showToast(message); } catch (_) {}
   },
@@ -504,6 +593,7 @@ const OcrResultUI = {
     }
     this._currentText = '';
     try { CameraManager.restartIfNeeded(); } catch (_) {}
+    try { NavigationManager.syncNavBackState(); } catch (_) {}
   },
 
   isOpen() {
