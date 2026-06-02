@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">크게 크게</string>
-    <string name="camera_status_launching">카메라 앱을 여는 중입니다…</string>
-    <string name="camera_status_preview">사진 준비 중입니다…</string>
-    <string name="camera_status_ocr">글자를 읽는 중입니다…</string>
+    <string name="app_name">크크봄</string>
 </resources>

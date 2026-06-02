@@ -1,5 +1,5 @@
 /**
- * 크게 크게 - 접근성 중심 메뉴 도우미
+ * 크크봄 - 접근성 중심 메뉴 사진 읽기 도우미
  */
 
 function vib(pattern = [30]) {
@@ -212,7 +212,7 @@ const NavigationManager = {
       'search': '검색 화면입니다. 브랜드나 메뉴를 입력해 주세요.',
       'results': '검색 결과 화면입니다.',
       'detail': '상세 메뉴 화면입니다.',
-      'camera': '돋보기 카메라 화면입니다. 화면을 눌러 사진을 찍을 수 있습니다.',
+      'camera': '메뉴 사진 읽기 화면입니다. 메뉴 사진 선택 버튼을 눌러 주세요.',
       'fav': '즐겨찾기 화면입니다.',
       'settings': '설정 화면입니다.'
     };
@@ -229,20 +229,19 @@ const NavigationManager = {
 // ═══════════════════════════════════════════
 const KeugeOcr = {
   _pending: {},
-  // 시스템 카메라는 사용자의 촬영 시간을 포함하므로 타임아웃을 충분히 길게 둔다.
-  _timeoutMs: 300000,
+  _timeoutMs: 120000,
 
   init() {
     window.KeugeOcr = this;
   },
 
   isNativeAvailable() {
-    return this.isNativeCameraAvailable() ||
+    return this.isNativeImagePickerAvailable() ||
       !!(window.Android && typeof window.Android.recognizeTextFromBase64 === 'function');
   },
 
-  isNativeCameraAvailable() {
-    return !!(window.Android && typeof window.Android.captureAndRecognize === 'function');
+  isNativeImagePickerAvailable() {
+    return !!(window.Android && typeof window.Android.selectMenuImage === 'function');
   },
 
   _complete(payload) {
@@ -265,15 +264,6 @@ const KeugeOcr = {
     delete this._pending[payload.requestId];
 
     if (payload.success) {
-      // mode === 'capture' : 촬영만 한 경우 -> {path, previewDataUrl} 반환
-      if (pending.mode === 'capture') {
-        pending.resolve({
-          path: payload.photoPath || '',
-          previewDataUrl: payload.previewDataUrl || ''
-        });
-        return;
-      }
-      // mode === 'text' : OCR 결과
       if (payload.text) {
         pending.resolve(String(payload.text).trim());
         return;
@@ -340,10 +330,10 @@ const KeugeOcr = {
     });
   },
 
-  startNativeCapture(runOcr) {
+  selectMenuImage() {
     return new Promise((resolve, reject) => {
-      if (!this.isNativeCameraAvailable()) {
-        reject(new Error('no_native_camera'));
+      if (!this.isNativeImagePickerAvailable()) {
+        reject(new Error('no_image_picker'));
         return;
       }
 
@@ -355,48 +345,11 @@ const KeugeOcr = {
         reject(new Error('timeout'));
       }, this._timeoutMs);
 
-      // mode: 'capture' = 촬영만(파일 경로 반환), 'text' = OCR 텍스트 반환
-      this._pending[requestId] = {
-        resolve, reject, timer,
-        mode: runOcr ? 'text' : 'capture'
-      };
-      try { console.log('[KeugeOcr] startNativeCapture', { requestId, runOcr }); } catch (_) {}
+      this._pending[requestId] = { resolve, reject, timer };
+      try { console.log('[KeugeOcr] selectMenuImage', { requestId }); } catch (_) {}
 
       try {
-        window.Android.captureAndRecognize(requestId, runOcr ? 'true' : 'false');
-      } catch (e) {
-        clearTimeout(timer);
-        delete this._pending[requestId];
-        reject(e);
-      }
-    });
-  },
-
-  /**
-   * 디스크에 저장된 사진 파일을 OCR. "글자 읽기" 가 카메라를 새로 열지 않고
-   * 마지막 촬영본을 인식하기 위한 경로.
-   * @param {string} path NativeCameraActivity 가 반환한 절대 경로
-   * @returns {Promise<string>} OCR 결과 텍스트
-   */
-  recognizeStoredImage(path) {
-    return new Promise((resolve, reject) => {
-      if (!path) { reject(new Error('empty_image')); return; }
-      const bridge = window.Android;
-      if (!bridge || typeof bridge.recognizeStoredImage !== 'function') {
-        reject(new Error('no_bridge'));
-        return;
-      }
-      const requestId = 'ocr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-      const timer = setTimeout(() => {
-        if (!this._pending[requestId]) return;
-        delete this._pending[requestId];
-        try { console.warn('[KeugeOcr] timeout', requestId); } catch (_) {}
-        reject(new Error('timeout'));
-      }, 60000);
-      this._pending[requestId] = { resolve, reject, timer, mode: 'text' };
-      try { console.log('[KeugeOcr] recognizeStoredImage', { requestId, path }); } catch (_) {}
-      try {
-        bridge.recognizeStoredImage(requestId, path);
+        window.Android.selectMenuImage(requestId);
       } catch (e) {
         clearTimeout(timer);
         delete this._pending[requestId];
@@ -477,7 +430,7 @@ const OcrResultUI = {
       + '  <div id="ocrLoading" hidden style="text-align:center;font-weight:700;color:#2563EB;padding:16px;">글자를 읽는 중입니다...</div>'
       + '  <div id="ocrResultText" style="font-size:24px;font-weight:700;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow-y:auto;padding:12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:12px;"></div>'
       + '  <p id="ocrErrorMsg" style="color:#b91c1c;font-weight:700;text-align:center;margin:0;"></p>'
-      + '  <button id="ocrSpeakBtn" type="button" hidden style="background:#2563EB;color:#fff;border:none;border-radius:12px;min-height:56px;font-size:18px;font-weight:800;">읽기</button>'
+      + '  <button id="ocrSpeakBtn" type="button" hidden style="background:#2563EB;color:#fff;border:none;border-radius:12px;min-height:56px;font-size:18px;font-weight:800;">읽어주기</button>'
       + '  <button id="ocrCloseBtn" type="button" style="background:#fff;color:#111;border:1px solid #d1d5db;border-radius:12px;min-height:56px;font-size:18px;font-weight:700;">닫기</button>'
       + '</div>';
     document.body.appendChild(modal);
@@ -561,7 +514,7 @@ const OcrResultUI = {
 
 // 안전망: Android 가 직접 호출하여 결과 모달을 강제로 표시한다.
 // _complete / Promise 체인이 어떤 이유로든 모달을 띄우지 못해도 이 경로로 결과가 보장된다.
-// 단, "촬영만" 한 경우(payload.photoPath 만 있고 text 없음)에는 모달을 띄우지 않는다.
+// 단, text 없는 성공 payload 에는 모달을 띄우지 않는다.
 window.__keugeForceShowResult = function (payload) {
   try { console.log('[KeugeOcr] __keugeForceShowResult', payload); } catch (_) {}
   if (!payload) return;
@@ -570,8 +523,8 @@ window.__keugeForceShowResult = function (payload) {
       OcrResultUI.showResult(String(payload.text).trim());
       return;
     }
-    // 촬영만 한 경우(text 없음 + photoPath 있음)는 OCR 결과가 아니므로 모달을 띄우지 않음.
-    if (payload.success && payload.photoPath && !payload.text) return;
+    // text 없는 성공 payload 는 OCR 결과가 아니므로 모달을 띄우지 않음.
+    if (payload.success && !payload.text) return;
 
     if (!payload.success && window.__keugeExpectingOcrResult) {
       const code = payload.error || 'ocr_failed';
@@ -586,14 +539,10 @@ window.__keugeForceShowResult = function (payload) {
 };
 
 // ═══════════════════════════════════════════
-//   CAMERA & OCR MODULE
+//   PHOTO PICKER & OCR MODULE
 //   사용자 흐름:
-//     [사진 찍기] 시스템 카메라 실행 → 촬영 → 사진 저장 + 미리보기 표시
-//     [글자 읽기] 카메라를 다시 열지 않고 마지막 촬영 사진을 OCR → 결과 모달
-//   _lastPhoto:
-//     { previewDataUrl: string, runOcr: () => Promise<string> } | null
-//   Android: 파일 경로 + base64 썸네일을 받아 보관
-//   브라우저 fallback: <input type="file" capture> + 클라이언트 Canvas 보관
+//     [메뉴 사진 선택] 갤러리/최근 사진 선택 → OCR → 결과 모달
+//     [읽어주기] 마지막 OCR 결과를 TTS로 재생
 // ═══════════════════════════════════════════
 const CameraManager = {
   // 호환용 필드 (기존 코드 참조 대비; 동작은 없음)
@@ -602,74 +551,63 @@ const CameraManager = {
   contrastOn: false,
   captureStateValid: false,
 
-  _lastPhoto: null,
+  _lastText: '',
 
-  /** 카메라 화면 진입 시 호출. */
+  /** 메뉴 사진 읽기 화면 진입 시 호출. */
   start() {
-    // 미리보기/저장된 사진은 화면 진입 시 초기화한다.
-    this._clearLastPhoto();
-    showToast('사진 찍기 버튼을 눌러 주세요');
+    this._clearSelection();
+    showToast('메뉴 사진을 선택해 주세요');
   },
 
-  /** 카메라 화면 이탈 시 호출. */
+  /** 화면 이탈 시 호출. */
   stop() {
-    this._clearLastPhoto();
+    this._clearSelection();
   },
 
-  /** 사진 찍기: 시스템 카메라 호출 → 파일 보존 + 미리보기 표시 (OCR 없음) */
+  /** 메뉴 사진 선택: Android 이미지 선택기 또는 브라우저 파일 선택 후 즉시 OCR. */
   async capture() {
     vib([50, 30, 50]);
-    try { console.log('[CameraManager] capture: native=', KeugeOcr.isNativeCameraAvailable()); } catch (_) {}
-    if (KeugeOcr.isNativeCameraAvailable()) {
-      try {
-        const result = await KeugeOcr.startNativeCapture(false);
-        try { console.log('[CameraManager] capture result', result); } catch (_) {}
-        if (!result || !result.path) {
-          showToast('촬영에 실패했습니다.');
-          return;
-        }
-        this._setLastPhoto({
-          previewDataUrl: result.previewDataUrl || '',
-          runOcr: () => KeugeOcr.recognizeStoredImage(result.path)
-        });
-        showToast('촬영 완료! "글자 읽기"를 눌러 주세요');
-        NavigationManager.announce('사진을 찍었습니다. 글자 읽기 버튼을 누르면 글자를 읽어 드립니다.');
-      } catch (e) {
-        if (e && e.message === 'cancelled') return;
-        showToast(this.mapOcrError(e));
-      }
+    this._clearSelection();
+    try { console.log('[CameraManager] select photo: native=', KeugeOcr.isNativeImagePickerAvailable()); } catch (_) {}
+    if (KeugeOcr.isNativeImagePickerAvailable()) {
+      await this._runOcr(async () => KeugeOcr.selectMenuImage());
       return;
     }
-    // 브라우저 fallback
-    this._launchFileInputForCapture();
+    this._launchFileInput();
   },
 
-  /** 글자 읽기: 카메라를 열지 않고 마지막 촬영 사진에 OCR 수행. */
-  async runOCR() {
-    vib();
-    try { console.log('[CameraManager] runOCR: hasLastPhoto=', !!this._lastPhoto); } catch (_) {}
+  /** 읽어주기: 마지막 OCR 결과를 TTS로 재생. */
+  runOCR() {
+    this.speakLastResult();
+  },
 
-    if (!this._lastPhoto) {
-      showToast('먼저 사진을 찍어 주세요');
-      NavigationManager.announce('먼저 사진을 찍어 주세요');
+  speakLastResult() {
+    vib();
+    if (!this._lastText) {
+      showToast('먼저 메뉴 사진을 선택해 주세요');
+      NavigationManager.announce('먼저 메뉴 사진을 선택해 주세요');
       return;
     }
+    SpeechManager.speakFromUserAction(this._lastText);
+  },
 
+  async _runOcr(getText) {
     window.__keugeExpectingOcrResult = true;
     OcrResultUI.showLoading();
-    NavigationManager.announce('글자를 읽는 중입니다. 잠시만 기다려 주세요.');
+    NavigationManager.announce('사진 속 글자를 읽는 중입니다. 잠시만 기다려 주세요.');
 
     try {
-      const text = await this._lastPhoto.runOcr();
-      try { console.log('[CameraManager] runOCR text length=', (text || '').length); } catch (_) {}
+      const text = await getText();
+      try { console.log('[CameraManager] OCR text length=', (text || '').length); } catch (_) {}
       if (!text) {
-        OcrResultUI.showError('글자를 찾지 못했습니다. 더 밝은 곳에서 선명하게 다시 찍어 주세요.');
+        OcrResultUI.showError('사진에서 글자를 찾지 못했습니다. 글자가 더 잘 보이는 사진을 선택해 주세요.');
         return;
       }
+      this._setLastText(text);
       OcrResultUI.showResult(text);
       showToast('글자를 찾았습니다');
     } catch (e) {
-      try { console.warn('[CameraManager] runOCR error', e); } catch (_) {}
+      try { console.warn('[CameraManager] OCR error', e); } catch (_) {}
       if (e && e.message === 'cancelled') { OcrResultUI.hide(); return; }
       OcrResultUI.showError(this.mapOcrError(e));
     } finally {
@@ -677,11 +615,11 @@ const CameraManager = {
     }
   },
 
-  /** 브라우저 fallback: 파일 입력으로 사진 받아 _lastPhoto 에 저장. */
-  _launchFileInputForCapture() {
-    const input = document.getElementById('nativeCameraInput');
+  /** 브라우저 fallback: 파일 입력으로 사진을 받은 뒤 즉시 OCR. */
+  _launchFileInput() {
+    const input = document.getElementById('menuPhotoInput');
     if (!input) {
-      showToast('카메라를 사용할 수 없습니다.');
+      showToast('사진 선택을 사용할 수 없습니다.');
       return;
     }
     const handler = async () => {
@@ -689,34 +627,29 @@ const CameraManager = {
       const file = input.files && input.files[0];
       input.value = '';
       if (!file) return;
-      await this._storeBrowserPhoto(file);
+      await this._runBrowserOcr(file);
     };
     input.addEventListener('change', handler);
     input.click();
   },
 
-  async _storeBrowserPhoto(file) {
+  async _runBrowserOcr(file) {
     const canvas = await this._fileToCanvas(file);
     if (!canvas || !canvas.width || !canvas.height) {
       showToast('사진을 불러오는 데 실패했습니다.');
       return;
     }
     const previewDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-    this._setLastPhoto({
-      previewDataUrl,
-      runOcr: async () => {
-        if (BrowserOcr.available()) {
-          showToast('글자를 읽는 중...');
-          return await BrowserOcr.recognize(canvas);
-        }
-        if (KeugeOcr.isNativeAvailable()) {
-          return await KeugeOcr.recognizeCanvas(canvas);
-        }
-        throw new Error('no_bridge');
+    this._showPreview(previewDataUrl);
+    await this._runOcr(async () => {
+      if (BrowserOcr.available()) {
+        return await BrowserOcr.recognize(canvas);
       }
+      if (KeugeOcr.isNativeAvailable()) {
+        return await KeugeOcr.recognizeCanvas(canvas);
+      }
+      throw new Error('no_bridge');
     });
-    vib([50, 30, 50]);
-    showToast('촬영 완료! "글자 읽기"를 눌러 주세요');
   },
 
   _fileToCanvas(file) {
@@ -741,14 +674,15 @@ const CameraManager = {
     });
   },
 
-  _setLastPhoto(photo) {
-    this._lastPhoto = photo;
-    this._showPreview(photo.previewDataUrl);
+  _setLastText(text) {
+    this._lastText = text;
+    this._setSpeakButtonEnabled(true);
   },
 
-  _clearLastPhoto() {
-    this._lastPhoto = null;
+  _clearSelection() {
+    this._lastText = '';
     this._hidePreview();
+    this._setSpeakButtonEnabled(false);
   },
 
   _showPreview(dataUrl) {
@@ -758,7 +692,7 @@ const CameraManager = {
       img.hidden = false;
       img.style.display = 'block';
     }
-    const hint = document.getElementById('nativeCameraHint');
+    const hint = document.getElementById('photoPickerHint');
     if (hint) hint.hidden = true;
   },
 
@@ -770,23 +704,27 @@ const CameraManager = {
       img.hidden = true;
       img.style.display = 'none';
     }
-    const hint = document.getElementById('nativeCameraHint');
+    const hint = document.getElementById('photoPickerHint');
     if (hint) hint.hidden = false;
+  },
+
+  _setSpeakButtonEnabled(enabled) {
+    const btn = document.getElementById('ocrBtn');
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
   },
 
   mapOcrError(error) {
     const code = error && error.message ? error.message : 'ocr_failed';
     if (code === 'no_bridge') return '앱에서만 글자 읽기를 사용할 수 있습니다.';
-    if (code === 'no_native_camera') return '카메라를 사용할 수 없습니다.';
-    if (code === 'no_camera_app') return '사진 촬영이 가능한 카메라 앱이 없습니다.';
-    if (code === 'camera_launch_failed') return '카메라 앱을 여는 데 실패했습니다.';
-    if (code === 'capture_failed') return '촬영에 실패했습니다. 다시 시도해 주세요.';
+    if (code === 'no_image_picker') return '사진 선택을 사용할 수 없습니다.';
     if (code === 'tesseract_not_loaded') return '글자 읽기 기능을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.';
-    if (code === 'cancelled') return '촬영을 취소했습니다.';
+    if (code === 'cancelled') return '사진 선택을 취소했습니다.';
     if (code === 'timeout') return '글자 읽기 시간이 초과되었습니다. 다시 시도해 주세요.';
-    if (code === 'empty_image' || code === 'invalid_image') return '사진을 다시 찍어 주세요.';
-    if (code === 'empty_text') return '글자를 찾지 못했습니다. 더 선명하게 다시 찍어 주세요.';
-    return '글자를 인식하지 못했습니다. 사진을 더 선명하게 찍어 주세요.';
+    if (code === 'empty_image' || code === 'invalid_image') return '사진을 다시 선택해 주세요.';
+    if (code === 'empty_text') return '사진에서 글자를 찾지 못했습니다. 글자가 선명한 사진을 선택해 주세요.';
+    return '글자를 인식하지 못했습니다. 메뉴 글자가 잘 보이는 사진을 선택해 주세요.';
   },
 
   // ── 기존 UI 핸들러 호환용 no-op들 ───────────────────────

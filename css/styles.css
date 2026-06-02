@@ -709,18 +709,13 @@
     border-color: var(--accent);
   }
 
-  /* ─── CAMERA SCREEN ─── */
+  /* ─── PHOTO PICKER SCREEN ─── */
   .camera-view {
     flex: 1;
     background: #000;
     position: relative;
     overflow: hidden;
     min-height: 0;
-  }
-  #cameraVideo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
   #screen-camera.active {
     max-height: 100dvh;
@@ -753,7 +748,7 @@
   }
   .capture-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: stretch;
     gap: var(--gap-grid);
   }
@@ -843,6 +838,10 @@
   .contrast-btn.active-contrast {
     background: var(--accent);
     color: var(--btn-text);
+  }
+  .contrast-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .flash-overlay {
     position: absolute;
@@ -969,7 +968,7 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
     overflow: hidden;
     backface-visibility: hidden;
-    /* 바 영역은 터치 통과: 카메라 하단 조작 버튼이 가려져도 탭 가능 */
+    /* 바 영역은 터치 통과: 사진 선택 하단 조작 버튼이 가려져도 탭 가능 */
     pointer-events: none;
   }
   .bottom-nav .nav-tab {
@@ -1176,7 +1175,7 @@
 
   @media (max-width: 380px) {
     .capture-row {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: clamp(6px, 1.5vw, 8px);
     }
     .contrast-btn {
@@ -1196,18 +1195,8 @@
     }
   }
 
-  /* Native CameraX mode (Android WebView) */
-  .native-camera-mode #cameraVideo,
-  .native-camera-mode .flash-overlay,
-  .native-camera-mode .zoom-indicator,
-  .native-camera-mode .contrast-indicator,
-  .native-camera-mode .camera-zoom-row,
-  .native-camera-mode .contrast-btn,
-  .native-camera-mode .captured-overlay {
-    display: none !important;
-  }
-  .native-camera-hint {
-    display: none;
+  .photo-picker-hint {
+    display: flex;
     flex: 1;
     align-items: center;
     justify-content: center;
@@ -1220,14 +1209,8 @@
     font-size: var(--fs-body);
     line-height: var(--line-height);
     color: var(--text);
-  }
-  .native-camera-mode .native-camera-hint {
-    display: flex;
     flex-direction: column;
     gap: 12px;
-  }
-  .native-camera-mode .capture-row {
-    grid-template-columns: 1fr 1fr;
   }
 
   /* scrollbar */

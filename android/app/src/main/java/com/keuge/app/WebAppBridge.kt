@@ -1,78 +1,41 @@
 package com.keuge.app
 
-import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONObject
-import java.util.Locale
 
 class WebAppBridge(
     private val activity: MainActivity,
     private val webView: WebView,
-    private val onCaptureRequested: (requestId: String, runOcr: Boolean) -> Unit
-) : TextToSpeech.OnInitListener {
+    private val onImagePickRequested: (requestId: String) -> Unit
+) {
 
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
-
-    init {
-        tts = TextToSpeech(activity, this)
-    }
-
-    override fun onInit(status: Int) {
-        ttsReady = status == TextToSpeech.SUCCESS
-        if (ttsReady) {
-            tts?.language = Locale.KOREAN
-        }
-    }
+    private val ttsManager = NativeTtsManager(activity)
 
     @JavascriptInterface
     fun speakText(text: String?) {
-        if (text.isNullOrBlank()) return
-        activity.runOnUiThread {
-            if (!ttsReady) return@runOnUiThread
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "keuge-tts")
-        }
+        ttsManager.speak(text)
     }
 
     @JavascriptInterface
     fun stopSpeak() {
-        activity.runOnUiThread {
-            tts?.stop()
-        }
+        ttsManager.stop()
     }
 
     @JavascriptInterface
-    fun isTtsReady(): Boolean = ttsReady
+    fun isTtsReady(): Boolean = ttsManager.isReady()
 
-    /** 시스템 카메라 촬영 + (선택) ML Kit OCR */
+    /** 갤러리/최근 사진에서 이미지 선택 후 ML Kit OCR */
     @JavascriptInterface
-    fun captureAndRecognize(requestId: String?, runOcr: String?) {
+    fun selectMenuImage(requestId: String?) {
         if (requestId.isNullOrBlank()) {
-            Log.w(TAG, "captureAndRecognize: blank requestId")
+            Log.w(TAG, "selectMenuImage: blank requestId")
             return
         }
-        val ocr = runOcr != "false"
-        Log.d(TAG, "captureAndRecognize: requestId=$requestId runOcr=$ocr")
+        Log.d(TAG, "selectMenuImage: requestId=$requestId")
         activity.runOnUiThread {
-            onCaptureRequested(requestId, ocr)
-        }
-    }
-
-    /**
-     * 디스크에 저장된 사진 파일(시스템 카메라로 촬영해 둔)을 OCR 한다.
-     * "글자 읽기" 가 카메라를 다시 열지 않고 마지막 촬영본만 인식하도록 하는 경로.
-     */
-    @JavascriptInterface
-    fun recognizeStoredImage(requestId: String?, path: String?) {
-        if (requestId.isNullOrBlank() || path.isNullOrBlank()) {
-            Log.w(TAG, "recognizeStoredImage: blank requestId or path")
-            return
-        }
-        Log.d(TAG, "recognizeStoredImage: requestId=$requestId path=$path")
-        activity.runOnUiThread {
-            activity.runOcrOnStoredPath(requestId, path)
+            onImagePickRequested(requestId)
         }
     }
 
@@ -89,17 +52,13 @@ class WebAppBridge(
         requestId: String,
         success: Boolean,
         text: String?,
-        error: String?,
-        photoPath: String? = null,
-        previewDataUrl: String? = null
+        error: String?
     ) {
         val payload = JSONObject().apply {
             put("requestId", requestId)
             put("success", success)
             if (!text.isNullOrBlank()) put("text", text)
             if (!error.isNullOrBlank()) put("error", error)
-            if (!photoPath.isNullOrBlank()) put("photoPath", photoPath)
-            if (!previewDataUrl.isNullOrBlank()) put("previewDataUrl", previewDataUrl)
         }
 
         // 핵심: 결과를 JS 코드 안에 그대로 인라인하면 OCR 텍스트에 포함된
@@ -126,8 +85,7 @@ class WebAppBridge(
         Log.d(
             TAG,
             "deliverOcrResult: requestId=$requestId success=$success " +
-                "textLen=${text?.length ?: 0} hasPath=${!photoPath.isNullOrBlank()} " +
-                "hasPreview=${!previewDataUrl.isNullOrBlank()} error=$error"
+                "textLen=${text?.length ?: 0} error=$error"
         )
 
         // 메인 스레드에서 두 가지 채널 모두 시도한다.
@@ -164,6 +122,10 @@ class WebAppBridge(
         }
         sb.append('\'')
         return sb.toString()
+    }
+
+    fun destroy() {
+        ttsManager.shutdown()
     }
 
     companion object {

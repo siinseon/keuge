@@ -147,7 +147,7 @@ async function initApp() {
       if (captureBtnEl) {
         bindElementListener(captureBtnEl, 'click', () => {
           void CameraManager.capture().catch(() => {
-            showToast('캡처에 실패했습니다.');
+            showToast('사진 선택에 실패했습니다.');
           });
         });
       }

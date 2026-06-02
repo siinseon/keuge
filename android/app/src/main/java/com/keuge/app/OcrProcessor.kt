@@ -29,6 +29,10 @@ object OcrProcessor {
     fun recognizeBitmap(bitmap: Bitmap): String {
         Log.d(TAG, "recognizeBitmap: ${bitmap.width}x${bitmap.height}")
         val image = InputImage.fromBitmap(bitmap, 0)
+        return recognizeImage(image)
+    }
+
+    fun recognizeImage(image: InputImage): String {
         val task = recognizer.process(image)
         val visionText = try {
             Tasks.await(task, TIMEOUT_SECONDS, TimeUnit.SECONDS)
