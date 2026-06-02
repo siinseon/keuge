@@ -26,7 +26,7 @@ class WebAppBridge(
     @JavascriptInterface
     fun isTtsReady(): Boolean = ttsManager.isReady()
 
-    /** 갤러리/최근 사진에서 image/* 선택 후 ML Kit OCR */
+    /** 갤러리/최근 사진에서 이미지 선택 후 ML Kit OCR */
     @JavascriptInterface
     fun selectMenuImage(requestId: String?) {
         if (requestId.isNullOrBlank()) {
