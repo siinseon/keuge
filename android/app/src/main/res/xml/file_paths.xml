@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <!-- 시스템 카메라가 사진을 기록할 임시 영역. cacheDir/captures/ -->
-    <cache-path name="captures" path="captures/" />
-</paths>
