@@ -393,7 +393,45 @@ const KeugeOcr = {
     pending.reject(new Error(payload.error || 'cancelled'));
   },
 
-  /** 선택된 사진으로 ML Kit OCR ([읽어주기] 버튼) */
+  /** 미리보기 data URL(base64)로 ML Kit OCR — URI 권한 문제 회피 */
+  recognizeFromDataUrl(dataUrl) {
+    return new Promise((resolve, reject) => {
+      if (!dataUrl) {
+        reject(new Error('empty_image'));
+        return;
+      }
+      const comma = dataUrl.indexOf(',');
+      const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+      if (!base64) {
+        reject(new Error('empty_image'));
+        return;
+      }
+      if (!(window.Android && typeof window.Android.recognizeTextFromBase64 === 'function')) {
+        reject(new Error('no_bridge'));
+        return;
+      }
+
+      const requestId = 'ocr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const timer = setTimeout(() => {
+        if (!this._pending[requestId]) return;
+        delete this._pending[requestId];
+        reject(new Error('timeout'));
+      }, this._timeoutMs);
+
+      this._pending[requestId] = { resolve, reject, timer };
+      try { console.log('[OCR] recognizeFromDataUrl start', { requestId, base64Len: base64.length }); } catch (_) {}
+
+      try {
+        window.Android.recognizeTextFromBase64(requestId, base64);
+      } catch (e) {
+        clearTimeout(timer);
+        delete this._pending[requestId];
+        reject(e);
+      }
+    });
+  },
+
+  /** 선택된 사진 URI로 ML Kit OCR (fallback) */
   recognizePickedImage() {
     return new Promise((resolve, reject) => {
       const hasRecognize = !!(window.Android && typeof window.Android.recognizeMenuImage === 'function');
@@ -588,14 +626,21 @@ window.__keugeForceShowResult = function (payload) {
   try { console.log('[KeugeOcr] __keugeForceShowResult', payload); } catch (_) {}
   if (!payload) return;
   try {
+    if (window.KeugeOcr && typeof window.KeugeOcr._complete === 'function') {
+      window.KeugeOcr._complete(payload);
+    }
+  } catch (e) {
+    try { console.error('[KeugeOcr] forceShow _complete error', e); } catch (_) {}
+  }
+  if (!window.__keugeExpectingOcrResult) return;
+  try {
     if (payload.success && payload.text) {
       OcrResultUI.showResult(String(payload.text).trim());
       return;
     }
-    // text 없는 성공 payload 는 OCR 결과가 아니므로 모달을 띄우지 않음.
     if (payload.success && !payload.text) return;
 
-    if (!payload.success && window.__keugeExpectingOcrResult) {
+    if (!payload.success) {
       const code = payload.error || 'ocr_failed';
       const msg = (typeof CameraManager !== 'undefined' && CameraManager.mapOcrError)
         ? CameraManager.mapOcrError({ message: code })
@@ -856,6 +901,12 @@ const CameraManager = {
 
     vib([50, 30, 50]);
 
+    if (this._previewDataUrl && window.Android && typeof window.Android.recognizeTextFromBase64 === 'function') {
+      try { console.log('[OCR] runOCR via preview dataUrl (base64 bridge)'); } catch (_) {}
+      await this._runOcr(() => KeugeOcr.recognizeFromDataUrl(this._previewDataUrl));
+      return;
+    }
+
     if (this._ocrCanvas) {
       await this._runOcr(async () => {
         if (BrowserOcr.available()) {
@@ -870,6 +921,7 @@ const CameraManager = {
     }
 
     if (this._nativePickRequestId && window.Android && typeof window.Android.recognizeMenuImage === 'function') {
+      try { console.log('[OCR] runOCR via recognizeMenuImage (uri fallback)'); } catch (_) {}
       await this._runOcr(() => KeugeOcr.recognizePickedImage());
       return;
     }
@@ -890,11 +942,26 @@ const CameraManager = {
 
   async _runOcr(getText) {
     window.__keugeExpectingOcrResult = true;
+    window.__keugeLastOcrPayload = null;
     OcrResultUI.showLoading();
     NavigationManager.announce('사진 속 글자를 읽는 중입니다. 잠시만 기다려 주세요.');
 
+    const pollInterval = setInterval(() => {
+      const p = window.__keugeLastOcrPayload;
+      if (!p || !p.requestId || !window.__keugeExpectingOcrResult) return;
+      if (KeugeOcr._pending[p.requestId]) {
+        try { console.log('[OCR] poll delivering payload for', p.requestId); } catch (_) {}
+        KeugeOcr._complete(p);
+      }
+    }, 500);
+
+    const ocrTimeoutMs = 95000;
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('timeout')), ocrTimeoutMs);
+    });
+
     try {
-      const text = await getText();
+      const text = await Promise.race([getText(), timeoutPromise]);
       try { console.log('[CameraManager] OCR text length=', (text || '').length); } catch (_) {}
       if (!text) {
         OcrResultUI.showError('사진에서 글자를 찾지 못했습니다. 글자가 더 잘 보이는 사진을 선택해 주세요.');
@@ -905,9 +972,22 @@ const CameraManager = {
       showToast('글자를 찾았습니다');
     } catch (e) {
       try { console.warn('[CameraManager] OCR error', e); } catch (_) {}
+      const late = window.__keugeLastOcrPayload;
+      if (late && late.requestId && KeugeOcr._pending[late.requestId]) {
+        try { console.log('[OCR] applying late payload after error', late.requestId); } catch (_) {}
+        KeugeOcr._complete(late);
+        const text = late.success && late.text ? String(late.text).trim() : '';
+        if (text) {
+          this._setLastText(text);
+          OcrResultUI.showResult(text);
+          showToast('글자를 찾았습니다');
+          return;
+        }
+      }
       if (e && e.message === 'cancelled') { OcrResultUI.hide(); return; }
       OcrResultUI.showError(this.mapOcrError(e));
     } finally {
+      clearInterval(pollInterval);
       window.__keugeExpectingOcrResult = false;
     }
   },

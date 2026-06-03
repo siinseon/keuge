@@ -68,26 +68,16 @@ class WebAppBridge(
     }
 
     fun deliverImagePicked(requestId: String, success: Boolean, error: String?) {
-        val payload = JSONObject().apply {
-            put("requestId", requestId)
-            put("success", success)
-            if (!error.isNullOrBlank()) put("error", error)
-        }
-        val jsLiteral = jsStringLiteral(payload.toString())
+        val rid = jsStringLiteral(requestId)
+        val successJs = if (success) "true" else "false"
+        val errJs = if (!error.isNullOrBlank()) jsStringLiteral(error) else "null"
         val js = "(function(){try{" +
-            "var p=JSON.parse($jsLiteral);" +
+            "var p={requestId:$rid,success:$successJs,error:$errJs};" +
             "if(window.KeugeOcr&&typeof window.KeugeOcr._imagePicked==='function'){" +
             "window.KeugeOcr._imagePicked(p);}}catch(e){if(window.console)console.error('[KeugeOcr] picked',e);}})();"
 
         Log.d(TAG, "deliverImagePicked: requestId=$requestId success=$success error=$error")
-
-        activity.runOnUiThread {
-            try {
-                webView.evaluateJavascript(js, null)
-            } catch (e: Exception) {
-                Log.e(TAG, "deliverImagePicked evaluateJavascript failed", e)
-            }
-        }
+        runJsOnWebView(js)
     }
 
     fun deliverImagePreview(dataUrl: String) {
@@ -115,24 +105,17 @@ class WebAppBridge(
         text: String?,
         error: String?
     ) {
-        val payload = JSONObject().apply {
-            put("requestId", requestId)
-            put("success", success)
-            if (!text.isNullOrBlank()) put("text", text)
-            if (!error.isNullOrBlank()) put("error", error)
-        }
-
-        val payloadJson = payload.toString()
-        val jsLiteral = jsStringLiteral(payloadJson)
+        val rid = jsStringLiteral(requestId)
+        val successJs = if (success) "true" else "false"
+        val textJs = if (!text.isNullOrBlank()) jsStringLiteral(text) else "null"
+        val errJs = if (!error.isNullOrBlank()) jsStringLiteral(error) else "null"
 
         val js = "(function(){try{" +
-            "var p=JSON.parse($jsLiteral);" +
+            "var p={requestId:$rid,success:$successJs,text:$textJs,error:$errJs};" +
             "window.__keugeLastOcrPayload=p;" +
-            "if(window.console)console.log('[KeugeOcr] deliver',p);" +
-            "try{if(window.KeugeOcr&&typeof window.KeugeOcr._complete==='function'){" +
-            "window.KeugeOcr._complete(p);}}catch(e1){if(window.console)console.error('[KeugeOcr] _complete threw',e1);}" +
-            "try{if(typeof window.__keugeForceShowResult==='function'){" +
-            "window.__keugeForceShowResult(p);}}catch(e2){if(window.console)console.error('[KeugeOcr] forceShow threw',e2);}" +
+            "if(window.console)console.log('[KeugeOcr] deliver',p.requestId,p.success,(p.text||'').length);" +
+            "if(window.KeugeOcr&&typeof window.KeugeOcr._complete==='function'){window.KeugeOcr._complete(p);}" +
+            "if(typeof window.__keugeForceShowResult==='function'){window.__keugeForceShowResult(p);}" +
             "}catch(e){if(window.console)console.error('[KeugeOcr] deliver error',e);}})();"
 
         Log.d(
@@ -140,19 +123,22 @@ class WebAppBridge(
             "deliverOcrResult: requestId=$requestId success=$success " +
                 "textLen=${text?.length ?: 0} error=$error"
         )
+        runJsOnWebView(js)
+    }
 
+    private fun runJsOnWebView(js: String) {
         activity.runOnUiThread {
             try {
                 webView.evaluateJavascript(js) { result ->
-                    Log.d(TAG, "deliverOcrResult: evaluateJavascript result=$result")
+                    Log.d(TAG, "evaluateJavascript done result=$result")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "deliverOcrResult evaluateJavascript failed", e)
+                Log.e(TAG, "evaluateJavascript failed", e)
             }
             try {
                 webView.loadUrl("javascript:$js")
             } catch (e: Exception) {
-                Log.e(TAG, "deliverOcrResult loadUrl failed", e)
+                Log.e(TAG, "loadUrl(javascript:) failed", e)
             }
         }
     }

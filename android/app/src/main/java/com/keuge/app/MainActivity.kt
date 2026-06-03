@@ -2,6 +2,7 @@ package com.keuge.app
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
@@ -252,6 +253,14 @@ class MainActivity : AppCompatActivity() {
     /** 사진 선택 직후: 미리보기만 전달, OCR은 [읽어주기] 시 실행 */
     private fun onMenuImagePicked(requestId: String, uri: Uri) {
         lastPickedUri = uri
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "takePersistableUriPermission skipped: ${e.message}")
+        }
         Log.d(TAG, "onMenuImagePicked: requestId=$requestId uri=$uri")
         Thread {
             try {
