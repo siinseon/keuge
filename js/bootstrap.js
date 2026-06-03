@@ -234,6 +234,7 @@ const NavigationManager = {
 // ═══════════════════════════════════════════
 window.__keugeShowMenuPreview = function (dataUrl) {
   try {
+    console.log('[OCR] native preview callback');
     if (typeof CameraManager !== 'undefined' && typeof CameraManager._showPreview === 'function') {
       CameraManager._showPreview(dataUrl);
     }
@@ -244,6 +245,7 @@ window.__keugeShowMenuPreview = function (dataUrl) {
 
 const KeugeOcr = {
   _pending: {},
+  _pickPending: {},
   _timeoutMs: 120000,
 
   init() {
@@ -345,9 +347,57 @@ const KeugeOcr = {
     });
   },
 
-  selectMenuImage() {
+  /** 갤러리 선택만 (미리보기·버튼 활성화, OCR 없음) */
+  pickMenuImage() {
     return new Promise((resolve, reject) => {
       if (!this.isNativeImagePickerAvailable()) {
+        reject(new Error('no_image_picker'));
+        return;
+      }
+
+      const requestId = 'pick_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const timer = setTimeout(() => {
+        if (!this._pickPending[requestId]) return;
+        delete this._pickPending[requestId];
+        try { console.warn('[KeugeOcr] pick timeout', requestId); } catch (_) {}
+        reject(new Error('timeout'));
+      }, this._timeoutMs);
+
+      this._pickPending[requestId] = { resolve, reject, timer };
+      try { console.log('[OCR] pickMenuImage start', { requestId }); } catch (_) {}
+
+      try {
+        window.Android.selectMenuImage(requestId);
+      } catch (e) {
+        clearTimeout(timer);
+        delete this._pickPending[requestId];
+        reject(e);
+      }
+    });
+  },
+
+  _imagePicked(payload) {
+    try { console.log('[OCR] image picked payload', payload); } catch (_) {}
+    if (!payload || !payload.requestId) return;
+    const pending = this._pickPending[payload.requestId];
+    if (!pending) {
+      try { console.warn('[OCR] image picked: no pending', payload.requestId); } catch (_) {}
+      return;
+    }
+    clearTimeout(pending.timer);
+    delete this._pickPending[payload.requestId];
+    if (payload.success) {
+      pending.resolve(payload.requestId);
+      return;
+    }
+    pending.reject(new Error(payload.error || 'cancelled'));
+  },
+
+  /** 선택된 사진으로 ML Kit OCR ([읽어주기] 버튼) */
+  recognizePickedImage() {
+    return new Promise((resolve, reject) => {
+      const hasRecognize = !!(window.Android && typeof window.Android.recognizeMenuImage === 'function');
+      if (!hasRecognize) {
         reject(new Error('no_image_picker'));
         return;
       }
@@ -356,21 +406,25 @@ const KeugeOcr = {
       const timer = setTimeout(() => {
         if (!this._pending[requestId]) return;
         delete this._pending[requestId];
-        try { console.warn('[KeugeOcr] timeout', requestId); } catch (_) {}
         reject(new Error('timeout'));
       }, this._timeoutMs);
 
       this._pending[requestId] = { resolve, reject, timer };
-      try { console.log('[KeugeOcr] selectMenuImage', { requestId }); } catch (_) {}
+      try { console.log('[OCR] recognizePickedImage start', { requestId }); } catch (_) {}
 
       try {
-        window.Android.selectMenuImage(requestId);
+        window.Android.recognizeMenuImage(requestId);
       } catch (e) {
         clearTimeout(timer);
         delete this._pending[requestId];
         reject(e);
       }
     });
+  },
+
+  /** @deprecated pickMenuImage + recognizePickedImage 사용 */
+  selectMenuImage() {
+    return this.pickMenuImage().then(() => this.recognizePickedImage());
   }
 };
 
@@ -710,8 +764,8 @@ const MenuPreviewZoom = {
 // ═══════════════════════════════════════════
 //   PHOTO PICKER & OCR MODULE
 //   사용자 흐름:
-//     [메뉴 사진 선택] 갤러리/최근 사진 선택 → OCR → 결과 모달
-//     [읽어주기] 마지막 OCR 결과를 TTS로 재생
+//     [메뉴 사진 선택] → 미리보기 → [읽어주기] → OCR → 결과 모달
+//     [읽어주기] (OCR 완료 후) 마지막 결과 TTS 재생
 // ═══════════════════════════════════════════
 const CameraManager = {
   // 호환용 필드 (기존 코드 참조 대비; 동작은 없음)
@@ -720,6 +774,11 @@ const CameraManager = {
   contrastOn: false,
   captureStateValid: false,
 
+  imageLoaded: false,
+  ocrImageReady: false,
+  _previewDataUrl: null,
+  _ocrCanvas: null,
+  _nativePickRequestId: null,
   _lastText: '',
 
   /** 메뉴 사진 읽기 화면 진입 시 호출. */
@@ -733,21 +792,90 @@ const CameraManager = {
     this._clearSelection();
   },
 
-  /** 메뉴 사진 선택: Android 이미지 선택기 또는 브라우저 파일 선택 후 즉시 OCR. */
+  _logOcrState(step) {
+    const btn = document.getElementById('ocrBtn');
+    try {
+      console.log('[OCR]', step, {
+        imageLoaded: this.imageLoaded,
+        ocrImageReady: this.ocrImageReady,
+        hasPreviewDataUrl: !!this._previewDataUrl,
+        hasOcrCanvas: !!(this._ocrCanvas && this._ocrCanvas.width),
+        nativePickRequestId: this._nativePickRequestId,
+        lastTextLen: (this._lastText || '').length,
+        readButtonDisabled: btn ? btn.disabled : null
+      });
+      if (btn) console.log('[OCR] read button enabled', !btn.disabled);
+    } catch (_) {}
+  },
+
+  /** 메뉴 사진 선택: 미리보기만 (OCR은 [읽어주기]에서 실행). */
   async capture() {
     vib([50, 30, 50]);
     this._clearSelection();
-    try { console.log('[CameraManager] select photo: native=', KeugeOcr.isNativeImagePickerAvailable()); } catch (_) {}
+    try { console.log('[OCR] capture start, native=', KeugeOcr.isNativeImagePickerAvailable()); } catch (_) {}
     if (KeugeOcr.isNativeImagePickerAvailable()) {
-      await this._runOcr(async () => KeugeOcr.selectMenuImage());
+      try {
+        const pickId = await KeugeOcr.pickMenuImage();
+        this._nativePickRequestId = pickId;
+        console.log('[OCR] image selected (native)', pickId);
+        this._logOcrState('after-native-pick');
+      } catch (e) {
+        try { console.warn('[OCR] pick failed', e); } catch (_) {}
+        if (e && e.message !== 'cancelled') {
+          showToast('사진 선택에 실패했습니다.');
+        }
+      }
       return;
     }
     this._launchFileInput();
   },
 
-  /** 읽어주기: 마지막 OCR 결과를 TTS로 재생. */
-  runOCR() {
-    this.speakLastResult();
+  /** 읽어주기: OCR 실행 또는 완료된 결과 TTS 재생. */
+  async runOCR() {
+    const btn = document.getElementById('ocrBtn');
+    try {
+      console.log('[OCR] runOCR clicked', {
+        readButtonDisabled: btn ? btn.disabled : null,
+        imageLoaded: this.imageLoaded,
+        ocrImageReady: this.ocrImageReady,
+        hasLastText: !!this._lastText
+      });
+    } catch (_) {}
+
+    if (this._lastText) {
+      this.speakLastResult();
+      return;
+    }
+
+    if (!this.ocrImageReady) {
+      try { console.warn('[OCR] runOCR blocked: ocrImageReady=false (image state not set)'); } catch (_) {}
+      showToast('먼저 메뉴 사진을 선택해 주세요');
+      NavigationManager.announce('먼저 메뉴 사진을 선택해 주세요');
+      return;
+    }
+
+    vib([50, 30, 50]);
+
+    if (this._ocrCanvas) {
+      await this._runOcr(async () => {
+        if (BrowserOcr.available()) {
+          return await BrowserOcr.recognize(this._ocrCanvas);
+        }
+        if (KeugeOcr.isNativeAvailable()) {
+          return await KeugeOcr.recognizeCanvas(this._ocrCanvas);
+        }
+        throw new Error('no_bridge');
+      });
+      return;
+    }
+
+    if (this._nativePickRequestId && window.Android && typeof window.Android.recognizeMenuImage === 'function') {
+      await this._runOcr(() => KeugeOcr.recognizePickedImage());
+      return;
+    }
+
+    try { console.warn('[OCR] runOCR blocked: no canvas and no native pick'); } catch (_) {}
+    showToast('사진을 다시 선택해 주세요');
   },
 
   speakLastResult() {
@@ -796,29 +924,23 @@ const CameraManager = {
       const file = input.files && input.files[0];
       input.value = '';
       if (!file) return;
-      await this._runBrowserOcr(file);
+      await this._handleBrowserFile(file);
     };
     input.addEventListener('change', handler);
     input.click();
   },
 
-  async _runBrowserOcr(file) {
+  async _handleBrowserFile(file) {
     const canvas = await this._fileToCanvas(file);
     if (!canvas || !canvas.width || !canvas.height) {
       showToast('사진을 불러오는 데 실패했습니다.');
       return;
     }
+    this._ocrCanvas = canvas;
+    console.log('[OCR] image selected (browser)', { w: canvas.width, h: canvas.height });
     const previewDataUrl = canvas.toDataURL('image/jpeg', 0.92);
     this._showPreview(previewDataUrl);
-    await this._runOcr(async () => {
-      if (BrowserOcr.available()) {
-        return await BrowserOcr.recognize(canvas);
-      }
-      if (KeugeOcr.isNativeAvailable()) {
-        return await KeugeOcr.recognizeCanvas(canvas);
-      }
-      throw new Error('no_bridge');
-    });
+    this._logOcrState('after-browser-pick');
   },
 
   _fileToCanvas(file) {
@@ -846,16 +968,32 @@ const CameraManager = {
   _setLastText(text) {
     this._lastText = text;
     this._setSpeakButtonEnabled(true);
+    this._logOcrState('ocr-text-set');
   },
 
   _clearSelection() {
     this._lastText = '';
+    this._previewDataUrl = null;
+    this._ocrCanvas = null;
+    this._nativePickRequestId = null;
+    this.imageLoaded = false;
+    this.ocrImageReady = false;
     this._hidePreview();
     this._setSpeakButtonEnabled(false);
+    this._logOcrState('selection-cleared');
+  },
+
+  _setImageReady(ready, reason) {
+    this.imageLoaded = ready;
+    this.ocrImageReady = ready;
+    this._setSpeakButtonEnabled(ready || !!this._lastText);
+    try { console.log('[OCR] image ready=', ready, 'reason=', reason); } catch (_) {}
+    this._logOcrState('set-image-ready:' + reason);
   },
 
   _showPreview(dataUrl) {
     if (!dataUrl) return;
+    this._previewDataUrl = dataUrl;
     const img = document.getElementById('capturedPreview');
     const container = document.getElementById('previewContainer');
     const screen = document.getElementById('screen-camera');
@@ -869,6 +1007,8 @@ const CameraManager = {
     }
     if (screen) screen.classList.add('has-menu-preview');
     MenuPreviewZoom.bindMainImage();
+    try { console.log('[OCR] preview rendered'); } catch (_) {}
+    this._setImageReady(true, 'preview-rendered');
   },
 
   _hidePreview() {
@@ -890,9 +1030,22 @@ const CameraManager = {
 
   _setSpeakButtonEnabled(enabled) {
     const btn = document.getElementById('ocrBtn');
-    if (!btn) return;
+    if (!btn) {
+      try { console.warn('[OCR] ocrBtn not found'); } catch (_) {}
+      return;
+    }
+    const wasDisabled = btn.disabled;
     btn.disabled = !enabled;
     btn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+    if (wasDisabled !== btn.disabled) {
+      try {
+        console.log('[OCR] read button enabled', !btn.disabled, {
+          reason: enabled ? 'enabled' : 'disabled',
+          imageLoaded: this.imageLoaded,
+          ocrImageReady: this.ocrImageReady
+        });
+      } catch (_) {}
+    }
   },
 
   mapOcrError(error) {

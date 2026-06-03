@@ -26,7 +26,26 @@ class WebAppBridge(
     @JavascriptInterface
     fun isTtsReady(): Boolean = ttsManager.isReady()
 
-    /** 갤러리/최근 사진에서 이미지 선택 후 ML Kit OCR */
+    /** [읽어주기] 탭 시 저장된 사진 URI로 ML Kit OCR */
+    @JavascriptInterface
+    fun recognizeMenuImage(ocrRequestId: String?) {
+        if (ocrRequestId.isNullOrBlank()) {
+            Log.w(TAG, "recognizeMenuImage: blank ocrRequestId")
+            return
+        }
+        val uri = activity.getLastPickedUri()
+        if (uri == null) {
+            Log.w(TAG, "recognizeMenuImage: no picked image")
+            deliverOcrResult(ocrRequestId, success = false, text = null, error = "empty_image")
+            return
+        }
+        Log.d(TAG, "recognizeMenuImage: ocrRequestId=$ocrRequestId uri=$uri")
+        activity.runOnUiThread {
+            activity.runOcrOnUri(ocrRequestId, uri)
+        }
+    }
+
+    /** 갤러리/최근 사진 선택 (미리보기만, OCR은 recognizeMenuImage) */
     @JavascriptInterface
     fun selectMenuImage(requestId: String?) {
         if (requestId.isNullOrBlank()) {
@@ -45,6 +64,29 @@ class WebAppBridge(
         if (requestId.isNullOrBlank() || base64.isNullOrBlank()) return
         activity.runOnUiThread {
             activity.runOcrOnBase64(requestId, base64)
+        }
+    }
+
+    fun deliverImagePicked(requestId: String, success: Boolean, error: String?) {
+        val payload = JSONObject().apply {
+            put("requestId", requestId)
+            put("success", success)
+            if (!error.isNullOrBlank()) put("error", error)
+        }
+        val jsLiteral = jsStringLiteral(payload.toString())
+        val js = "(function(){try{" +
+            "var p=JSON.parse($jsLiteral);" +
+            "if(window.KeugeOcr&&typeof window.KeugeOcr._imagePicked==='function'){" +
+            "window.KeugeOcr._imagePicked(p);}}catch(e){if(window.console)console.error('[KeugeOcr] picked',e);}})();"
+
+        Log.d(TAG, "deliverImagePicked: requestId=$requestId success=$success error=$error")
+
+        activity.runOnUiThread {
+            try {
+                webView.evaluateJavascript(js, null)
+            } catch (e: Exception) {
+                Log.e(TAG, "deliverImagePicked evaluateJavascript failed", e)
+            }
         }
     }
 
