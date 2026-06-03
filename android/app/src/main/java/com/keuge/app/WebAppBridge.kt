@@ -33,15 +33,18 @@ class WebAppBridge(
             Log.w(TAG, "recognizeMenuImage: blank ocrRequestId")
             return
         }
-        val uri = activity.getLastPickedUri()
-        if (uri == null) {
-            Log.w(TAG, "recognizeMenuImage: no picked image")
-            deliverOcrResult(ocrRequestId, success = false, text = null, error = "empty_image")
-            return
-        }
-        Log.d(TAG, "recognizeMenuImage: ocrRequestId=$ocrRequestId uri=$uri")
+        Log.d(TAG, "recognizeMenuImage: ocrRequestId=$ocrRequestId cached=${activity.hasCachedPickImage()}")
         activity.runOnUiThread {
-            activity.runOcrOnUri(ocrRequestId, uri)
+            if (activity.hasCachedPickImage()) {
+                activity.runOcrOnCachedPick(ocrRequestId)
+            } else {
+                val uri = activity.getLastPickedUri()
+                if (uri == null) {
+                    deliverOcrResult(ocrRequestId, false, null, "empty_image")
+                } else {
+                    activity.runOcrOnUri(ocrRequestId, uri)
+                }
+            }
         }
     }
 
@@ -61,33 +64,32 @@ class WebAppBridge(
     /** 레거시: base64 JPEG → ML Kit (PC 디버그·호환) */
     @JavascriptInterface
     fun recognizeTextFromBase64(requestId: String?, base64: String?) {
-        if (requestId.isNullOrBlank() || base64.isNullOrBlank()) return
+        if (requestId.isNullOrBlank()) {
+            Log.w(TAG, "recognizeTextFromBase64: blank requestId")
+            return
+        }
+        if (base64.isNullOrBlank()) {
+            Log.w(TAG, "recognizeTextFromBase64: empty base64 (bridge size limit?)")
+            deliverOcrResult(requestId, false, null, "empty_image")
+            return
+        }
+        Log.d(TAG, "recognizeTextFromBase64: requestId=$requestId len=${base64.length}")
         activity.runOnUiThread {
             activity.runOcrOnBase64(requestId, base64)
         }
     }
 
     fun deliverImagePicked(requestId: String, success: Boolean, error: String?) {
-        val payload = JSONObject().apply {
-            put("requestId", requestId)
-            put("success", success)
-            if (!error.isNullOrBlank()) put("error", error)
-        }
-        val jsLiteral = jsStringLiteral(payload.toString())
+        val rid = jsStringLiteral(requestId)
+        val successJs = if (success) "true" else "false"
+        val errJs = if (!error.isNullOrBlank()) jsStringLiteral(error) else "null"
         val js = "(function(){try{" +
-            "var p=JSON.parse($jsLiteral);" +
+            "var p={requestId:$rid,success:$successJs,error:$errJs};" +
             "if(window.KeugeOcr&&typeof window.KeugeOcr._imagePicked==='function'){" +
             "window.KeugeOcr._imagePicked(p);}}catch(e){if(window.console)console.error('[KeugeOcr] picked',e);}})();"
 
         Log.d(TAG, "deliverImagePicked: requestId=$requestId success=$success error=$error")
-
-        activity.runOnUiThread {
-            try {
-                webView.evaluateJavascript(js, null)
-            } catch (e: Exception) {
-                Log.e(TAG, "deliverImagePicked evaluateJavascript failed", e)
-            }
-        }
+        runJsOnWebView(js)
     }
 
     fun deliverImagePreview(dataUrl: String) {
@@ -115,24 +117,17 @@ class WebAppBridge(
         text: String?,
         error: String?
     ) {
-        val payload = JSONObject().apply {
-            put("requestId", requestId)
-            put("success", success)
-            if (!text.isNullOrBlank()) put("text", text)
-            if (!error.isNullOrBlank()) put("error", error)
-        }
-
-        val payloadJson = payload.toString()
-        val jsLiteral = jsStringLiteral(payloadJson)
+        val rid = jsStringLiteral(requestId)
+        val successJs = if (success) "true" else "false"
+        val textJs = if (!text.isNullOrBlank()) jsStringLiteral(text) else "null"
+        val errJs = if (!error.isNullOrBlank()) jsStringLiteral(error) else "null"
 
         val js = "(function(){try{" +
-            "var p=JSON.parse($jsLiteral);" +
+            "var p={requestId:$rid,success:$successJs,text:$textJs,error:$errJs};" +
             "window.__keugeLastOcrPayload=p;" +
-            "if(window.console)console.log('[KeugeOcr] deliver',p);" +
-            "try{if(window.KeugeOcr&&typeof window.KeugeOcr._complete==='function'){" +
-            "window.KeugeOcr._complete(p);}}catch(e1){if(window.console)console.error('[KeugeOcr] _complete threw',e1);}" +
-            "try{if(typeof window.__keugeForceShowResult==='function'){" +
-            "window.__keugeForceShowResult(p);}}catch(e2){if(window.console)console.error('[KeugeOcr] forceShow threw',e2);}" +
+            "if(window.console)console.log('[KeugeOcr] deliver',p.requestId,p.success,(p.text||'').length);" +
+            "if(window.KeugeOcr&&typeof window.KeugeOcr._complete==='function'){window.KeugeOcr._complete(p);}" +
+            "if(typeof window.__keugeForceShowResult==='function'){window.__keugeForceShowResult(p);}" +
             "}catch(e){if(window.console)console.error('[KeugeOcr] deliver error',e);}})();"
 
         Log.d(
@@ -140,19 +135,27 @@ class WebAppBridge(
             "deliverOcrResult: requestId=$requestId success=$success " +
                 "textLen=${text?.length ?: 0} error=$error"
         )
+        runJsOnWebView(js)
+    }
 
+    private fun runJsOnWebView(js: String) {
         activity.runOnUiThread {
             try {
                 webView.evaluateJavascript(js) { result ->
-                    Log.d(TAG, "deliverOcrResult: evaluateJavascript result=$result")
+                    Log.d(TAG, "evaluateJavascript done result=$result")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "deliverOcrResult evaluateJavascript failed", e)
+                Log.e(TAG, "evaluateJavascript failed", e)
             }
-            try {
-                webView.loadUrl("javascript:$js")
-            } catch (e: Exception) {
-                Log.e(TAG, "deliverOcrResult loadUrl failed", e)
+            // 긴 OCR 텍스트·base64는 loadUrl 한도 초과 → evaluateJavascript만 사용
+            if (js.length <= 180_000) {
+                try {
+                    webView.loadUrl("javascript:$js")
+                } catch (e: Exception) {
+                    Log.e(TAG, "loadUrl(javascript:) failed", e)
+                }
+            } else {
+                Log.w(TAG, "runJsOnWebView: skip loadUrl (script too long ${js.length})")
             }
         }
     }

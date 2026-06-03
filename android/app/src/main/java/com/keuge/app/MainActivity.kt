@@ -16,6 +16,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 /**
  * WebView 셸. UI/기능(JS)는 수정하지 않고, 앱 패키징·로딩·뒤로가기만 안정화한다.
@@ -36,6 +37,7 @@ class MainActivity : AppCompatActivity() {
 
     private var pendingImagePickRequestId: String? = null
     private var lastPickedUri: Uri? = null
+    private var lastPickedCacheFile: File? = null
     private var backJsAcknowledged = false
 
     private val imagePickerLauncher = registerForActivityResult(
@@ -222,9 +224,6 @@ class MainActivity : AppCompatActivity() {
                 val bytes = Base64.decode(base64, Base64.DEFAULT)
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                     ?: throw IllegalArgumentException("invalid_image")
-                bitmapToPreviewDataUrl(bitmap)?.let { preview ->
-                    runOnUiThread { webBridge.deliverImagePreview(preview) }
-                }
                 val text = OcrProcessor.recognizeBitmap(bitmap)
                 runOnUiThread {
                     if (text.isBlank()) {
@@ -249,21 +248,89 @@ class MainActivity : AppCompatActivity() {
 
     fun getLastPickedUri(): Uri? = lastPickedUri
 
+    fun hasCachedPickImage(): Boolean {
+        val f = lastPickedCacheFile
+        return f != null && f.isFile && f.length() > 0L
+    }
+
+    /** 갤러리 URI를 앱 캐시로 복사 — [읽어주기] 시 권한 만료 없이 OCR */
+    private fun cachePickedImage(sourceUri: Uri): File? {
+        val out = File(cacheDir, "keuge_menu_pick.jpg")
+        return try {
+            contentResolver.openInputStream(sourceUri)?.use { input ->
+                out.outputStream().use { output -> input.copyTo(output) }
+            } ?: return null
+            if (!out.isFile || out.length() <= 0L) return null
+            lastPickedCacheFile = out
+            Log.d(TAG, "cachePickedImage: ${out.length()} bytes")
+            out
+        } catch (e: Exception) {
+            Log.e(TAG, "cachePickedImage failed", e)
+            null
+        }
+    }
+
     /** 사진 선택 직후: 미리보기만 전달, OCR은 [읽어주기] 시 실행 */
     private fun onMenuImagePicked(requestId: String, uri: Uri) {
         lastPickedUri = uri
         Log.d(TAG, "onMenuImagePicked: requestId=$requestId uri=$uri")
         Thread {
             try {
-                val preview = loadPreviewDataUrlFromUri(uri)
+                val cached = cachePickedImage(uri)
+                val previewSource = when {
+                    cached != null -> Uri.fromFile(cached)
+                    else -> uri
+                }
+                val preview = loadPreviewDataUrlFromUri(previewSource)
                 runOnUiThread {
                     preview?.let { webBridge.deliverImagePreview(it) }
-                    webBridge.deliverImagePicked(requestId, success = true, error = null)
+                    if (cached == null && preview == null) {
+                        webBridge.deliverImagePicked(requestId, success = false, error = "invalid_image")
+                    } else {
+                        webBridge.deliverImagePicked(requestId, success = true, error = null)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "onMenuImagePicked failed", e)
                 runOnUiThread {
                     webBridge.deliverImagePicked(requestId, success = false, error = e.message ?: "invalid_image")
+                }
+            }
+        }.start()
+    }
+
+    /** [읽어주기]: 캐시된 사진 파일로 OCR (URI 권한·JS 대용량 base64 회피) */
+    fun runOcrOnCachedPick(requestId: String) {
+        val file = lastPickedCacheFile
+        if (file == null || !file.isFile || file.length() <= 0L) {
+            Log.w(TAG, "runOcrOnCachedPick: no cache file")
+            runOnUiThread {
+                webBridge.deliverOcrResult(requestId, false, null, "empty_image")
+            }
+            return
+        }
+        Log.d(TAG, "runOcrOnCachedPick: requestId=$requestId file=${file.absolutePath}")
+        Thread {
+            try {
+                val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                    ?: throw IllegalArgumentException("invalid_image")
+                val text = OcrProcessor.recognizeBitmap(bitmap)
+                runOnUiThread {
+                    if (text.isBlank()) {
+                        webBridge.deliverOcrResult(requestId, false, null, "empty_text")
+                    } else {
+                        webBridge.deliverOcrResult(requestId, true, text, null)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "runOcrOnCachedPick failed", e)
+                runOnUiThread {
+                    webBridge.deliverOcrResult(
+                        requestId,
+                        false,
+                        null,
+                        e.message ?: "ocr_failed"
+                    )
                 }
             }
         }.start()
