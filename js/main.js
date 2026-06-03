@@ -30,8 +30,6 @@ function goCat(cat) {
     return;
   }
   UI.renderBrandList(brands, cat, { emptyMessage: `등록된 ${cat}가 없습니다.` });
-  const bc = document.getElementById('resultsBreadcrumb');
-  if (bc) bc.innerHTML = `<span>홈</span><span aria-current="location">${cat}</span>`;
   NavigationManager.gotoScreen('results');
 }
 

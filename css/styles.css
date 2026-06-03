@@ -305,6 +305,21 @@
     flex-shrink: 0;
   }
 
+  /* breadcrumb 제거 후 헤더 제목 1줄만 표시 */
+  .top-bar:not(:has(.breadcrumb)) {
+    padding-bottom: clamp(10px, 2.5vw, 16px);
+  }
+  .top-bar-content--brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: flex-start;
+  }
+  #screen-settings .top-title,
+  #screen-fav .top-title {
+    text-align: left;
+  }
+
   /* ─── HOME: SEARCH ZONE ─── */
   #screen-search {
     overflow: hidden;
