@@ -1192,24 +1192,91 @@ const CameraManager = {
 // ═══════════════════════════════════════════
 //   DATA LOADER
 // ═══════════════════════════════════════════
-const MAX_MENU_RESULTS = 5;
 const CATEGORIES = ['카페', '식당'];
+const ANDROID_ASSET_BRANDS = 'file:///android_asset/www/data/brands.json';
 
 const DataLoader = {
+  isAndroidWebView() {
+    return !!(window.Android && typeof window.Android.loadBrandsJson === 'function');
+  },
+
+  isFileProtocol() {
+    return window.location.protocol === 'file:';
+  },
+
   getCandidateUrls() {
     const origin = window.location.origin;
     const baseHref = document.querySelector('base')?.getAttribute('href') || '/';
     const baseOrigin = new URL(baseHref, origin).origin;
     const pageDir = window.location.pathname.replace(/[^/]*$/, '');
 
-    return [...new Set([
+    const urls = [
       '/data/brands.json',
       'data/brands.json',
       './data/brands.json',
       `${baseOrigin}/data/brands.json`,
       `${origin}${pageDir}data/brands.json`,
       new URL('data/brands.json', window.location.href).href
-    ])];
+    ];
+
+    if (this.isFileProtocol()) {
+      urls.unshift(ANDROID_ASSET_BRANDS);
+    }
+
+    return [...new Set(urls)];
+  },
+
+  loadFromAndroidBridge() {
+    const raw = window.Android.loadBrandsJson();
+    if (!raw || !String(raw).trim()) {
+      throw new Error('empty android asset');
+    }
+    return JSON.parse(raw);
+  },
+
+  fetchJsonViaXHR(url) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'text';
+      xhr.onload = () => {
+        const ok = xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300);
+        if (!ok) {
+          reject(new Error(`HTTP ${xhr.status}`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      xhr.onerror = () => reject(new Error('XHR network error'));
+      xhr.send();
+    });
+  },
+
+  async fetchJson(url) {
+    if (this.isFileProtocol()) {
+      try {
+        return await this.fetchJsonViaXHR(url);
+      } catch (xhrErr) {
+        // 일부 환경에서만 XHR 성공 — 실패 시 fetch 시도
+      }
+    }
+    const response = await fetch(url, { cache: 'no-cache' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+  },
+
+  applyBrands(data, source) {
+    AppState.brands = this.normalizeBrands(data);
+    AppState.brandsSource = source;
+    AppState.brandsLoading = false;
+    AppState.brandsLoadFailed = false;
+    AppState.brandsLoadErrors = [];
   },
 
   validateBrands(data) {
@@ -1266,23 +1333,29 @@ const DataLoader = {
     AppState.brandsSource = null;
 
     const errors = [];
+
+    if (this.isAndroidWebView()) {
+      try {
+        const data = this.loadFromAndroidBridge();
+        if (this.validateBrands(data)) {
+          this.applyBrands(data, ANDROID_ASSET_BRANDS);
+          return true;
+        }
+        errors.push(`${ANDROID_ASSET_BRANDS} (invalid JSON structure)`);
+      } catch (e) {
+        errors.push(`android_asset (${e.message || e})`);
+      }
+    }
+
     for (const url of this.getCandidateUrls()) {
       try {
-        const response = await fetch(url, { cache: 'no-cache' });
-        if (!response.ok) {
-          errors.push(`${url} (HTTP ${response.status})`);
-          continue;
-        }
-
-        const data = await response.json();
+        const data = await this.fetchJson(url);
         if (!this.validateBrands(data)) {
           errors.push(`${url} (invalid JSON structure)`);
           continue;
         }
 
-        AppState.brands = this.normalizeBrands(data);
-        AppState.brandsSource = url;
-        AppState.brandsLoading = false;
+        this.applyBrands(data, url);
         return true;
       } catch (e) {
         errors.push(`${url} (${e.message || e})`);
@@ -1294,7 +1367,7 @@ const DataLoader = {
     AppState.brands = this.normalizeBrands(this.getFallbackBrands());
     AppState.brandsSource = 'fallback';
     AppState.brandsLoading = false;
-    this.logLoadFailure(errors, 'all fetch attempts failed');
+    this.logLoadFailure(errors, 'all load attempts failed');
     return false;
   }
 };
@@ -1315,8 +1388,8 @@ const DataHelper = {
     );
   },
 
-  getBrandMenus(brand, limit = MAX_MENU_RESULTS) {
-    return (brand.menus || []).slice(0, limit);
+  getBrandMenus(brand) {
+    return brand.menus || [];
   },
 
   groupByCategory(items) {

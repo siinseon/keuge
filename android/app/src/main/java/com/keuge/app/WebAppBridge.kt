@@ -26,6 +26,17 @@ class WebAppBridge(
     @JavascriptInterface
     fun isTtsReady(): Boolean = ttsManager.isReady()
 
+    /** WebView file:// 에서 fetch 불가 — assets 의 brands.json 전체를 동기 반환 */
+    @JavascriptInterface
+    fun loadBrandsJson(): String {
+        return try {
+            activity.assets.open("www/data/brands.json").bufferedReader(Charsets.UTF_8).use { it.readText() }
+        } catch (e: Exception) {
+            Log.e(TAG, "loadBrandsJson failed", e)
+            ""
+        }
+    }
+
     /** [읽어주기] 탭 시 저장된 사진 URI로 ML Kit OCR */
     @JavascriptInterface
     fun recognizeMenuImage(ocrRequestId: String?) {
