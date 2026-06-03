@@ -33,15 +33,18 @@ class WebAppBridge(
             Log.w(TAG, "recognizeMenuImage: blank ocrRequestId")
             return
         }
-        val uri = activity.getLastPickedUri()
-        if (uri == null) {
-            Log.w(TAG, "recognizeMenuImage: no picked image")
-            deliverOcrResult(ocrRequestId, success = false, text = null, error = "empty_image")
-            return
-        }
-        Log.d(TAG, "recognizeMenuImage: ocrRequestId=$ocrRequestId uri=$uri")
+        Log.d(TAG, "recognizeMenuImage: ocrRequestId=$ocrRequestId cached=${activity.hasCachedPickImage()}")
         activity.runOnUiThread {
-            activity.runOcrOnUri(ocrRequestId, uri)
+            if (activity.hasCachedPickImage()) {
+                activity.runOcrOnCachedPick(ocrRequestId)
+            } else {
+                val uri = activity.getLastPickedUri()
+                if (uri == null) {
+                    deliverOcrResult(ocrRequestId, false, null, "empty_image")
+                } else {
+                    activity.runOcrOnUri(ocrRequestId, uri)
+                }
+            }
         }
     }
 
@@ -61,7 +64,16 @@ class WebAppBridge(
     /** 레거시: base64 JPEG → ML Kit (PC 디버그·호환) */
     @JavascriptInterface
     fun recognizeTextFromBase64(requestId: String?, base64: String?) {
-        if (requestId.isNullOrBlank() || base64.isNullOrBlank()) return
+        if (requestId.isNullOrBlank()) {
+            Log.w(TAG, "recognizeTextFromBase64: blank requestId")
+            return
+        }
+        if (base64.isNullOrBlank()) {
+            Log.w(TAG, "recognizeTextFromBase64: empty base64 (bridge size limit?)")
+            deliverOcrResult(requestId, false, null, "empty_image")
+            return
+        }
+        Log.d(TAG, "recognizeTextFromBase64: requestId=$requestId len=${base64.length}")
         activity.runOnUiThread {
             activity.runOcrOnBase64(requestId, base64)
         }
@@ -135,10 +147,15 @@ class WebAppBridge(
             } catch (e: Exception) {
                 Log.e(TAG, "evaluateJavascript failed", e)
             }
-            try {
-                webView.loadUrl("javascript:$js")
-            } catch (e: Exception) {
-                Log.e(TAG, "loadUrl(javascript:) failed", e)
+            // 긴 OCR 텍스트·base64는 loadUrl 한도 초과 → evaluateJavascript만 사용
+            if (js.length <= 180_000) {
+                try {
+                    webView.loadUrl("javascript:$js")
+                } catch (e: Exception) {
+                    Log.e(TAG, "loadUrl(javascript:) failed", e)
+                }
+            } else {
+                Log.w(TAG, "runJsOnWebView: skip loadUrl (script too long ${js.length})")
             }
         }
     }

@@ -901,9 +901,9 @@ const CameraManager = {
 
     vib([50, 30, 50]);
 
-    if (this._previewDataUrl && window.Android && typeof window.Android.recognizeTextFromBase64 === 'function') {
-      try { console.log('[OCR] runOCR via preview dataUrl (base64 bridge)'); } catch (_) {}
-      await this._runOcr(() => KeugeOcr.recognizeFromDataUrl(this._previewDataUrl));
+    if (window.Android && typeof window.Android.recognizeMenuImage === 'function') {
+      try { console.log('[OCR] runOCR via recognizeMenuImage (cached file)'); } catch (_) {}
+      await this._runOcr(() => KeugeOcr.recognizePickedImage());
       return;
     }
 
@@ -920,13 +920,19 @@ const CameraManager = {
       return;
     }
 
-    if (this._nativePickRequestId && window.Android && typeof window.Android.recognizeMenuImage === 'function') {
-      try { console.log('[OCR] runOCR via recognizeMenuImage (uri fallback)'); } catch (_) {}
-      await this._runOcr(() => KeugeOcr.recognizePickedImage());
+    if (this._previewDataUrl && window.Android && typeof window.Android.recognizeTextFromBase64 === 'function') {
+      try {
+        console.log('[OCR] runOCR via compressed base64 fallback');
+        const compressed = await this._compressDataUrlForOcr(this._previewDataUrl);
+        await this._runOcr(() => KeugeOcr.recognizeFromDataUrl(compressed));
+      } catch (e) {
+        try { console.warn('[OCR] compress/base64 OCR failed', e); } catch (_) {}
+        showToast('글자 읽기에 실패했습니다.');
+      }
       return;
     }
 
-    try { console.warn('[OCR] runOCR blocked: no canvas and no native pick'); } catch (_) {}
+    try { console.warn('[OCR] runOCR blocked: no OCR path available'); } catch (_) {}
     showToast('사진을 다시 선택해 주세요');
   },
 
@@ -1008,6 +1014,38 @@ const CameraManager = {
     };
     input.addEventListener('change', handler);
     input.click();
+  },
+
+  _compressDataUrlForOcr(dataUrl) {
+    const maxWidth = 1280;
+    const quality = 0.75;
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (!w || !h) {
+          reject(new Error('empty_image'));
+          return;
+        }
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('empty_image'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => reject(new Error('invalid_image'));
+      img.src = dataUrl;
+    });
   },
 
   async _handleBrowserFile(file) {
