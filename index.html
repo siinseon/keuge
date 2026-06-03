@@ -30,11 +30,8 @@
 <main id="screen-home" class="screen" role="main">
 
   <!-- Top bar -->
-  <header class="top-bar">
-    <nav class="breadcrumb" id="breadcrumb-home" aria-label="현재 위치">
-      <span aria-current="location">홈</span>
-    </nav>
-    <div class="top-bar-content" style="display: flex; align-items: center; gap: 12px;">
+  <header class="top-bar top-bar--home-brand">
+    <div class="top-bar-content top-bar-content--brand">
       <img src="assets/logo.png" alt="" class="header-logo">
       <h1 class="top-title home-title">크크봄</h1>
     </div>
@@ -50,10 +47,6 @@
 ════════════════════════════════════════════ -->
 <section id="screen-search" class="screen" role="region" aria-label="검색 화면">
   <header class="top-bar">
-    <nav class="breadcrumb" aria-label="현재 위치">
-      <span>홈</span>
-      <span aria-current="location">검색</span>
-    </nav>
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
       <h1 class="top-title">검색하기</h1>
@@ -88,10 +81,6 @@
 ════════════════════════════════════════════ -->
 <section id="screen-results" class="screen" role="region" aria-label="검색 결과 화면">
   <header class="top-bar">
-    <nav class="breadcrumb" id="resultsBreadcrumb" aria-label="현재 위치">
-      <span>홈</span>
-      <span aria-current="location">검색 결과</span>
-    </nav>
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
       <h1 class="top-title" id="resultsTitle">검색 결과</h1>
@@ -107,11 +96,6 @@
 ════════════════════════════════════════════ -->
 <section id="screen-detail" class="screen" role="region" aria-label="상세 메뉴 화면">
   <header class="top-bar">
-    <nav class="breadcrumb" id="detailBreadcrumb" aria-label="현재 위치">
-      <span>홈</span>
-      <span>검색</span>
-      <span aria-current="location">메뉴</span>
-    </nav>
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
       <h1 class="top-title" id="detailTitle">메뉴</h1>
@@ -130,9 +114,6 @@
 ════════════════════════════════════════════ -->
 <section id="screen-camera" class="screen" role="region" aria-label="메뉴 사진 읽기 화면">
   <header class="top-bar">
-    <nav class="breadcrumb" aria-label="현재 위치">
-      <span aria-current="location">메뉴 사진 읽기</span>
-    </nav>
     <div class="top-bar-content">
       <button class="back-btn" onclick="goBack()" aria-label="이전 화면으로 돌아가기">◀ 뒤로</button>
       <h1 class="top-title">메뉴 사진 읽기</h1>
@@ -176,11 +157,8 @@
 ════════════════════════════════════════════ -->
 <section id="screen-settings" class="screen" role="region" aria-label="설정 화면">
   <header class="top-bar">
-    <div class="breadcrumb" aria-label="현재 위치">
-      <span aria-current="location">설정</span>
-    </div>
     <div class="top-bar-content">
-      <h1 class="top-title" style="text-align:left;">설정</h1>
+      <h1 class="top-title">설정</h1>
     </div>
   </header>
   
@@ -256,11 +234,8 @@
 ════════════════════════════════════════════ -->
 <section id="screen-fav" class="screen" role="region" aria-label="즐겨찾기 목록 화면">
   <header class="top-bar">
-    <nav class="breadcrumb" aria-label="현재 위치">
-      <span aria-current="location">즐겨찾기</span>
-    </nav>
     <div class="top-bar-content">
-      <h1 class="top-title" style="text-align:left;">즐겨찾기</h1>
+      <h1 class="top-title">즐겨찾기</h1>
     </div>
   </header>
   <div class="results-list" id="favList" role="list"></div>

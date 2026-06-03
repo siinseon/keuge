@@ -1092,9 +1092,6 @@ const SearchManager = {
 
     const grouped = DataHelper.groupByCategory(results);
     UI.renderBrandList(grouped, `"${q}" 검색 결과`, { grouped: true });
-    
-    const bc = document.getElementById('resultsBreadcrumb');
-    if (bc) bc.innerHTML = `<span>홈</span><span>검색</span><span aria-current="location">결과</span>`;
 
     NavigationManager.gotoScreen('results');
   },

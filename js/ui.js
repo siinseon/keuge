@@ -112,8 +112,6 @@ const UI = {
     const safeName = this.escapeHtml(name);
 
     document.getElementById('detailTitle').textContent = name;
-    const bc = document.getElementById('detailBreadcrumb');
-    if (bc) bc.innerHTML = `<span>홈</span><span>${this.escapeHtml(cat)}</span><span aria-current="location">${safeName}</span>`;
 
     const menuHTML = menus.length
       ? `<div class="menu-card-list" role="list">${menus.map(menu => this.buildMenuCard(menu)).join('')}</div>`
