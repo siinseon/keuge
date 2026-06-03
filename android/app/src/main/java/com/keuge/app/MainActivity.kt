@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webBridge: WebAppBridge
 
     private var pendingImagePickRequestId: String? = null
+    private var lastPickedUri: Uri? = null
     private var backJsAcknowledged = false
 
     private val imagePickerLauncher = registerForActivityResult(
@@ -50,16 +51,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (uri == null) {
-            webBridge.deliverOcrResult(
-                requestId,
-                success = false,
-                text = null,
-                error = "cancelled"
-            )
+            webBridge.deliverImagePicked(requestId, success = false, error = "cancelled")
             return@registerForActivityResult
         }
 
-        runOcrOnUri(requestId, uri)
+        onMenuImagePicked(requestId, uri)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -251,13 +247,32 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    fun getLastPickedUri(): Uri? = lastPickedUri
+
+    /** 사진 선택 직후: 미리보기만 전달, OCR은 [읽어주기] 시 실행 */
+    private fun onMenuImagePicked(requestId: String, uri: Uri) {
+        lastPickedUri = uri
+        Log.d(TAG, "onMenuImagePicked: requestId=$requestId uri=$uri")
+        Thread {
+            try {
+                val preview = loadPreviewDataUrlFromUri(uri)
+                runOnUiThread {
+                    preview?.let { webBridge.deliverImagePreview(it) }
+                    webBridge.deliverImagePicked(requestId, success = true, error = null)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "onMenuImagePicked failed", e)
+                runOnUiThread {
+                    webBridge.deliverImagePicked(requestId, success = false, error = e.message ?: "invalid_image")
+                }
+            }
+        }.start()
+    }
+
     fun runOcrOnUri(requestId: String, uri: Uri) {
         Log.d(TAG, "runOcrOnUri: requestId=$requestId uri=$uri")
         Thread {
             try {
-                loadPreviewDataUrlFromUri(uri)?.let { preview ->
-                    runOnUiThread { webBridge.deliverImagePreview(preview) }
-                }
                 val text = NativeOcrManager.recognizeImageUri(this, uri)
                 runOnUiThread {
                     if (text.isBlank()) {

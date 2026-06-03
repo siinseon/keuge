@@ -150,7 +150,11 @@ async function initApp() {
           });
         });
       }
-      bindElementListener(document.getElementById('ocrBtn'), 'click', () => CameraManager.runOCR());
+      bindElementListener(document.getElementById('ocrBtn'), 'click', () => {
+        void CameraManager.runOCR().catch(() => {
+          showToast('글자 읽기에 실패했습니다.');
+        });
+      });
 
       if (!_documentListenersBound) {
         _documentListenersBound = true;
