@@ -5,13 +5,13 @@ plugins {
 
 android {
     namespace = "com.keuge.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.keuge.app"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
+        targetSdk = 35
+        versionCode = 3
         versionName = "1.0.0"
     }
 
