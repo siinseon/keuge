@@ -10,7 +10,7 @@ const SpeechManager = {
   _voiceRetryDelays: [50, 150, 300, 500, 800, 1200, 2000, 3000],
 
   isNativeTtsAvailable() {
-    return !!(window.Android && typeof window.Android.speakText === 'function');
+    return typeof AndroidBridge !== 'undefined' && AndroidBridge.hasMethod('speakText');
   },
 
   _lastSpeakText: '',
@@ -31,7 +31,7 @@ const SpeechManager = {
   speakNative(text) {
     if (!text || !this.isNativeTtsAvailable()) return false;
     try {
-      window.Android.speakText(String(text));
+      AndroidBridge.call('speakText', String(text));
       return true;
     } catch (e) {
       return false;
@@ -39,9 +39,9 @@ const SpeechManager = {
   },
 
   stopNative() {
-    if (window.Android && typeof window.Android.stopSpeak === 'function') {
+    if (typeof AndroidBridge !== 'undefined' && AndroidBridge.hasMethod('stopSpeak')) {
       try {
-        window.Android.stopSpeak();
+        AndroidBridge.call('stopSpeak');
         return true;
       } catch (e) {}
     }

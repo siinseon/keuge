@@ -16,6 +16,40 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+/**
+ * Android WebView @JavascriptInterface 감지.
+ * 네이티브 메서드는 호출 가능해도 typeof가 'function'이 아닌 경우가 많다.
+ */
+const AndroidBridge = {
+  hasNativeFlag(cap) {
+    const caps = window.__KEUGE_NATIVE__;
+    return !!(caps && caps[cap]);
+  },
+
+  isPresent() {
+    return typeof window.Android !== 'undefined' && window.Android != null;
+  },
+
+  hasMethod(name) {
+    if (!this.isPresent()) return false;
+    if (this.hasNativeFlag(name)) return true;
+    try {
+      const bridge = window.Android;
+      const method = bridge[name];
+      if (method == null) return false;
+      const type = typeof method;
+      return type === 'function' || type === 'object';
+    } catch (_) {
+      return false;
+    }
+  },
+
+  call(name, ...args) {
+    if (!window.Android) throw new Error('no_bridge');
+    return window.Android[name](...args);
+  }
+};
+
 const DEFAULT_SETTINGS = {
   voiceEnabled: true,
   fontSize: 'medium',
@@ -234,12 +268,32 @@ const NavigationManager = {
 // ═══════════════════════════════════════════
 window.__keugeShowMenuPreview = function (dataUrl) {
   try {
-    console.log('[OCR] native preview callback');
+    console.log('[OCR] native preview callback', (dataUrl || '').slice(0, 32));
     if (typeof CameraManager !== 'undefined' && typeof CameraManager._showPreview === 'function') {
       CameraManager._showPreview(dataUrl);
     }
   } catch (e) {
     try { console.warn('[KeugeOcr] __keugeShowMenuPreview failed', e); } catch (_) {}
+  }
+};
+
+window.__keugeOnNativeImageReady = function () {
+  try {
+    console.log('[OCR] native image ready callback');
+    let url = '';
+    if (AndroidBridge.hasMethod('getMenuPreviewUrl')) {
+      url = AndroidBridge.call('getMenuPreviewUrl');
+    }
+    if (!url) {
+      try { console.warn('[OCR] native ready but preview url empty'); } catch (_) {}
+      return;
+    }
+    const previewUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    if (typeof CameraManager !== 'undefined' && typeof CameraManager._showPreview === 'function') {
+      CameraManager._showPreview(previewUrl);
+    }
+  } catch (e) {
+    try { console.warn('[KeugeOcr] __keugeOnNativeImageReady failed', e); } catch (_) {}
   }
 };
 
@@ -254,11 +308,11 @@ const KeugeOcr = {
 
   isNativeAvailable() {
     return this.isNativeImagePickerAvailable() ||
-      !!(window.Android && typeof window.Android.recognizeTextFromBase64 === 'function');
+      AndroidBridge.hasMethod('recognizeTextFromBase64');
   },
 
   isNativeImagePickerAvailable() {
-    return !!(window.Android && typeof window.Android.selectMenuImage === 'function');
+    return AndroidBridge.hasMethod('selectMenuImage');
   },
 
   _complete(payload) {
@@ -338,7 +392,7 @@ const KeugeOcr = {
       this._pending[requestId] = { resolve, reject, timer };
 
       try {
-        window.Android.recognizeTextFromBase64(requestId, base64);
+        AndroidBridge.call('recognizeTextFromBase64', requestId, base64);
       } catch (e) {
         clearTimeout(timer);
         delete this._pending[requestId];
@@ -367,7 +421,7 @@ const KeugeOcr = {
       try { console.log('[OCR] pickMenuImage start', { requestId }); } catch (_) {}
 
       try {
-        window.Android.selectMenuImage(requestId);
+        AndroidBridge.call('selectMenuImage', requestId);
       } catch (e) {
         clearTimeout(timer);
         delete this._pickPending[requestId];
@@ -406,7 +460,7 @@ const KeugeOcr = {
         reject(new Error('empty_image'));
         return;
       }
-      if (!(window.Android && typeof window.Android.recognizeTextFromBase64 === 'function')) {
+      if (!AndroidBridge.hasMethod('recognizeTextFromBase64')) {
         reject(new Error('no_bridge'));
         return;
       }
@@ -422,7 +476,7 @@ const KeugeOcr = {
       try { console.log('[OCR] recognizeFromDataUrl start', { requestId, base64Len: base64.length }); } catch (_) {}
 
       try {
-        window.Android.recognizeTextFromBase64(requestId, base64);
+        AndroidBridge.call('recognizeTextFromBase64', requestId, base64);
       } catch (e) {
         clearTimeout(timer);
         delete this._pending[requestId];
@@ -434,8 +488,7 @@ const KeugeOcr = {
   /** 선택된 사진 URI로 ML Kit OCR (fallback) */
   recognizePickedImage() {
     return new Promise((resolve, reject) => {
-      const hasRecognize = !!(window.Android && typeof window.Android.recognizeMenuImage === 'function');
-      if (!hasRecognize) {
+      if (!AndroidBridge.hasMethod('recognizeMenuImage')) {
         reject(new Error('no_image_picker'));
         return;
       }
@@ -451,7 +504,7 @@ const KeugeOcr = {
       try { console.log('[OCR] recognizePickedImage start', { requestId }); } catch (_) {}
 
       try {
-        window.Android.recognizeMenuImage(requestId);
+        AndroidBridge.call('recognizeMenuImage', requestId);
       } catch (e) {
         clearTimeout(timer);
         delete this._pending[requestId];
@@ -857,7 +910,14 @@ const CameraManager = {
   async capture() {
     vib([50, 30, 50]);
     this._clearSelection();
-    try { console.log('[OCR] capture start, native=', KeugeOcr.isNativeImagePickerAvailable()); } catch (_) {}
+    try {
+      console.log('[OCR] capture start', {
+        native: KeugeOcr.isNativeImagePickerAvailable(),
+        androidPresent: AndroidBridge.isPresent(),
+        hasSelectMenuImage: AndroidBridge.hasMethod('selectMenuImage'),
+        keugeNative: window.__KEUGE_NATIVE__ || null
+      });
+    } catch (_) {}
     if (KeugeOcr.isNativeImagePickerAvailable()) {
       try {
         const pickId = await KeugeOcr.pickMenuImage();
@@ -901,7 +961,7 @@ const CameraManager = {
 
     vib([50, 30, 50]);
 
-    if (window.Android && typeof window.Android.recognizeMenuImage === 'function') {
+    if (AndroidBridge.hasMethod('recognizeMenuImage')) {
       try { console.log('[OCR] runOCR via recognizeMenuImage (cached file)'); } catch (_) {}
       await this._runOcr(() => KeugeOcr.recognizePickedImage());
       return;
@@ -920,7 +980,7 @@ const CameraManager = {
       return;
     }
 
-    if (this._previewDataUrl && window.Android && typeof window.Android.recognizeTextFromBase64 === 'function') {
+    if (this._previewDataUrl && AndroidBridge.hasMethod('recognizeTextFromBase64')) {
       try {
         console.log('[OCR] runOCR via compressed base64 fallback');
         const compressed = await this._compressDataUrlForOcr(this._previewDataUrl);
@@ -1197,7 +1257,7 @@ const ANDROID_ASSET_BRANDS = 'file:///android_asset/www/data/brands.json';
 
 const DataLoader = {
   isAndroidWebView() {
-    return !!(window.Android && typeof window.Android.loadBrandsJson === 'function');
+    return AndroidBridge.hasMethod('loadBrandsJson');
   },
 
   isFileProtocol() {
@@ -1227,7 +1287,7 @@ const DataLoader = {
   },
 
   loadFromAndroidBridge() {
-    const raw = window.Android.loadBrandsJson();
+    const raw = AndroidBridge.call('loadBrandsJson');
     if (!raw || !String(raw).trim()) {
       throw new Error('empty android asset');
     }

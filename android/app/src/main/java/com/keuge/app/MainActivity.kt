@@ -7,9 +7,11 @@ import android.os.Bundle
 import android.util.Base64
 import android.util.Log
 import android.webkit.ConsoleMessage
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
@@ -27,9 +29,13 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "KeugeMain"
         private const val STATE_PENDING_REQUEST_ID = "pendingImagePickRequestId"
         private const val ASSETS_INDEX = "file:///android_asset/www/index.html"
+        const val MENU_PREVIEW_URL = "https://app.keuge/menu-preview.jpg"
         private const val BACK_JS_FALLBACK_MS = 300L
         private const val PREVIEW_MAX_SIDE = 1920
         private const val PREVIEW_JPEG_QUALITY = 88
+        /** evaluateJavascript 용량 한도 회피 — 브리지 fallback 미리보기 */
+        private const val PREVIEW_BRIDGE_MAX_SIDE = 720
+        private const val PREVIEW_BRIDGE_JPEG_QUALITY = 72
     }
 
     private lateinit var webView: WebView
@@ -39,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private var lastPickedUri: Uri? = null
     private var lastPickedCacheFile: File? = null
     private var backJsAcknowledged = false
+    private var webFilePathCallback: ValueCallback<Array<Uri>>? = null
 
     private val imagePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -58,6 +65,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         onMenuImagePicked(requestId, uri)
+    }
+
+    /** WebView <input type="file"> fallback (브리지 감지 실패 시) */
+    private val webFileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        val callback = webFilePathCallback
+        webFilePathCallback = null
+        if (callback == null) {
+            Log.w(TAG, "webFileChooserLauncher: callback was null")
+            return@registerForActivityResult
+        }
+        callback.onReceiveValue(if (uri == null) null else arrayOf(uri))
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -150,6 +170,34 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                injectNativeBridgeFlags(view)
+            }
+
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                val uri = request.url
+                if (uri.host == "app.keuge" && uri.path == "/menu-preview.jpg") {
+                    val file = getMenuPreviewCacheFile()
+                    if (file != null) {
+                        return try {
+                            WebResourceResponse(
+                                "image/jpeg",
+                                null,
+                                file.inputStream()
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "menu preview intercept failed", e)
+                            null
+                        }
+                    }
+                }
+                return super.shouldInterceptRequest(view, request)
+            }
+
             override fun onReceivedError(
                 view: WebView?,
                 errorCode: Int,
@@ -162,6 +210,25 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                webFilePathCallback?.onReceiveValue(null)
+                webFilePathCallback = filePathCallback
+                Log.d(TAG, "onShowFileChooser: launching picker")
+                try {
+                    webFileChooserLauncher.launch("image/*")
+                    return true
+                } catch (e: Exception) {
+                    Log.e(TAG, "onShowFileChooser failed", e)
+                    webFilePathCallback = null
+                    filePathCallback?.onReceiveValue(null)
+                    return false
+                }
+            }
+
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 if (consoleMessage != null) {
                     val tag = "KeugeWeb"
@@ -180,24 +247,53 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(webBridge, "Android")
     }
 
-    private fun bitmapToPreviewDataUrl(bitmap: Bitmap): String? {
-        val scaled = scaleBitmapForPreview(bitmap) ?: return null
+    /** JS typeof 검사가 실패해도 네이티브 기능을 켤 수 있도록 capability 플래그 주입 */
+    private fun injectNativeBridgeFlags(view: WebView?) {
+        if (view == null) return
+        val js =
+            "(function(){try{" +
+            "window.__KEUGE_NATIVE__={bridge:1,picker:1,ocr:1,tts:1,brands:1," +
+            "selectMenuImage:1,recognizeMenuImage:1,recognizeTextFromBase64:1,loadBrandsJson:1,speakText:1,getMenuPreviewUrl:1};" +
+            "if(window.console)console.log('[Keuge] native bridge flags injected',!!window.Android);" +
+            "}catch(e){if(window.console)console.error('[Keuge] bridge inject failed',e);}})();"
+        try {
+            view.evaluateJavascript(js, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "injectNativeBridgeFlags evaluateJavascript failed", e)
+            try {
+                view.loadUrl("javascript:$js")
+            } catch (e2: Exception) {
+                Log.e(TAG, "injectNativeBridgeFlags loadUrl failed", e2)
+            }
+        }
+    }
+
+    private fun bitmapToPreviewDataUrl(
+        bitmap: Bitmap,
+        maxSide: Int = PREVIEW_MAX_SIDE,
+        jpegQuality: Int = PREVIEW_JPEG_QUALITY
+    ): String? {
+        val scaled = scaleBitmapForPreview(bitmap, maxSide) ?: return null
         val out = ByteArrayOutputStream()
-        if (!scaled.compress(Bitmap.CompressFormat.JPEG, PREVIEW_JPEG_QUALITY, out)) return null
+        if (!scaled.compress(Bitmap.CompressFormat.JPEG, jpegQuality, out)) return null
         val encoded = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
         return "data:image/jpeg;base64,$encoded"
     }
 
-    private fun scaleBitmapForPreview(source: Bitmap): Bitmap? {
-        val maxSide = maxOf(source.width, source.height)
-        if (maxSide <= PREVIEW_MAX_SIDE) return source
-        val ratio = PREVIEW_MAX_SIDE.toFloat() / maxSide.toFloat()
+    private fun scaleBitmapForPreview(source: Bitmap, maxSide: Int): Bitmap? {
+        val longest = maxOf(source.width, source.height)
+        if (longest <= maxSide) return source
+        val ratio = maxSide.toFloat() / longest.toFloat()
         val w = (source.width * ratio).toInt().coerceAtLeast(1)
         val h = (source.height * ratio).toInt().coerceAtLeast(1)
         return Bitmap.createScaledBitmap(source, w, h, true)
     }
 
-    private fun loadPreviewDataUrlFromUri(uri: Uri): String? {
+    private fun loadPreviewDataUrlFromUri(
+        uri: Uri,
+        maxSide: Int = PREVIEW_MAX_SIDE,
+        jpegQuality: Int = PREVIEW_JPEG_QUALITY
+    ): String? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, bounds)
@@ -205,8 +301,8 @@ class MainActivity : AppCompatActivity() {
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
         var sample = 1
-        while (bounds.outWidth / sample > PREVIEW_MAX_SIDE ||
-            bounds.outHeight / sample > PREVIEW_MAX_SIDE
+        while (bounds.outWidth / sample > maxSide ||
+            bounds.outHeight / sample > maxSide
         ) {
             sample *= 2
         }
@@ -215,7 +311,7 @@ class MainActivity : AppCompatActivity() {
         val bitmap = contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, decodeOpts)
         } ?: return null
-        return bitmapToPreviewDataUrl(bitmap)
+        return bitmapToPreviewDataUrl(bitmap, maxSide, jpegQuality)
     }
 
     fun runOcrOnBase64(requestId: String, base64: String) {
@@ -253,6 +349,11 @@ class MainActivity : AppCompatActivity() {
         return f != null && f.isFile && f.length() > 0L
     }
 
+    fun getMenuPreviewCacheFile(): File? {
+        val f = lastPickedCacheFile
+        return if (f != null && f.isFile && f.length() > 0L) f else null
+    }
+
     /** 갤러리 URI를 앱 캐시로 복사 — [읽어주기] 시 권한 만료 없이 OCR */
     private fun cachePickedImage(sourceUri: Uri): File? {
         val out = File(cacheDir, "keuge_menu_pick.jpg")
@@ -277,18 +378,25 @@ class MainActivity : AppCompatActivity() {
         Thread {
             try {
                 val cached = cachePickedImage(uri)
-                val previewSource = when {
-                    cached != null -> Uri.fromFile(cached)
-                    else -> uri
+                val compactPreview = if (cached == null) {
+                    loadPreviewDataUrlFromUri(
+                        uri,
+                        PREVIEW_BRIDGE_MAX_SIDE,
+                        PREVIEW_BRIDGE_JPEG_QUALITY
+                    )
+                } else {
+                    null
                 }
-                val preview = loadPreviewDataUrlFromUri(previewSource)
                 runOnUiThread {
-                    preview?.let { webBridge.deliverImagePreview(it) }
-                    if (cached == null && preview == null) {
-                        webBridge.deliverImagePicked(requestId, success = false, error = "invalid_image")
-                    } else {
-                        webBridge.deliverImagePicked(requestId, success = true, error = null)
+                    when {
+                        cached != null -> webBridge.deliverNativeImageReady()
+                        compactPreview != null -> webBridge.deliverImagePreview(compactPreview)
+                        else -> {
+                            webBridge.deliverImagePicked(requestId, success = false, error = "invalid_image")
+                            return@runOnUiThread
+                        }
                     }
+                    webBridge.deliverImagePicked(requestId, success = true, error = null)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "onMenuImagePicked failed", e)

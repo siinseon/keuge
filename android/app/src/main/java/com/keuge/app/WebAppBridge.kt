@@ -26,6 +26,10 @@ class WebAppBridge(
     @JavascriptInterface
     fun isTtsReady(): Boolean = ttsManager.isReady()
 
+    /** JS 브리지 연결 확인용 (typeof 검사 대신 호출 가능) */
+    @JavascriptInterface
+    fun isBridgeReady(): Boolean = true
+
     /** WebView file:// 에서 fetch 불가 — assets 의 brands.json 전체를 동기 반환 */
     @JavascriptInterface
     fun loadBrandsJson(): String {
@@ -56,6 +60,16 @@ class WebAppBridge(
                     activity.runOcrOnUri(ocrRequestId, uri)
                 }
             }
+        }
+    }
+
+    /** 캐시된 메뉴 사진 file:// URL — base64 브리지 대신 img src 로 사용 */
+    @JavascriptInterface
+    fun getMenuPreviewUrl(): String {
+        return if (activity.getMenuPreviewCacheFile() != null) {
+            MainActivity.MENU_PREVIEW_URL
+        } else {
+            ""
         }
     }
 
@@ -96,8 +110,8 @@ class WebAppBridge(
         val errJs = if (!error.isNullOrBlank()) jsStringLiteral(error) else "null"
         val js = "(function(){try{" +
             "var p={requestId:$rid,success:$successJs,error:$errJs};" +
-            "if(window.KeugeOcr&&typeof window.KeugeOcr._imagePicked==='function'){" +
-            "window.KeugeOcr._imagePicked(p);}}catch(e){if(window.console)console.error('[KeugeOcr] picked',e);}})();"
+            "if(window.KeugeOcr&&window.KeugeOcr._imagePicked){window.KeugeOcr._imagePicked(p);}" +
+            "}catch(e){if(window.console)console.error('[KeugeOcr] picked',e);}})();"
 
         Log.d(TAG, "deliverImagePicked: requestId=$requestId success=$success error=$error")
         runJsOnWebView(js)
@@ -108,18 +122,20 @@ class WebAppBridge(
         val jsLiteral = jsStringLiteral(dataUrl)
         val js = "(function(){try{" +
             "var u=$jsLiteral;" +
-            "if(typeof window.__keugeShowMenuPreview==='function'){window.__keugeShowMenuPreview(u);}" +
+            "if(window.__keugeShowMenuPreview){window.__keugeShowMenuPreview(u);}" +
             "}catch(e){if(window.console)console.error('[KeugeOcr] preview',e);}})();"
 
         Log.d(TAG, "deliverImagePreview: len=${dataUrl.length}")
+        runJsOnWebView(js)
+    }
 
-        activity.runOnUiThread {
-            try {
-                webView.evaluateJavascript(js, null)
-            } catch (e: Exception) {
-                Log.e(TAG, "deliverImagePreview evaluateJavascript failed", e)
-            }
-        }
+    /** 캐시 파일 경로로 미리보기 — 대용량 base64 evaluateJavascript 한도 회피 */
+    fun deliverNativeImageReady() {
+        val js = "(function(){try{" +
+            "if(window.__keugeOnNativeImageReady){window.__keugeOnNativeImageReady();}" +
+            "}catch(e){if(window.console)console.error('[KeugeOcr] native ready',e);}})();"
+        Log.d(TAG, "deliverNativeImageReady")
+        runJsOnWebView(js)
     }
 
     fun deliverOcrResult(
@@ -137,8 +153,8 @@ class WebAppBridge(
             "var p={requestId:$rid,success:$successJs,text:$textJs,error:$errJs};" +
             "window.__keugeLastOcrPayload=p;" +
             "if(window.console)console.log('[KeugeOcr] deliver',p.requestId,p.success,(p.text||'').length);" +
-            "if(window.KeugeOcr&&typeof window.KeugeOcr._complete==='function'){window.KeugeOcr._complete(p);}" +
-            "if(typeof window.__keugeForceShowResult==='function'){window.__keugeForceShowResult(p);}" +
+            "if(window.KeugeOcr&&window.KeugeOcr._complete){window.KeugeOcr._complete(p);}" +
+            "if(window.__keugeForceShowResult){window.__keugeForceShowResult(p);}" +
             "}catch(e){if(window.console)console.error('[KeugeOcr] deliver error',e);}})();"
 
         Log.d(
