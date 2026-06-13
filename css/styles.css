@@ -195,7 +195,7 @@
     justify-content: center;
     margin-bottom: 40px;
     position: relative;
-    background: var(--card);
+    background: #000000;
   }
   .splash-logo svg { width: 70px; height: 70px; color: var(--accent); }
   .splash-title {
@@ -299,6 +299,7 @@
     height: clamp(48px, 12vw, 56px);
     border-radius: 10px;
     flex-shrink: 0;
+    background: #000000;
   }
   .top-bar-spacer {
     width: clamp(72px, 18vw, 88px);
