@@ -1,12 +1,18 @@
 package com.keuge.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Base64
 import android.util.Log
 import android.webkit.ConsoleMessage
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -46,6 +52,29 @@ class MainActivity : AppCompatActivity() {
     private var lastPickedCacheFile: File? = null
     private var backJsAcknowledged = false
     private var webFilePathCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingVoiceSearchRequestId: String? = null
+    private var pendingWebAudioPermissionRequest: PermissionRequest? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+
+    private val audioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val webPermissionRequest = pendingWebAudioPermissionRequest
+        pendingWebAudioPermissionRequest = null
+        if (webPermissionRequest != null) {
+            handleWebAudioPermissionResult(webPermissionRequest, granted)
+        }
+
+        val voiceRequestId = pendingVoiceSearchRequestId
+        if (!voiceRequestId.isNullOrBlank()) {
+            if (granted) {
+                startNativeVoiceSearchWithPermission(voiceRequestId)
+            } else {
+                pendingVoiceSearchRequestId = null
+                webBridge.deliverVoiceSearchError(voiceRequestId, "permission_denied")
+            }
+        }
+    }
 
     private val imagePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -114,6 +143,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        destroySpeechRecognizer()
         webBridge.destroy()
         super.onDestroy()
     }
@@ -210,6 +240,31 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                if (request == null) return
+                runOnUiThread {
+                    val resources = request.resources ?: emptyArray()
+                    if (!resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                        request.deny()
+                        return@runOnUiThread
+                    }
+
+                    if (isAudioPermissionGranted()) {
+                        request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                    } else {
+                        pendingWebAudioPermissionRequest?.deny()
+                        pendingWebAudioPermissionRequest = request
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            }
+
+            override fun onPermissionRequestCanceled(request: PermissionRequest?) {
+                if (pendingWebAudioPermissionRequest === request) {
+                    pendingWebAudioPermissionRequest = null
+                }
+            }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -253,7 +308,8 @@ class MainActivity : AppCompatActivity() {
         val js =
             "(function(){try{" +
             "window.__KEUGE_NATIVE__={bridge:1,picker:1,ocr:1,tts:1,brands:1," +
-            "selectMenuImage:1,recognizeMenuImage:1,recognizeTextFromBase64:1,loadBrandsJson:1,speakText:1,getMenuPreviewUrl:1};" +
+            "selectMenuImage:1,recognizeMenuImage:1,recognizeTextFromBase64:1,loadBrandsJson:1,speakText:1,stopSpeak:1," +
+            "getMenuPreviewUrl:1,startVoiceSearch:1,stopVoiceSearch:1};" +
             "if(window.console)console.log('[Keuge] native bridge flags injected',!!window.Android);" +
             "}catch(e){if(window.console)console.error('[Keuge] bridge inject failed',e);}})();"
         try {
@@ -468,5 +524,128 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }.start()
+    }
+
+    fun startNativeVoiceSearch(requestId: String) {
+        if (requestId.isBlank()) return
+        runOnUiThread {
+            if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+                webBridge.deliverVoiceSearchError(requestId, "unsupported")
+                return@runOnUiThread
+            }
+
+            pendingVoiceSearchRequestId = requestId
+            if (isAudioPermissionGranted()) {
+                startNativeVoiceSearchWithPermission(requestId)
+            } else {
+                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
+    fun stopNativeVoiceSearch() {
+        runOnUiThread {
+            try {
+                speechRecognizer?.stopListening()
+            } catch (e: Exception) {
+                Log.w(TAG, "stopNativeVoiceSearch failed", e)
+            }
+        }
+    }
+
+    private fun startNativeVoiceSearchWithPermission(requestId: String) {
+        destroySpeechRecognizer()
+        val recognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer = recognizer
+        recognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                webBridge.deliverVoiceSearchStarted(requestId)
+            }
+
+            override fun onBeginningOfSpeech() = Unit
+            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() {
+                webBridge.deliverVoiceSearchEnded(requestId)
+            }
+
+            override fun onError(error: Int) {
+                pendingVoiceSearchRequestId = null
+                webBridge.deliverVoiceSearchError(requestId, speechErrorToCode(error))
+                destroySpeechRecognizer()
+            }
+
+            override fun onResults(results: Bundle?) {
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                val transcript = matches?.firstOrNull { it.isNotBlank() }.orEmpty()
+                pendingVoiceSearchRequestId = null
+                if (transcript.isBlank()) {
+                    webBridge.deliverVoiceSearchError(requestId, "no_match")
+                } else {
+                    webBridge.deliverVoiceSearchResult(requestId, transcript)
+                }
+                destroySpeechRecognizer()
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+        })
+
+        val intent = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ko-KR")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+        }
+
+        try {
+            recognizer.startListening(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "startNativeVoiceSearch failed", e)
+            pendingVoiceSearchRequestId = null
+            webBridge.deliverVoiceSearchError(requestId, "start_failed")
+            destroySpeechRecognizer()
+        }
+    }
+
+    private fun isAudioPermissionGranted(): Boolean {
+        return checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun handleWebAudioPermissionResult(request: PermissionRequest, granted: Boolean) {
+        try {
+            if (granted) {
+                request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+            } else {
+                request.deny()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "handleWebAudioPermissionResult failed", e)
+        }
+    }
+
+    private fun speechErrorToCode(error: Int): String {
+        return when (error) {
+            SpeechRecognizer.ERROR_AUDIO -> "audio"
+            SpeechRecognizer.ERROR_CLIENT -> "client"
+            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "permission_denied"
+            SpeechRecognizer.ERROR_NETWORK,
+            SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+            SpeechRecognizer.ERROR_SERVER -> "network"
+            SpeechRecognizer.ERROR_NO_MATCH -> "no_match"
+            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "busy"
+            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "speech_timeout"
+            else -> "recognition_failed"
+        }
+    }
+
+    private fun destroySpeechRecognizer() {
+        try {
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+            Log.w(TAG, "destroySpeechRecognizer failed", e)
+        }
+        speechRecognizer = null
     }
 }

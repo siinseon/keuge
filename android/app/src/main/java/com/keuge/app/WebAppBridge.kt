@@ -30,6 +30,22 @@ class WebAppBridge(
     @JavascriptInterface
     fun isBridgeReady(): Boolean = true
 
+    @JavascriptInterface
+    fun startVoiceSearch(requestId: String?) {
+        if (requestId.isNullOrBlank()) {
+            Log.w(TAG, "startVoiceSearch: blank requestId")
+            return
+        }
+        Log.d(TAG, "startVoiceSearch: requestId=$requestId")
+        activity.startNativeVoiceSearch(requestId)
+    }
+
+    @JavascriptInterface
+    fun stopVoiceSearch() {
+        Log.d(TAG, "stopVoiceSearch")
+        activity.stopNativeVoiceSearch()
+    }
+
     /** WebView file:// 에서 fetch 불가 — assets 의 brands.json 전체를 동기 반환 */
     @JavascriptInterface
     fun loadBrandsJson(): String {
@@ -135,6 +151,46 @@ class WebAppBridge(
             "if(window.__keugeOnNativeImageReady){window.__keugeOnNativeImageReady();}" +
             "}catch(e){if(window.console)console.error('[KeugeOcr] native ready',e);}})();"
         Log.d(TAG, "deliverNativeImageReady")
+        runJsOnWebView(js)
+    }
+
+    fun deliverVoiceSearchStarted(requestId: String) {
+        val rid = jsStringLiteral(requestId)
+        val js = "(function(){try{" +
+            "var p={requestId:$rid};" +
+            "if(window.KeugeVoiceSearch&&window.KeugeVoiceSearch._start){window.KeugeVoiceSearch._start(p);}" +
+            "}catch(e){if(window.console)console.error('[KeugeVoice] start',e);}})();"
+        runJsOnWebView(js)
+    }
+
+    fun deliverVoiceSearchResult(requestId: String, transcript: String) {
+        val rid = jsStringLiteral(requestId)
+        val text = jsStringLiteral(transcript)
+        val js = "(function(){try{" +
+            "var p={requestId:$rid,transcript:$text};" +
+            "if(window.KeugeVoiceSearch&&window.KeugeVoiceSearch._result){window.KeugeVoiceSearch._result(p);}" +
+            "}catch(e){if(window.console)console.error('[KeugeVoice] result',e);}})();"
+        Log.d(TAG, "deliverVoiceSearchResult: requestId=$requestId textLen=${transcript.length}")
+        runJsOnWebView(js)
+    }
+
+    fun deliverVoiceSearchError(requestId: String, error: String) {
+        val rid = jsStringLiteral(requestId)
+        val err = jsStringLiteral(error)
+        val js = "(function(){try{" +
+            "var p={requestId:$rid,error:$err};" +
+            "if(window.KeugeVoiceSearch&&window.KeugeVoiceSearch._error){window.KeugeVoiceSearch._error(p);}" +
+            "}catch(e){if(window.console)console.error('[KeugeVoice] error',e);}})();"
+        Log.w(TAG, "deliverVoiceSearchError: requestId=$requestId error=$error")
+        runJsOnWebView(js)
+    }
+
+    fun deliverVoiceSearchEnded(requestId: String) {
+        val rid = jsStringLiteral(requestId)
+        val js = "(function(){try{" +
+            "var p={requestId:$rid};" +
+            "if(window.KeugeVoiceSearch&&window.KeugeVoiceSearch._end){window.KeugeVoiceSearch._end(p);}" +
+            "}catch(e){if(window.console)console.error('[KeugeVoice] end',e);}})();"
         runJsOnWebView(js)
     }
 

@@ -7,6 +7,7 @@ const SpeechManager = {
   _pending: null,
   _retriesActive: false,
   _keepAliveTimer: null,
+  _nativeVoiceRequestId: null,
   _voiceRetryDelays: [50, 150, 300, 500, 800, 1200, 2000, 3000],
 
   isNativeTtsAvailable() {
@@ -282,6 +283,28 @@ const SpeechManager = {
     return document.getElementById('voiceSearchBtnText');
   },
 
+  isNativeVoiceSearchAvailable() {
+    return typeof AndroidBridge !== 'undefined' && AndroidBridge.hasMethod('startVoiceSearch');
+  },
+
+  createVoiceRequestId() {
+    return `voice_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  },
+
+  nativeVoiceErrorMessage(error) {
+    const code = String(error || '');
+    if (code === 'permission_denied') return '마이크 권한이 필요합니다. 앱 설정에서 권한을 허용해 주세요.';
+    if (code === 'unsupported') return '이 기기에서 음성 검색을 사용할 수 없습니다.';
+    if (code === 'busy') return '이미 음성을 듣고 있습니다.';
+    if (code === 'network') return '음성 인식 연결에 실패했습니다. 인터넷 연결을 확인해 주세요.';
+    if (code === 'no_match' || code === 'speech_timeout') return '음성을 인식하지 못했습니다. 다시 말씀해 주세요.';
+    return '음성 인식에 실패했습니다.';
+  },
+
+  isCurrentNativeVoiceRequest(payload) {
+    return payload && payload.requestId && payload.requestId === this._nativeVoiceRequestId;
+  },
+
   setVoiceSearchListening(listening) {
     const btn = this.getVoiceSearchBtn();
     const label = this.getVoiceSearchBtnText();
@@ -298,8 +321,79 @@ const SpeechManager = {
     }
   },
 
+  startNativeVoiceSearch() {
+    const requestId = this.createVoiceRequestId();
+    this._nativeVoiceRequestId = requestId;
+    this.setVoiceSearchListening(true);
+    showToast('마이크 권한을 확인하고 있습니다...');
+    NavigationManager.announce('마이크 권한을 확인하고 있습니다.');
+
+    try {
+      AndroidBridge.call('startVoiceSearch', requestId);
+    } catch (e) {
+      this._nativeVoiceRequestId = null;
+      this.setVoiceSearchListening(false);
+      showToast('음성 검색을 사용할 수 없습니다');
+      NavigationManager.announce('음성 검색을 사용할 수 없습니다');
+    }
+  },
+
+  stopNativeVoiceSearch() {
+    if (this.isNativeVoiceSearchAvailable()) {
+      try {
+        AndroidBridge.call('stopVoiceSearch');
+      } catch (e) {}
+    }
+    this._nativeVoiceRequestId = null;
+    this.setVoiceSearchListening(false);
+  },
+
+  handleNativeVoiceStart(payload) {
+    if (!this.isCurrentNativeVoiceRequest(payload)) return;
+    this.setVoiceSearchListening(true);
+    showToast('듣고 있습니다...');
+    NavigationManager.announce('듣고 있습니다. 말씀해 주세요.');
+  },
+
+  handleNativeVoiceResult(payload) {
+    if (!this.isCurrentNativeVoiceRequest(payload)) return;
+    this._nativeVoiceRequestId = null;
+    this.setVoiceSearchListening(false);
+
+    const transcript = String(payload.transcript || '').trim();
+    if (!transcript) {
+      const msg = this.nativeVoiceErrorMessage('no_match');
+      showToast(msg);
+      NavigationManager.announce(msg);
+      return;
+    }
+
+    const input = document.getElementById('homeSearchInput');
+    if (input) input.value = transcript;
+    SearchManager.doSearch(transcript);
+  },
+
+  handleNativeVoiceError(payload) {
+    if (!this.isCurrentNativeVoiceRequest(payload)) return;
+    this._nativeVoiceRequestId = null;
+    this.setVoiceSearchListening(false);
+
+    const msg = this.nativeVoiceErrorMessage(payload.error);
+    showToast(msg);
+    NavigationManager.announce(msg);
+  },
+
+  handleNativeVoiceEnd(payload) {
+    if (!this.isCurrentNativeVoiceRequest(payload)) return;
+  },
+
   startVoiceSearch() {
     vib();
+    if (this.isNativeVoiceSearchAvailable()) {
+      this.startNativeVoiceSearch();
+      return;
+    }
+
     if (!this.recognition) {
       showToast('음성 검색을 사용할 수 없습니다');
       NavigationManager.announce('음성 검색을 사용할 수 없습니다');
@@ -318,6 +412,10 @@ const SpeechManager = {
   toggleVoiceSearch() {
     const btn = this.getVoiceSearchBtn();
     if (btn && btn.classList.contains('listening')) {
+      if (this._nativeVoiceRequestId) {
+        this.stopNativeVoiceSearch();
+        return;
+      }
       try {
         this.recognition?.stop();
       } catch (e) {}
@@ -413,5 +511,20 @@ const SpeechManager = {
     if (AppState.screenHistory[AppState.screenHistory.length - 1] === 'settings') {
       UI.renderSettingsScreen();
     }
+  }
+};
+
+window.KeugeVoiceSearch = {
+  _start(payload) {
+    SpeechManager.handleNativeVoiceStart(payload);
+  },
+  _result(payload) {
+    SpeechManager.handleNativeVoiceResult(payload);
+  },
+  _error(payload) {
+    SpeechManager.handleNativeVoiceError(payload);
+  },
+  _end(payload) {
+    SpeechManager.handleNativeVoiceEnd(payload);
   }
 };

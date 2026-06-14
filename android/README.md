@@ -33,6 +33,8 @@ cd android
 |----|---------|
 | `window.Android.speakText(text)` | TextToSpeech |
 | `window.Android.stopSpeak()` | TTS stop |
+| `window.Android.startVoiceSearch(requestId)` | Android 음성 인식 |
+| `window.Android.stopVoiceSearch()` | Android 음성 인식 중단 |
 | `window.Android.selectMenuImage(requestId)` | image/* 선택 + ML Kit OCR |
 | `window.KeugeOcr._complete(payload)` | OCR 결과 콜백 |
 
@@ -44,6 +46,7 @@ cd android
 ## 권한
 
 - 카메라 권한 없음
+- 마이크 권한 있음: Android WebView는 Web Speech API가 안정적으로 동작하지 않아 네이티브 음성 인식 fallback에 사용
 
 ## 패키지
 
