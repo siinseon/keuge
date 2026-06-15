@@ -3,7 +3,6 @@ package com.keuge.app
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import org.json.JSONObject
 
 class WebAppBridge(
     private val activity: MainActivity,
@@ -12,6 +11,7 @@ class WebAppBridge(
 ) {
 
     private val ttsManager = NativeTtsManager(activity)
+    private val sttManager = NativeSttManager(activity)
 
     @JavascriptInterface
     fun speakText(text: String?) {
@@ -29,6 +29,54 @@ class WebAppBridge(
     /** JS 브리지 연결 확인용 (typeof 검사 대신 호출 가능) */
     @JavascriptInterface
     fun isBridgeReady(): Boolean = true
+
+    /** 네이티브 STT 가용 여부 확인 */
+    @JavascriptInterface
+    fun isSttAvailable(): Boolean = sttManager.isAvailable()
+
+    /** 음성 검색 시작 — JS 콜백: window.KeugeSTT._onResult({requestId, success, transcript, error}) */
+    @JavascriptInterface
+    fun startVoiceSearch(requestId: String?) {
+        val rid = if (requestId.isNullOrBlank()) "stt-${System.currentTimeMillis()}" else requestId
+        Log.d(TAG, "startVoiceSearch: requestId=$rid")
+        activity.runOnUiThread {
+            activity.ensureRecordAudioPermission {
+                sttManager.start(
+                    rid,
+                    onResult = { id, transcript -> deliverSttResult(id, true, transcript, null) },
+                    onError = { id, error -> deliverSttResult(id, false, null, error) }
+                )
+            }
+        }
+    }
+
+    /** 음성 검색 중단 */
+    @JavascriptInterface
+    fun stopVoiceSearch() {
+        Log.d(TAG, "stopVoiceSearch")
+        sttManager.stop()
+    }
+
+    fun deliverSttResult(requestId: String, success: Boolean, transcript: String?, error: String?) {
+        val rid = jsStringLiteral(requestId)
+        val successJs = if (success) "true" else "false"
+        val textJs = if (!transcript.isNullOrBlank()) jsStringLiteral(transcript) else "null"
+        val errJs = if (!error.isNullOrBlank()) jsStringLiteral(error) else "null"
+        val js = "(function(){try{" +
+            "var p={requestId:$rid,success:$successJs,transcript:$textJs,error:$errJs};" +
+            "if(window.console)console.log('[KeugeStt] result',p.success,p.transcript||p.error);" +
+            "if(window.KeugeSTT&&window.KeugeSTT._onResult){window.KeugeSTT._onResult(p);}" +
+            "}catch(e){if(window.console)console.error('[KeugeStt] deliver',e);}})();"
+        Log.d(TAG, "deliverSttResult: requestId=$requestId success=$success transcript=$transcript error=$error")
+        runJsOnWebView(js)
+    }
+
+    fun deliverSttListeningState(isListening: Boolean) {
+        val js = "(function(){try{" +
+            "if(window.KeugeSTT&&window.KeugeSTT._onListeningState){window.KeugeSTT._onListeningState($isListening);}" +
+            "}catch(e){if(window.console)console.error('[KeugeStt] listenState',e);}})();"
+        runJsOnWebView(js)
+    }
 
     /** WebView file:// 에서 fetch 불가 — assets 의 brands.json 전체를 동기 반환 */
     @JavascriptInterface
@@ -208,6 +256,7 @@ class WebAppBridge(
 
     fun destroy() {
         ttsManager.shutdown()
+        sttManager.destroy()
     }
 
     companion object {

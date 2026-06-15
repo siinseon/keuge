@@ -8,9 +8,14 @@ const SpeechManager = {
   _retriesActive: false,
   _keepAliveTimer: null,
   _voiceRetryDelays: [50, 150, 300, 500, 800, 1200, 2000, 3000],
+  _nativeSttRequestId: null,
 
   isNativeTtsAvailable() {
     return typeof AndroidBridge !== 'undefined' && AndroidBridge.hasMethod('speakText');
+  },
+
+  isNativeSttAvailable() {
+    return typeof AndroidBridge !== 'undefined' && AndroidBridge.hasMethod('startVoiceSearch');
   },
 
   _lastSpeakText: '',
@@ -298,8 +303,66 @@ const SpeechManager = {
     }
   },
 
+  _startNativeStt() {
+    if (this._nativeSttRequestId !== null) return;
+    const rid = 'stt-' + Date.now();
+    this._nativeSttRequestId = rid;
+    this.setVoiceSearchListening(true);
+    showToast('듣고 있습니다...');
+    NavigationManager.announce('듣고 있습니다. 말씀해 주세요.');
+    try {
+      AndroidBridge.call('startVoiceSearch', rid);
+    } catch (e) {
+      this._nativeSttRequestId = null;
+      this.setVoiceSearchListening(false);
+      showToast('음성 검색을 시작할 수 없습니다');
+    }
+  },
+
+  _stopNativeStt() {
+    this._nativeSttRequestId = null;
+    try {
+      AndroidBridge.call('stopVoiceSearch');
+    } catch (e) {}
+    this.setVoiceSearchListening(false);
+  },
+
+  _registerNativeSttCallback() {
+    window.KeugeSTT = {
+      _onListeningState: (listening) => {
+        this.setVoiceSearchListening(listening);
+        if (listening) {
+          showToast('듣고 있습니다...');
+        }
+      },
+      _onResult: (payload) => {
+        this._nativeSttRequestId = null;
+        this.setVoiceSearchListening(false);
+        if (payload && payload.success && payload.transcript) {
+          const input = document.getElementById('homeSearchInput');
+          if (input) input.value = payload.transcript;
+          SearchManager.doSearch(payload.transcript);
+        } else {
+          const errCode = (payload && payload.error) || 'unknown';
+          const msg = errCode === 'no_permission' ? '마이크 권한이 필요합니다'
+            : errCode === 'no_match' || errCode === 'empty_result' ? '인식된 내용이 없습니다'
+            : errCode === 'network_error' || errCode === 'network_timeout' ? '네트워크 오류가 발생했습니다'
+            : '음성 인식 실패';
+          showToast(msg);
+          NavigationManager.announce(msg);
+        }
+      }
+    };
+  },
+
   startVoiceSearch() {
     vib();
+
+    if (this.isNativeSttAvailable()) {
+      this._startNativeStt();
+      return;
+    }
+
     if (!this.recognition) {
       showToast('음성 검색을 사용할 수 없습니다');
       NavigationManager.announce('음성 검색을 사용할 수 없습니다');
@@ -318,9 +381,11 @@ const SpeechManager = {
   toggleVoiceSearch() {
     const btn = this.getVoiceSearchBtn();
     if (btn && btn.classList.contains('listening')) {
-      try {
-        this.recognition?.stop();
-      } catch (e) {}
+      if (this.isNativeSttAvailable()) {
+        this._stopNativeStt();
+      } else {
+        try { this.recognition?.stop(); } catch (e) {}
+      }
       return;
     }
     this.startVoiceSearch();
@@ -329,6 +394,7 @@ const SpeechManager = {
   init() {
     this.initVoiceEngine();
     this.bindUserGestureWarmUp();
+    this._registerNativeSttCallback();
 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -342,13 +408,20 @@ const SpeechManager = {
       this.recognition.onend = () => {
         this.setVoiceSearchListening(false);
       };
-      this.recognition.onerror = () => {
+      this.recognition.onerror = (e) => {
         this.setVoiceSearchListening(false);
-        showToast('음성 인식 실패');
-        NavigationManager.announce('음성 인식에 실패했습니다.');
+        const errCode = e && e.error;
+        const msg = errCode === 'not-allowed' ? '마이크 권한이 필요합니다'
+          : errCode === 'no-speech' ? '음성이 감지되지 않았습니다'
+          : errCode === 'network' ? '네트워크 오류가 발생했습니다'
+          : '음성 인식 실패';
+        showToast(msg);
+        NavigationManager.announce(msg);
       };
       this.recognition.onresult = (e) => {
-        const t = e.results[0][0].transcript;
+        const result = e.results && e.results[0] && e.results[0][0];
+        if (!result) return;
+        const t = result.transcript;
         const input = document.getElementById('homeSearchInput');
         if (input) input.value = t;
         SearchManager.doSearch(t);
