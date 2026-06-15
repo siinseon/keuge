@@ -60,10 +60,12 @@ class MainActivity : AppCompatActivity() {
         if (granted) {
             pendingRecordAudioAction?.invoke()
         } else {
-            webBridge.deliverSttResult(
-                "perm-denied-${System.currentTimeMillis()}",
-                false, null, "no_permission"
-            )
+            if (::webBridge.isInitialized) {
+                webBridge.deliverSttResult(
+                    "perm-denied-${System.currentTimeMillis()}",
+                    false, null, "no_permission"
+                )
+            }
         }
         pendingRecordAudioAction = null
         pendingWebViewPermissionRequest?.also { req ->

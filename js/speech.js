@@ -304,6 +304,7 @@ const SpeechManager = {
   },
 
   _startNativeStt() {
+    if (this._nativeSttRequestId !== null) return;
     const rid = 'stt-' + Date.now();
     this._nativeSttRequestId = rid;
     this.setVoiceSearchListening(true);

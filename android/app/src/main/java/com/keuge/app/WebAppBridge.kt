@@ -3,7 +3,6 @@ package com.keuge.app
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import org.json.JSONObject
 
 class WebAppBridge(
     private val activity: MainActivity,

@@ -15,7 +15,7 @@ import android.util.Log
 class NativeSttManager(private val activity: MainActivity) {
 
     private var recognizer: SpeechRecognizer? = null
-    private var currentRequestId: String? = null
+    @Volatile private var currentRequestId: String? = null
     private var onResult: ((requestId: String, transcript: String) -> Unit)? = null
     private var onError: ((requestId: String, error: String) -> Unit)? = null
 
@@ -101,7 +101,10 @@ class NativeSttManager(private val activity: MainActivity) {
             Log.w(TAG, "STT onError: $error → $msg")
             val rid = currentRequestId ?: fallbackRequestId
             currentRequestId = null
-            onError?.invoke(rid, msg)
+            val cb = onError
+            onResult = null
+            onError = null
+            cb?.invoke(rid, msg)
         }
 
         override fun onResults(results: Bundle?) {
@@ -110,10 +113,14 @@ class NativeSttManager(private val activity: MainActivity) {
             Log.d(TAG, "STT onResults: \"$transcript\"")
             val rid = currentRequestId ?: fallbackRequestId
             currentRequestId = null
+            val resultCb = onResult
+            val errorCb = onError
+            onResult = null
+            onError = null
             if (transcript.isNotBlank()) {
-                onResult?.invoke(rid, transcript)
+                resultCb?.invoke(rid, transcript)
             } else {
-                onError?.invoke(rid, "empty_result")
+                errorCb?.invoke(rid, "empty_result")
             }
         }
 
