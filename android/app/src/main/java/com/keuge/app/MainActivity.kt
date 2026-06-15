@@ -1,5 +1,7 @@
 package com.keuge.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -7,6 +9,7 @@ import android.os.Bundle
 import android.util.Base64
 import android.util.Log
 import android.webkit.ConsoleMessage
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -17,6 +20,7 @@ import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -46,6 +50,39 @@ class MainActivity : AppCompatActivity() {
     private var lastPickedCacheFile: File? = null
     private var backJsAcknowledged = false
     private var webFilePathCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingRecordAudioAction: (() -> Unit)? = null
+    private var pendingWebViewPermissionRequest: PermissionRequest? = null
+
+    private val recordAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        Log.d(TAG, "RECORD_AUDIO permission granted=$granted")
+        if (granted) {
+            pendingRecordAudioAction?.invoke()
+        } else {
+            webBridge.deliverSttResult(
+                "perm-denied-${System.currentTimeMillis()}",
+                false, null, "no_permission"
+            )
+        }
+        pendingRecordAudioAction = null
+        pendingWebViewPermissionRequest?.also { req ->
+            if (granted) req.grant(req.resources) else req.deny()
+            pendingWebViewPermissionRequest = null
+        }
+    }
+
+    /** RECORD_AUDIO 권한이 있으면 바로 action 실행, 없으면 요청 후 실행 */
+    fun ensureRecordAudioPermission(action: () -> Unit) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            action()
+        } else {
+            pendingRecordAudioAction = action
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     private val imagePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -210,6 +247,24 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                if (request == null) return
+                val needsMic = request.resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+                if (!needsMic) {
+                    request.deny()
+                    return
+                }
+                if (ContextCompat.checkSelfPermission(
+                        this@MainActivity, Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    request.grant(request.resources)
+                } else {
+                    pendingWebViewPermissionRequest = request
+                    recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -253,7 +308,9 @@ class MainActivity : AppCompatActivity() {
         val js =
             "(function(){try{" +
             "window.__KEUGE_NATIVE__={bridge:1,picker:1,ocr:1,tts:1,brands:1," +
-            "selectMenuImage:1,recognizeMenuImage:1,recognizeTextFromBase64:1,loadBrandsJson:1,speakText:1,getMenuPreviewUrl:1};" +
+            "selectMenuImage:1,recognizeMenuImage:1,recognizeTextFromBase64:1,loadBrandsJson:1," +
+            "speakText:1,stopSpeak:1,getMenuPreviewUrl:1," +
+            "startVoiceSearch:1,stopVoiceSearch:1,isSttAvailable:1};" +
             "if(window.console)console.log('[Keuge] native bridge flags injected',!!window.Android);" +
             "}catch(e){if(window.console)console.error('[Keuge] bridge inject failed',e);}})();"
         try {
