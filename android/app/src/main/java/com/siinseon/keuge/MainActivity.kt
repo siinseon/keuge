@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "KeugeMain"
         private const val STATE_PENDING_REQUEST_ID = "pendingImagePickRequestId"
         private const val ASSETS_INDEX = "file:///android_asset/www/index.html"
-        const val MENU_PREVIEW_URL = "https://app.keuge/menu-preview.jpg"
+        const val MENU_PREVIEW_URL = "https://app.keuge/menu-previewic_launcher.png"
         private const val PREVIEW_MAX_SIDE = 1920
         private const val PREVIEW_JPEG_QUALITY = 88
         /** evaluateJavascript 용량 한도 회피 — 브리지 fallback 미리보기 */
@@ -194,14 +194,20 @@ class MainActivity : AppCompatActivity() {
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
-            // file:///android_asset/ 에서 css/js 상대 경로 로드 (UI 변경 없음, 로딩만 수정)
+
             @Suppress("DEPRECATION")
             allowFileAccessFromFileURLs = true
+
             @Suppress("DEPRECATION")
             allowUniversalAccessFromFileURLs = true
+
             mediaPlaybackRequiresUserGesture = false
-            cacheMode = WebSettings.LOAD_DEFAULT
+            cacheMode = WebSettings.LOAD_NO_CACHE
         }
+
+// apply 블록 밖으로 빼기
+        webView.clearCache(true)
+        webView.clearHistory()
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -218,7 +224,7 @@ class MainActivity : AppCompatActivity() {
                 request: WebResourceRequest
             ): WebResourceResponse? {
                 val uri = request.url
-                if (uri.host == "app.keuge" && uri.path == "/menu-preview.jpg") {
+                if (uri.host == "app.keuge" && uri.path == "/menu-previewic_launcher.png") {
                     val file = getMenuPreviewCacheFile()
                     if (file != null) {
                         return try {
@@ -414,7 +420,7 @@ class MainActivity : AppCompatActivity() {
 
     /** 갤러리 URI를 앱 캐시로 복사 — [읽어주기] 시 권한 만료 없이 OCR */
     private fun cachePickedImage(sourceUri: Uri): File? {
-        val out = File(cacheDir, "keuge_menu_pick.jpg")
+        val out = File(cacheDir, "keuge_menu_pickic_launcher.png")
         return try {
             contentResolver.openInputStream(sourceUri)?.use { input ->
                 out.outputStream().use { output -> input.copyTo(output) }
