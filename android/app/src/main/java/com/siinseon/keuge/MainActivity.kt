@@ -34,7 +34,6 @@ class MainActivity : AppCompatActivity() {
         private const val STATE_PENDING_REQUEST_ID = "pendingImagePickRequestId"
         private const val ASSETS_INDEX = "file:///android_asset/www/index.html"
         const val MENU_PREVIEW_URL = "https://app.keuge/menu-preview.jpg"
-        private const val BACK_JS_FALLBACK_MS = 300L
         private const val PREVIEW_MAX_SIDE = 1920
         private const val PREVIEW_JPEG_QUALITY = 88
         /** evaluateJavascript 용량 한도 회피 — 브리지 fallback 미리보기 */
@@ -48,7 +47,6 @@ class MainActivity : AppCompatActivity() {
     private var pendingImagePickRequestId: String? = null
     private var lastPickedUri: Uri? = null
     private var lastPickedCacheFile: File? = null
-    private var backJsAcknowledged = false
     private var webFilePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingRecordAudioAction: (() -> Unit)? = null
     private var pendingWebViewPermissionRequest: PermissionRequest? = null
@@ -158,27 +156,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun dispatchBackToWeb() {
-        backJsAcknowledged = false
+        // JS goBack()이 'handled'(이전 화면 이동) / 'root'(홈, 더 뒤로 없음) / 'error'(JS 오류) 반환
         val js =
-            "(function(){try{if(typeof goBack==='function'){goBack();return '1';}}catch(e){}" +
-            "return '0';})();"
+            "(function(){" +
+            "try{if(typeof goBack==='function'){var r=goBack();return r?String(r):'handled';}}" +
+            "catch(e){}" +
+            "return 'error';" +
+            "})()"
 
         try {
             webView.evaluateJavascript(js) { result ->
-                backJsAcknowledged = true
-                Log.d(TAG, "dispatchBackToWeb evaluateJavascript result=$result")
+                val r = result?.trim('"') ?: "error"
+                Log.d(TAG, "dispatchBackToWeb result=$r")
+                when (r) {
+                    "root"  -> finish()               // 더 뒤로 갈 화면 없음 → 앱 종료
+                    "error" -> fallbackBackViaLoadUrl() // JS 오류 → loadUrl 폴백
+                    // "handled" → JS에서 이미 이전 화면으로 전환됨
+                }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "dispatchBackToWeb evaluateJavascript failed", e)
+            Log.e(TAG, "dispatchBackToWeb failed", e)
             fallbackBackViaLoadUrl()
         }
-
-        webView.postDelayed({
-            if (!backJsAcknowledged) {
-                Log.w(TAG, "dispatchBackToWeb: callback timeout, loadUrl fallback")
-                fallbackBackViaLoadUrl()
-            }
-        }, BACK_JS_FALLBACK_MS)
     }
 
     private fun fallbackBackViaLoadUrl() {

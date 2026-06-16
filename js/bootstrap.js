@@ -216,22 +216,20 @@ const NavigationManager = {
     const fs = document.getElementById('previewFullscreen');
     if (fs && fs.classList.contains('is-open') && typeof MenuPreviewZoom !== 'undefined') {
       MenuPreviewZoom.close();
-      return;
+      return 'handled';
     }
     if (AppState.screenHistory.length <= 1) {
-      const root = AppState.screenHistory[0] || 'home';
-      this.navTo(root === 'camera' ? 'camera' : root === 'fav' ? 'fav' : root === 'settings' ? 'settings' : 'home');
-      return;
+      // 더 이상 뒤로 갈 화면이 없음 → Android에 앱 종료 신호
+      return 'root';
     }
     AppState.screenHistory.pop();
     const prev = AppState.screenHistory[AppState.screenHistory.length - 1];
     this.switchScreen(prev);
-    
-    // Update bottom nav active state
     const rootTabs = ['home', 'camera', 'fav', 'settings'];
     if (rootTabs.includes(prev)) {
       this._setActiveNavTab(prev);
     }
+    return 'handled';
   },
 
   announce(msg, forceTTS = false) {
