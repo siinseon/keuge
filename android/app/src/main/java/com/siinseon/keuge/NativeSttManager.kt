@@ -1,4 +1,4 @@
-package com.keuge.app
+package com.siinseon.keuge
 
 import android.content.Intent
 import android.os.Bundle
