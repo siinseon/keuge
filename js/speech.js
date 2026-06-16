@@ -9,6 +9,7 @@ const SpeechManager = {
   _keepAliveTimer: null,
   _voiceRetryDelays: [50, 150, 300, 500, 800, 1200, 2000, 3000],
   _nativeSttRequestId: null,
+  _lastHandledSttRid: null,
 
   isNativeTtsAvailable() {
     return typeof AndroidBridge !== 'undefined' && AndroidBridge.hasMethod('speakText');
@@ -336,6 +337,12 @@ const SpeechManager = {
         }
       },
       _onResult: (payload) => {
+        // runJsOnWebView가 evaluateJavascript + loadUrl 양쪽에서 실행하므로
+        // requestId 기준 중복 처리 방지
+        const rid = payload && payload.requestId;
+        if (rid && rid === this._lastHandledSttRid) return;
+        this._lastHandledSttRid = rid || null;
+
         this._nativeSttRequestId = null;
         this.setVoiceSearchListening(false);
         if (payload && payload.success && payload.transcript) {
@@ -343,10 +350,30 @@ const SpeechManager = {
           if (input) input.value = payload.transcript;
           SearchManager.doSearch(payload.transcript);
         } else {
-          const errCode = (payload && payload.error) || 'unknown';
-          const msg = errCode === 'no_permission' ? '마이크 권한이 필요합니다'
-            : errCode === 'no_match' || errCode === 'empty_result' ? '인식된 내용이 없습니다'
-            : errCode === 'network_error' || errCode === 'network_timeout' ? '네트워크 오류가 발생했습니다'
+          const raw = (payload && payload.error) || 'unknown';
+          // Kotlin이 "client_error:5" 형식으로 전달 — 앞부분만 추출
+          const errCode = raw.split(':')[0];
+          const errNum  = raw.split(':')[1] || '';
+          const msg = errCode === 'no_permission'
+            ? '마이크 권한이 필요합니다'
+            : errCode === 'no_match' || errCode === 'empty_result'
+            ? '인식된 내용이 없습니다'
+            : errCode === 'network_error' || errCode === 'network_timeout'
+            ? '네트워크 오류가 발생했습니다'
+            : errCode === 'speech_timeout'
+            ? '음성이 감지되지 않았습니다'
+            : errCode === 'client_error'
+            ? '음성 서비스에 연결할 수 없습니다'
+            : errCode === 'audio_error'
+            ? '마이크 오류가 발생했습니다'
+            : errCode === 'recognizer_busy'
+            ? '음성 인식이 이미 실행 중입니다'
+            : errCode === 'server_error'
+            ? '음성 서버 오류가 발생했습니다'
+            : errCode === 'not_available'
+            ? '이 기기는 음성 인식을 지원하지 않습니다'
+            : errNum
+            ? `음성 인식 실패 (${errCode} ${errNum})`
             : '음성 인식 실패';
           showToast(msg);
           NavigationManager.announce(msg);
