@@ -1,4 +1,4 @@
-package com.keuge.app
+package com.siinseon.keuge
 
 import android.util.Log
 import android.webkit.JavascriptInterface
@@ -40,6 +40,11 @@ class WebAppBridge(
         val rid = if (requestId.isNullOrBlank()) "stt-${System.currentTimeMillis()}" else requestId
         Log.d(TAG, "startVoiceSearch: requestId=$rid")
         activity.runOnUiThread {
+            if (!sttManager.isAvailable()) {
+                Log.w(TAG, "startVoiceSearch: STT not available on this device")
+                deliverSttResult(rid, false, null, "not_available:0")
+                return@runOnUiThread
+            }
             activity.ensureRecordAudioPermission {
                 sttManager.start(
                     rid,

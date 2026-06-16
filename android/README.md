@@ -47,4 +47,4 @@ cd android
 
 ## 패키지
 
-`com.keuge.app`
+`com.siinseon.keuge`

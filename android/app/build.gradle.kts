@@ -4,14 +4,14 @@ plugins {
 }
 
 android {
-    namespace = "com.keuge.app"
+    namespace = "com.siinseon.keuge"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.keuge.app"
+        applicationId = "com.siinseon.keuge"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
+        versionCode = 10
         versionName = "1.0.0"
     }
 
