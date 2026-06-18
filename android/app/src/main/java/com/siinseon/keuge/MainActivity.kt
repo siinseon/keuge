@@ -234,11 +234,24 @@ class MainActivity : AppCompatActivity() {
 
             mediaPlaybackRequiresUserGesture = false
             cacheMode = WebSettings.LOAD_NO_CACHE
+
+            // 모바일 layout viewport 안정화: 일부 단말 WebView 가 wide viewport 모드에서
+            // 내부 overflow:scroll 컨테이너의 hit-test 가 어긋나 하단 영역 터치가 막히는 문제 방지.
+            useWideViewPort = true
+            loadWithOverviewMode = true
         }
 
 // apply 블록 밖으로 빼기
         webView.clearCache(true)
         webView.clearHistory()
+
+        // Nested scrolling: API 21+ 기본 활성화이지만, 일부 OEM ROM 에서 비활성화되는
+        // 사례가 보고됨. CSS 의 inner overflow scroll 과 시스템 스크롤이 자연스럽게
+        // 협업하도록 명시적으로 켠다.
+        webView.isNestedScrollingEnabled = true
+        // 컨텐츠가 화면을 가득 채우는 경우 reactive over-scroll glow 가 내부 스크롤
+        // 시작 터치를 가로채는 것을 방지.
+        webView.overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {

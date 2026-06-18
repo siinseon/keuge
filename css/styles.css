@@ -89,6 +89,8 @@
 
   html {
     height: 100%;
+    /* Android WebView: 주소창/키보드로 인한 viewport 변동 시 안정적으로 fill 되도록 dvh 폴백 */
+    height: 100dvh;
     overflow: hidden;
     scroll-behavior: auto;
   }
@@ -99,13 +101,14 @@
     background: var(--bg);
     color: var(--text);
     height: 100%;
+    height: 100dvh;
     min-height: 0;
     max-width: 500px;
     margin: 0 auto;
     overflow: hidden;
     position: relative;
     scroll-behavior: auto;
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: contain;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     touch-action: pan-y;
@@ -149,16 +152,24 @@
     border-width: 0;
   }
 
-  /* ─── SCREEN MANAGEMENT ─── */
+  /* ─── SCREEN MANAGEMENT ───
+     Android WebView 에서 하단 네비가 fixed 로 영역을 덮고 있어,
+     기존처럼 .screen 에 padding-bottom 을 두면 스크롤 컨테이너가 nav 위에서 끝나
+     (1) 마지막 항목이 nav 뒤로 가려져 보이고,
+     (2) 하단 영역에서 스와이프-업 으로 스크롤을 이어갈 공간이 없다.
+     → 스크롤 컨테이너를 화면 끝까지 확장하고, nav-offset 만큼 padding-bottom 을
+        스크롤 컨테이너 안쪽에 두어 콘텐츠가 nav 위로 자연스럽게 스크롤되게 한다. */
   .screen {
     display: none;
     flex-direction: column;
     height: 100%;
     max-height: 100%;
-    padding-bottom: var(--bottom-nav-offset);
     overflow: hidden;
   }
   .screen.active { display: flex; }
+  /* 카메라 화면은 마지막 자식이 .camera-controls (스크롤 컨테이너 아님) 이므로
+     .screen 자체에 padding-bottom 을 줘야 nav 와 겹치지 않는다. */
+  #screen-camera { padding-bottom: var(--bottom-nav-offset); }
   #screen-splash { padding-bottom: 0; justify-content: center; }
 
   .app-scroll,
@@ -172,7 +183,7 @@
     overflow-x: hidden;
     overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: contain;
     scroll-behavior: auto;
     touch-action: pan-y;
   }
@@ -331,11 +342,13 @@
     overflow-x: hidden;
     overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: contain;
     touch-action: pan-y;
   }
   .home-search-zone {
     padding: var(--padding-screen);
+    /* 마지막 입력/버튼이 bottom-nav 위로 스크롤되도록 nav-offset 만큼 추가 */
+    padding-bottom: calc(var(--padding-screen) + var(--bottom-nav-offset));
     background: var(--bg);
     display: flex;
     flex-direction: column;
@@ -418,6 +431,9 @@
   /* ─── HOME: MENU ZONE ─── */
   .home-menu-zone {
     padding: var(--padding-screen);
+    /* 마지막 카테고리 카드가 bottom-nav 위로 스크롤되게 nav-offset 만큼 추가 */
+    padding-bottom: calc(var(--padding-screen) + var(--bottom-nav-offset));
+    box-sizing: border-box;
   }
   .home-cat-grid {
     display: grid;
@@ -459,9 +475,12 @@
   }
   .results-list {
     padding: var(--padding-screen);
+    /* 결과/즐겨찾기/설정 목록의 마지막 항목이 bottom-nav 뒤로 가려지지 않도록 */
+    padding-bottom: calc(var(--padding-screen) + var(--bottom-nav-offset));
     display: flex;
     flex-direction: column;
     gap: clamp(14px, 3.5vw, 20px);
+    box-sizing: border-box;
   }
   .category-section {
     display: flex;
@@ -689,9 +708,12 @@
   /* ─── DETAIL SCREEN ─── */
   .detail-content {
     padding: var(--padding-screen);
+    /* 상세 메뉴 마지막 항목이 bottom-nav 위로 스크롤되도록 nav-offset 만큼 추가 */
+    padding-bottom: calc(var(--padding-screen) + var(--bottom-nav-offset));
     display: flex;
     flex-direction: column;
     gap: var(--gap-card);
+    box-sizing: border-box;
   }
   .detail-actions {
     display: flex;
@@ -986,13 +1008,18 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
     overflow: hidden;
     backface-visibility: hidden;
-    /* 바 영역은 터치 통과: 사진 선택 하단 조작 버튼이 가려져도 탭 가능 */
+    /* 바 영역은 터치 통과: 사진 선택 하단 조작 버튼이 가려져도 탭 가능,
+       또한 nav 탭 사이 빈 영역에서 시작된 swipe 가 뒤쪽 스크롤 컨테이너로 전달되도록. */
     pointer-events: none;
+    /* Android WebView: 수직 스와이프가 hit-test 단계에서 차단되지 않도록 명시 */
+    touch-action: pan-y;
   }
   .bottom-nav .nav-tab {
     min-height: 0;
     height: auto;
     pointer-events: auto;
+    /* 탭 버튼 위에서도 vertical pan 이 시작되면 스크롤로 해석되도록 (탭은 click 으로 정상 동작) */
+    touch-action: pan-y;
   }
   .nav-tab {
     flex: 1 1 0;
