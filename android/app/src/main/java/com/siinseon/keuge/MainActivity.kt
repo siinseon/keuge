@@ -141,11 +141,13 @@ class MainActivity : AppCompatActivity() {
         configureWebView()
         webView.loadUrl(ASSETS_INDEX)
 
-        // 구형 WebView: evaluateJavascript 콜백이 null이면 onBackPressed()를 다시 호출해
-        // 앱이 즉시 종료되던 문제 → JS goBack()만 호출하고 시스템 back 재전달은 하지 않음.
+        // Android 13~16 대응: OnBackPressedDispatcher (AndroidX activity-ktx) 는
+        // API 33+ 에서 자동으로 OnBackInvokedCallback 을 사용하며,
+        // AndroidManifest 의 android:enableOnBackInvokedCallback="true" 와 함께
+        // 예측형 뒤로가기(predictive back) 도 지원한다.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                dispatchBackToWeb()
+                handleBackPressed()
             }
         })
     }
@@ -155,36 +157,65 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun dispatchBackToWeb() {
-        // JS goBack()이 'handled'(이전 화면 이동) / 'root'(홈, 더 뒤로 없음) / 'error'(JS 오류) 반환
-        val js =
-            "(function(){" +
-            "try{if(typeof goBack==='function'){var r=goBack();return r?String(r):'handled';}}" +
-            "catch(e){}" +
-            "return 'error';" +
-            "})()"
+    /**
+     * 뒤로가기 처리 정책:
+     * 1) WebView 의 URL 히스토리(canGoBack) 가 있으면 이전 페이지로 이동
+     * 2) 없으면 SPA 의 화면 히스토리(JS goBack) 를 호출
+     *    - 이미 루트(홈) 면 'root' 반환 → 앱 종료
+     *    - 이전 화면이 남아 있으면 JS 가 화면 전환, Kotlin 은 대기
+     * 3) JS 평가 자체가 실패하면 안전망으로 finish() 호출
+     */
+    private fun handleBackPressed() {
+        if (webView.canGoBack()) {
+            Log.d(TAG, "handleBackPressed: webView.canGoBack()=true → goBack()")
+            webView.goBack()
+            return
+        }
+        dispatchBackToWebOrFinish()
+    }
+
+    private fun dispatchBackToWebOrFinish() {
+        // 현재 SPA 의 js/main.js#goBack() 은 반환값이 없어 루트 여부를 알 수 없으므로,
+        // AppState.screenHistory.length 를 Kotlin 에서 직접 조회한다.
+        // (web 자산은 수정하지 않는다는 요구사항 준수)
+        val js = """
+            (function(){
+              try {
+                var fs = document.getElementById('previewFullscreen');
+                var fsOpen = fs && fs.classList && fs.classList.contains('is-open');
+                if (fsOpen) {
+                  if (typeof MenuPreviewZoom !== 'undefined' && MenuPreviewZoom && typeof MenuPreviewZoom.close === 'function') {
+                    MenuPreviewZoom.close();
+                  }
+                  return 'handled';
+                }
+                var hist = (typeof AppState !== 'undefined' && AppState && Array.isArray(AppState.screenHistory))
+                  ? AppState.screenHistory.length : 0;
+                if (hist <= 1) {
+                  return 'root';
+                }
+                if (typeof goBack === 'function') {
+                  goBack();
+                  return 'handled';
+                }
+              } catch (e) {}
+              return 'error';
+            })()
+        """.trimIndent()
 
         try {
             webView.evaluateJavascript(js) { result ->
                 val r = result?.trim('"') ?: "error"
-                Log.d(TAG, "dispatchBackToWeb result=$r")
+                Log.d(TAG, "dispatchBackToWebOrFinish result=$r")
                 when (r) {
-                    "root"  -> finish()               // 더 뒤로 갈 화면 없음 → 앱 종료
-                    "error" -> fallbackBackViaLoadUrl() // JS 오류 → loadUrl 폴백
-                    // "handled" → JS에서 이미 이전 화면으로 전환됨
+                    "handled" -> { /* JS 가 이전 화면으로 전환 완료 */ }
+                    "root"    -> finish()
+                    else      -> finish() // 'error' 또는 예상 못한 반환값 → 앱 종료
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "dispatchBackToWeb failed", e)
-            fallbackBackViaLoadUrl()
-        }
-    }
-
-    private fun fallbackBackViaLoadUrl() {
-        try {
-            webView.loadUrl("javascript:try{if(typeof goBack==='function')goBack();}catch(e){}")
-        } catch (e: Exception) {
-            Log.e(TAG, "fallbackBackViaLoadUrl failed", e)
+            Log.e(TAG, "dispatchBackToWebOrFinish failed", e)
+            finish()
         }
     }
 
