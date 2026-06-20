@@ -13,7 +13,12 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => {
+    t.classList.remove('show');
+    // pointer-events: none 가 적용돼 있어도, 박스 자체를 0 크기로 collapse 시켜
+    // 보이지 않는 토스트가 하단 영역 hit-test 를 흐리지 않도록 안전망.
+    t.textContent = '';
+  }, 2200);
 }
 
 /**

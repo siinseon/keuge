@@ -252,6 +252,20 @@ class MainActivity : AppCompatActivity() {
         // 컨텐츠가 화면을 가득 채우는 경우 reactive over-scroll glow 가 내부 스크롤
         // 시작 터치를 가로채는 것을 방지.
         webView.overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
+        // WebView 가 부모 ViewGroup(ConstraintLayout) 으로 터치를 양보하지 않도록 명시.
+        // 일부 OEM 의 ConstraintLayout 구현이 자식의 down/move 이벤트를 가로채는 사례가
+        // 보고된 적이 있어, 하단 영역 터치/스크롤이 산발적으로 막히는 문제를 예방한다.
+        // (이벤트는 WebView 의 기본 처리에 그대로 위임하므로 performClick 호출은 불필요)
+        @Suppress("ClickableViewAccessibility")
+        webView.setOnTouchListener { v, event ->
+            if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+                v.parent?.requestDisallowInterceptTouchEvent(true)
+            }
+            false
+        }
+        // 키보드 입력과 클릭 포커스 동작 안정화 (검색 화면 input 등).
+        webView.isFocusable = true
+        webView.isFocusableInTouchMode = true
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {

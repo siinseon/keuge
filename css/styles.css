@@ -1060,7 +1060,11 @@
     flex-shrink: 0;
   }
 
-  /* ─── TOAST ─── */
+  /* ─── TOAST ───
+     hit-test 차단 방지: 토스트는 항상 DOM 에 존재하며 opacity: 0 으로만 숨겨지므로
+     pointer-events: none 이 빠지면 Android WebView 손가락 터치가 보이지 않는
+     토스트 박스에 빨려 들어가 하단 영역 버튼 클릭/스크롤이 막힌다.
+     사용자 인터랙션이 필요 없는 알림 요소이므로 항상 none 으로 둔다. */
   .toast {
     position: fixed;
     bottom: calc(var(--bottom-nav-offset) + 16px);
@@ -1074,6 +1078,7 @@
     border-radius: 12px;
     z-index: 999;
     opacity: 0;
+    pointer-events: none;
     transition: opacity 0.15s, transform 0.15s;
     line-height: var(--line-height);
     max-width: calc(100% - 32px);
