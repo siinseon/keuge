@@ -1356,7 +1356,9 @@ const DataLoader = {
           ...brand,
           name: String(brand.name),
           chosung: brand.chosung ? String(brand.chosung) : '',
-          menus: Array.isArray(brand.menus) ? brand.menus.map(String) : []
+          menus: Array.isArray(brand.menus)
+            ? brand.menus.map(menu => DataHelper.normalizeMenuItem(menu)).filter(menu => menu.name)
+            : []
         }));
     });
     return normalized;
@@ -1365,18 +1367,18 @@ const DataLoader = {
   getFallbackBrands() {
     return {
       "카페": [
-        { "name": "스타벅스", "chosung": "ㅅㅌㅂㅅ", "menus": ["아메리카노", "카페라떼", "돌체라떼", "콜드브루", "자바칩프라푸치노"] },
-        { "name": "투썸플레이스", "chosung": "ㅌㅆㅍㄹㅇㅅ", "menus": ["아메리카노", "카페라떼"] },
-        { "name": "메가MGC커피", "chosung": "ㅁㄱMGCㅋㅍ", "menus": ["아메리카노", "큐브라떼"] },
-        { "name": "이디야커피", "chosung": "ㅇㄷㅇㅋㅍ", "menus": ["아메리카노", "바닐라라떼"] },
-        { "name": "빽다방", "chosung": "ㅂㄷㅂ", "menus": ["앗!메리카노", "원조커피"] }
+        { "name": "스타벅스", "chosung": "ㅅㅌㅂㅅ", "menus": [{ "name": "아메리카노", "price": 4500 }, { "name": "카페라떼", "price": 5000 }, { "name": "돌체라떼", "price": 5000 }, { "name": "콜드브루", "price": 4800 }, { "name": "자바칩프라푸치노", "price": 6300 }] },
+        { "name": "투썸플레이스", "chosung": "ㅌㅆㅍㄹㅇㅅ", "menus": [{ "name": "아메리카노", "price": 4500 }, { "name": "카페라떼", "price": 5000 }] },
+        { "name": "메가MGC커피", "chosung": "ㅁㄱMGCㅋㅍ", "menus": [{ "name": "아메리카노", "price": 1500 }, { "name": "큐브라떼", "price": 3000 }] },
+        { "name": "이디야커피", "chosung": "ㅇㄷㅇㅋㅍ", "menus": [{ "name": "아메리카노", "price": 1500 }, { "name": "바닐라라떼", "price": 3500 }] },
+        { "name": "빽다방", "chosung": "ㅂㄷㅂ", "menus": [{ "name": "앗!메리카노", "price": 1500 }, { "name": "원조커피", "price": 2000 }] }
       ],
       "식당": [
-        { "name": "맥도날드", "chosung": "ㅁㄷㄴㄷ", "menus": ["빅맥", "맥너겟"] },
-        { "name": "롯데리아", "chosung": "ㄹㄷㄹㅇ", "menus": ["불고기버거", "새우버거"] },
-        { "name": "버거킹", "chosung": "ㅂㄱㅋ", "menus": ["와퍼", "치즈버거"] },
-        { "name": "교촌치킨", "chosung": "ㄱㅊㅊㅋ", "menus": ["교촌오리지날", "허니콤보"] },
-        { "name": "BBQ치킨", "chosung": "BBQㅊㅋ", "menus": ["황금올리브치킨", "양념치킨"] }
+        { "name": "맥도날드", "chosung": "ㅁㄷㄴㄷ", "menus": [{ "name": "빅맥", "price": 5500 }, { "name": "맥너겟", "price": 3500 }] },
+        { "name": "롯데리아", "chosung": "ㄹㄷㄹㅇ", "menus": [{ "name": "불고기버거", "price": 3500 }, { "name": "새우버거", "price": 4000 }] },
+        { "name": "버거킹", "chosung": "ㅂㄱㅋ", "menus": [{ "name": "와퍼", "price": 6500 }, { "name": "치즈버거", "price": 3000 }] },
+        { "name": "교촌치킨", "chosung": "ㄱㅊㅊㅋ", "menus": [{ "name": "교촌오리지날", "price": 19000 }, { "name": "허니콤보", "price": 21000 }] },
+        { "name": "BBQ치킨", "chosung": "BBQㅊㅋ", "menus": [{ "name": "황금올리브치킨", "price": 20000 }, { "name": "양념치킨", "price": 20000 }] }
       ]
     };
   },
@@ -1439,6 +1441,38 @@ const DataLoader = {
 //   DATA HELPERS
 // ═══════════════════════════════════════════
 const DataHelper = {
+  normalizeMenuItem(menu) {
+    if (menu == null) return { name: '', price: null };
+    if (typeof menu === 'string') return { name: String(menu), price: null };
+    const name = menu.name != null ? String(menu.name) : '';
+    const price = typeof menu.price === 'number' && Number.isFinite(menu.price) ? menu.price : null;
+    return { name, price };
+  },
+
+  getMenuName(menu) {
+    return this.normalizeMenuItem(menu).name;
+  },
+
+  formatPrice(price) {
+    if (typeof price !== 'number' || !Number.isFinite(price)) return '가격 정보 없음';
+    return `${price.toLocaleString('ko-KR')}원`;
+  },
+
+  getMenuPriceLabel(menu) {
+    return this.formatPrice(this.normalizeMenuItem(menu).price);
+  },
+
+  getMenuDisplayText(menu) {
+    const { name, price } = this.normalizeMenuItem(menu);
+    if (!name) return '';
+    const priceLabel = this.formatPrice(price);
+    return priceLabel === '가격 정보 없음' ? `${name} ${priceLabel}` : `${name} ${priceLabel}`;
+  },
+
+  getMenuSpeakText(menu) {
+    return this.getMenuDisplayText(menu);
+  },
+
   getCategoryBrands(cat) {
     if (!AppState.brands || !AppState.brands[cat]) return [];
     return AppState.brands[cat].map(b => ({ ...b, cat }));
@@ -1452,7 +1486,7 @@ const DataHelper = {
   },
 
   getBrandMenus(brand) {
-    return brand.menus || [];
+    return (brand.menus || []).map(menu => this.normalizeMenuItem(menu)).filter(menu => menu.name);
   },
 
   groupByCategory(items) {
@@ -1493,7 +1527,10 @@ const SearchManager = {
       const nameMatch = brand.name.includes(q);
       const brandChosung = this.getChosung(brand.name);
       const chosungMatch = (brand.chosung && brand.chosung.includes(q)) || brandChosung.includes(q) || (isChosungQuery && brandChosung.startsWith(qChosung));
-      const menuMatch = brand.menus.some(m => m.includes(q) || this.getChosung(m).includes(q));
+      const menuMatch = brand.menus.some(m => {
+        const menuName = DataHelper.getMenuName(m);
+        return menuName.includes(q) || this.getChosung(menuName).includes(q);
+      });
       if (nameMatch || chosungMatch || menuMatch) results.push(brand);
     });
 

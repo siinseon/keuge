@@ -21,14 +21,20 @@ const UI = {
     `;
   },
 
-  buildMenuCard(menuName) {
-    const menu = this.escapeHtml(menuName);
+  buildMenuCard(menu) {
+    const { name, price } = DataHelper.normalizeMenuItem(menu);
+    const menuName = this.escapeHtml(name);
+    const priceLabel = DataHelper.formatPrice(price);
+    const safePrice = this.escapeHtml(priceLabel);
+    const speakText = DataHelper.getMenuSpeakText(menu);
+    const safeSpeak = this.escapeHtml(speakText);
+    const ariaLabel = `${menuName} ${safePrice}`;
     return `
-      <div class="menu-card" role="listitem" tabindex="0" aria-label="${menu} 메뉴">
+      <div class="menu-card" role="listitem" tabindex="0" aria-label="${ariaLabel}">
         <div class="menu-card-info">
-          <div class="menu-card-name">${menu}</div>
+          <div class="menu-card-name">${menuName} <span class="menu-card-price">${safePrice}</span></div>
         </div>
-        <button type="button" class="tts-btn" data-speak="${menu}" aria-label="${menu} 듣기">듣기</button>
+        <button type="button" class="tts-btn" data-speak="${safeSpeak}" aria-label="${ariaLabel} 듣기">듣기</button>
       </div>
     `;
   },

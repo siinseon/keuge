@@ -527,6 +527,12 @@
     color: inherit;
     line-height: 1.35;
   }
+  .menu-card-price {
+    font-size: clamp(1rem, 2.8vw, 1.15rem);
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+  }
   .brand-card .tts-btn,
   .menu-card .tts-btn {
     background: var(--border);
