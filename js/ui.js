@@ -8,15 +8,35 @@ const UI = {
       .replace(/'/g, '&#39;');
   },
 
+  escapeAttr(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  },
+
+  getTtsText(el) {
+    if (!el) return '';
+    const attrText = el.getAttribute('data-tts-text') || el.getAttribute('data-speak') || '';
+    if (attrText) return attrText;
+
+    const label = el.getAttribute('aria-label') || '';
+    return label
+      .replace(/\s*이름\s*듣기\s*$/u, '')
+      .replace(/\s*듣기\s*$/u, '')
+      .trim();
+  },
+
   buildBrandCard(brand) {
     const name = this.escapeHtml(brand.name);
     const cat = this.escapeHtml(brand.cat);
+    const speakText = this.escapeAttr(brand.name);
     return `
       <div class="brand-card" role="listitem" tabindex="0" data-brand="${name}" data-cat="${cat}" aria-label="${name} 메뉴 보기">
         <div class="brand-card-info">
           <div class="brand-card-name">${name}</div>
         </div>
-        <button type="button" class="tts-btn" data-speak="${name}" aria-label="${name} 이름 듣기">듣기</button>
+        <button type="button" class="tts-btn" data-tts-text="${speakText}" aria-label="${name} 이름 듣기">듣기</button>
       </div>
     `;
   },
@@ -27,14 +47,14 @@ const UI = {
     const priceLabel = DataHelper.formatPrice(price);
     const safePrice = this.escapeHtml(priceLabel);
     const speakText = DataHelper.getMenuSpeakText(menu);
-    const safeSpeak = this.escapeHtml(speakText);
+    const safeSpeak = this.escapeAttr(speakText);
     const ariaLabel = `${menuName} ${safePrice}`;
     return `
       <div class="menu-card" role="listitem" tabindex="0" aria-label="${ariaLabel}">
         <div class="menu-card-info">
           <div class="menu-card-name">${menuName} <span class="menu-card-price">${safePrice}</span></div>
         </div>
-        <button type="button" class="tts-btn" data-speak="${safeSpeak}" aria-label="${ariaLabel} 듣기">듣기</button>
+        <button type="button" class="tts-btn" data-tts-text="${safeSpeak}" aria-label="${ariaLabel} 듣기">듣기</button>
       </div>
     `;
   },
@@ -62,7 +82,7 @@ const UI = {
     const ttsBtn = e.target.closest('.tts-btn');
     if (ttsBtn) {
       e.stopPropagation();
-      const text = ttsBtn.dataset.speak;
+      const text = this.getTtsText(ttsBtn);
       if (text) SpeechManager.speakFromUserAction(text);
       return;
     }
@@ -74,7 +94,7 @@ const UI = {
     const ttsBtn = e.target.closest('.tts-btn');
     if (!ttsBtn) return;
     e.stopPropagation();
-    const text = ttsBtn.dataset.speak;
+    const text = this.getTtsText(ttsBtn);
     if (text) SpeechManager.speakFromUserAction(text);
   },
 

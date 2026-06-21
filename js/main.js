@@ -173,7 +173,12 @@ async function initApp() {
           if (!AppState.settings.voiceEnabled || ScrollPerf.isScrolling) return;
           const target = e.target.closest('button, input, [tabindex="0"]');
           if (target) {
-            const label = target.getAttribute('aria-label') || target.innerText || target.placeholder || '';
+            let label = '';
+            if (target.classList.contains('tts-btn')) {
+              label = UI.getTtsText(target);
+            } else {
+              label = target.getAttribute('aria-label') || target.innerText || target.placeholder || '';
+            }
             if (label) speak(label, true);
           }
         });
