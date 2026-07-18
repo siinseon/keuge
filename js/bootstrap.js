@@ -1367,11 +1367,11 @@ const DataLoader = {
   getFallbackBrands() {
     return {
       "카페": [
-        { "name": "스타벅스", "chosung": "ㅅㅌㅂㅅ", "menus": [{ "name": "아메리카노", "price": 4500 }, { "name": "카페라떼", "price": 5000 }, { "name": "돌체라떼", "price": 5000 }, { "name": "콜드브루", "price": 4800 }, { "name": "자바칩프라푸치노", "price": 6300 }] },
-        { "name": "투썸플레이스", "chosung": "ㅌㅆㅍㄹㅇㅅ", "menus": [{ "name": "아메리카노", "price": 4500 }, { "name": "카페라떼", "price": 5000 }] },
-        { "name": "메가MGC커피", "chosung": "ㅁㄱMGCㅋㅍ", "menus": [{ "name": "아메리카노", "price": 1500 }, { "name": "큐브라떼", "price": 3000 }] },
-        { "name": "이디야커피", "chosung": "ㅇㄷㅇㅋㅍ", "menus": [{ "name": "아메리카노", "price": 1500 }, { "name": "바닐라라떼", "price": 3500 }] },
-        { "name": "빽다방", "chosung": "ㅂㄷㅂ", "menus": [{ "name": "앗!메리카노", "price": 1500 }, { "name": "원조커피", "price": 2000 }] }
+        { "name": "스타벅스", "chosung": "ㅅㅌㅂㅅ", "menus": [{ "name": "아메리카노", "price": 4700 }, { "name": "카페라떼", "price": 5200 }, { "name": "돌체라떼", "price": 6100 }, { "name": "콜드브루", "price": 5100 }, { "name": "자바칩프라푸치노", "price": 6500 }] },
+        { "name": "투썸플레이스", "chosung": "ㅌㅆㅍㄹㅇㅅ", "menus": [{ "name": "아메리카노", "price": 4700 }, { "name": "카페라떼", "price": 5200 }] },
+        { "name": "메가MGC커피", "chosung": "ㅁㄱMGCㅋㅍ", "menus": [{ "name": "아메리카노", "price": 2000 }, { "name": "큐브라떼", "price": 4200 }] },
+        { "name": "이디야커피", "chosung": "ㅇㄷㅇㅋㅍ", "menus": [{ "name": "아메리카노", "price": 3200 }, { "name": "바닐라라떼", "price": 4500 }] },
+        { "name": "빽다방", "chosung": "ㅂㄷㅂ", "menus": [{ "name": "앗!메리카노", "price": 2000 }, { "name": "원조커피", "price": 2500 }] }
       ],
       "식당": [
         { "name": "맥도날드", "chosung": "ㅁㄷㄴㄷ", "menus": [{ "name": "빅맥", "price": 5500 }, { "name": "맥너겟", "price": 3500 }] },
