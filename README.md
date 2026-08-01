@@ -74,7 +74,7 @@
 | UI | WebView (루트 웹 앱을 `assets/www/`에 번들) |
 | OCR | Google ML Kit Text Recognition (Korean) |
 | TTS | Android TextToSpeech |
-| 빌드 | Gradle 8.x, compileSdk 35, minSdk 24 |
+| 빌드 | Gradle 9.4.1, AGP 9.2.1, compileSdk/targetSdk 36, minSdk 24 |
 | 패키지 | `com.siinseon.keuge` |
 
 ### 프로젝트 구조
