@@ -5,19 +5,29 @@ plugins {
 
 android {
     namespace = "com.siinseon.keuge"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.siinseon.keuge"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 10
-        versionName = "1.0.0"
+        targetSdk = 36
+        versionCode = 11
+        versionName = "1.0.1"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("${rootProject.projectDir.parentFile}/keuge-key.jks")
+            storePassword = "SUSU9649##A"
+            keyAlias = "key0"
+            keyPassword = "SUSU9649##A"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -55,11 +65,11 @@ tasks.named("preBuild") {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.activity:activity-ktx:1.9.1")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+    implementation("androidx.activity:activity-ktx:1.10.0")
 
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
     // ML Kit Task 를 동기적으로 await 하기 위해 사용 (Tasks.await).

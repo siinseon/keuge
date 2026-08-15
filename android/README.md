@@ -17,7 +17,7 @@ WebView
 
 ## 빌드
 
-1. Android Studio Koala 이상 또는 Android SDK 34 설치
+1. Android Studio Meerkat 이상 또는 Android SDK **36** 설치
 2. `android/` 디렉터리를 Android Studio에서 Open
 3. Gradle Sync 후 `copyWebAssets` 태스크가 웹 파일을 `app/src/main/assets/www/` 로 복사
 4. Run ▶ 실기기 또는 에뮬레이터
@@ -26,6 +26,14 @@ WebView
 cd android
 ./gradlew assembleDebug
 ```
+
+Play Console 업로드용 릴리스 번들:
+
+```bash
+./gradlew bundleRelease
+```
+
+출력: `app/build/outputs/bundle/release/app-release.aab`
 
 ## WebView ↔ Native Bridge
 

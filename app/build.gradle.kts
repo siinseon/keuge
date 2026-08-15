@@ -16,15 +16,15 @@ android {
         applicationId = "com.siinseon.keuge"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 11
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file("keuge-key.jks")
+            storeFile = file("${rootProject.projectDir}/keuge-key.jks")
             storePassword = "SUSU9649##A"
             keyAlias = "key0"
             keyPassword = "SUSU9649##A"
