@@ -3,7 +3,9 @@ package com.siinseon.keuge
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.annotation.Keep
 
+@Keep
 class WebAppBridge(
     private val activity: MainActivity,
     private val webView: WebView,
@@ -129,13 +131,19 @@ class WebAppBridge(
     /** 갤러리/최근 사진 선택 (미리보기만, OCR은 recognizeMenuImage) */
     @JavascriptInterface
     fun selectMenuImage(requestId: String?) {
+        Log.d(TAG, "selectMenuImage CALLED: requestId=$requestId")
         if (requestId.isNullOrBlank()) {
             Log.w(TAG, "selectMenuImage: blank requestId")
             return
         }
-        Log.d(TAG, "selectMenuImage: requestId=$requestId")
+        Log.d(TAG, "selectMenuImage: launching picker for requestId=$requestId")
         activity.runOnUiThread {
-            onImagePickRequested(requestId)
+            try {
+                onImagePickRequested(requestId)
+                Log.d(TAG, "selectMenuImage: onImagePickRequested invoked successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "selectMenuImage: onImagePickRequested failed", e)
+            }
         }
     }
 

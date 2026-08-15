@@ -139,6 +139,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         configureWebView()
+        Log.d(TAG, "Loading URL: $ASSETS_INDEX")
         webView.loadUrl(ASSETS_INDEX)
 
         // Android 13~16 대응: OnBackPressedDispatcher (AndroidX activity-ktx) 는
@@ -365,6 +366,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.addJavascriptInterface(webBridge, "Android")
+        Log.d(TAG, "addJavascriptInterface: webBridge registered as 'Android'")
     }
 
     /** JS typeof 검사가 실패해도 네이티브 기능을 켤 수 있도록 capability 플래그 주입 */

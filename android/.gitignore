@@ -7,5 +7,6 @@
 /captures
 .externalNativeBuild
 .cxx
+.kotlin/
 app/build/
 app/src/main/assets/www/
