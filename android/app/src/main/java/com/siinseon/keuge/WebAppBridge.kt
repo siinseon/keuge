@@ -15,28 +15,37 @@ class WebAppBridge(
     private val ttsManager = NativeTtsManager(activity)
     private val sttManager = NativeSttManager(activity)
 
+    @Keep
     @JavascriptInterface
     fun speakText(text: String?) {
         ttsManager.speak(text)
     }
 
+    @Keep
     @JavascriptInterface
     fun stopSpeak() {
         ttsManager.stop()
     }
 
+    @Keep
     @JavascriptInterface
     fun isTtsReady(): Boolean = ttsManager.isReady()
 
     /** JS 브리지 연결 확인용 (typeof 검사 대신 호출 가능) */
+    @Keep
     @JavascriptInterface
-    fun isBridgeReady(): Boolean = true
+    fun isBridgeReady(): Boolean {
+        Log.d(TAG, "isBridgeReady called - bridge is working")
+        return true
+    }
 
     /** 네이티브 STT 가용 여부 확인 */
+    @Keep
     @JavascriptInterface
     fun isSttAvailable(): Boolean = sttManager.isAvailable()
 
     /** 음성 검색 시작 — JS 콜백: window.KeugeSTT._onResult({requestId, success, transcript, error}) */
+    @Keep
     @JavascriptInterface
     fun startVoiceSearch(requestId: String?) {
         val rid = if (requestId.isNullOrBlank()) "stt-${System.currentTimeMillis()}" else requestId
@@ -58,6 +67,7 @@ class WebAppBridge(
     }
 
     /** 음성 검색 중단 */
+    @Keep
     @JavascriptInterface
     fun stopVoiceSearch() {
         Log.d(TAG, "stopVoiceSearch")
@@ -86,6 +96,7 @@ class WebAppBridge(
     }
 
     /** WebView file:// 에서 fetch 불가 — assets 의 brands.json 전체를 동기 반환 */
+    @Keep
     @JavascriptInterface
     fun loadBrandsJson(): String {
         return try {
@@ -97,6 +108,7 @@ class WebAppBridge(
     }
 
     /** [읽어주기] 탭 시 저장된 사진 URI로 ML Kit OCR */
+    @Keep
     @JavascriptInterface
     fun recognizeMenuImage(ocrRequestId: String?) {
         if (ocrRequestId.isNullOrBlank()) {
@@ -119,6 +131,7 @@ class WebAppBridge(
     }
 
     /** 캐시된 메뉴 사진 file:// URL — base64 브리지 대신 img src 로 사용 */
+    @Keep
     @JavascriptInterface
     fun getMenuPreviewUrl(): String {
         return if (activity.getMenuPreviewCacheFile() != null) {
@@ -129,6 +142,7 @@ class WebAppBridge(
     }
 
     /** 갤러리/최근 사진 선택 (미리보기만, OCR은 recognizeMenuImage) */
+    @Keep
     @JavascriptInterface
     fun selectMenuImage(requestId: String?) {
         Log.d(TAG, "selectMenuImage CALLED: requestId=$requestId")
@@ -148,6 +162,7 @@ class WebAppBridge(
     }
 
     /** 레거시: base64 JPEG → ML Kit (PC 디버그·호환) */
+    @Keep
     @JavascriptInterface
     fun recognizeTextFromBase64(requestId: String?, base64: String?) {
         if (requestId.isNullOrBlank()) {

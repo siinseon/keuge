@@ -275,7 +275,14 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                Log.d(TAG, "onPageFinished: url=$url")
                 injectNativeBridgeFlags(view)
+                // 브리지 작동 확인용 테스트
+                view?.evaluateJavascript(
+                    "(function(){try{return typeof window.Android !== 'undefined' && window.Android !== null ? 'bridge_present' : 'bridge_missing';}catch(e){return 'error:'+e.message;}})()"
+                ) { result ->
+                    Log.d(TAG, "Bridge check result: $result")
+                }
             }
 
             override fun shouldInterceptRequest(
@@ -372,16 +379,21 @@ class MainActivity : AppCompatActivity() {
     /** JS typeof 검사가 실패해도 네이티브 기능을 켤 수 있도록 capability 플래그 주입 */
     private fun injectNativeBridgeFlags(view: WebView?) {
         if (view == null) return
+        Log.d(TAG, "injectNativeBridgeFlags: injecting flags")
         val js =
             "(function(){try{" +
             "window.__KEUGE_NATIVE__={bridge:1,picker:1,ocr:1,tts:1,brands:1," +
             "selectMenuImage:1,recognizeMenuImage:1,recognizeTextFromBase64:1,loadBrandsJson:1," +
             "speakText:1,stopSpeak:1,getMenuPreviewUrl:1," +
             "startVoiceSearch:1,stopVoiceSearch:1,isSttAvailable:1};" +
-            "if(window.console)console.log('[Keuge] native bridge flags injected',!!window.Android);" +
+            "var bridgeOk = typeof window.Android !== 'undefined' && window.Android !== null;" +
+            "var selectOk = bridgeOk && typeof window.Android.selectMenuImage !== 'undefined';" +
+            "if(window.console)console.log('[Keuge] native bridge flags injected, Android='+bridgeOk+', selectMenuImage='+selectOk);" +
             "}catch(e){if(window.console)console.error('[Keuge] bridge inject failed',e);}})();"
         try {
-            view.evaluateJavascript(js, null)
+            view.evaluateJavascript(js) { result ->
+                Log.d(TAG, "injectNativeBridgeFlags: evaluateJavascript result=$result")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "injectNativeBridgeFlags evaluateJavascript failed", e)
             try {
