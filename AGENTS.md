@@ -21,13 +21,13 @@ Long-running dev server: use a **tmux** session (e.g. `keuge-web-server`) so the
 
 | Action | Command |
 |--------|---------|
-| Build debug APK | `cd android && ./gradlew assembleDebug` (Gradle **9.4.1**, AGP **9.2.1**, SDK **36**) |
-| Build release AAB | `cd android && ./gradlew bundleRelease` → `app/build/outputs/bundle/release/app-release.aab` |
-| APK output | `android/app/build/outputs/apk/debug/app-debug.apk` |
+| Build debug APK | From repo root: `./gradlew assembleDebug` (Gradle **9.4.1**, AGP **9.2.1**, SDK **36**) |
+| Build release AAB | `./gradlew bundleRelease` → `app/build/outputs/bundle/release/app-release.aab` |
+| APK output | `app/build/outputs/apk/debug/app-debug.apk` |
 
-The repo includes **`gradlew`** under `android/` (Gradle 9.4.1).
+The repo includes **`gradlew`** at the root (Gradle 9.4.1). Open the **repository root** in Android Studio (not a nested folder).
 
-`preBuild` runs **`copyWebAssets`**, which copies root `index.html`, `js/`, `css/`, `data/`, and `assets/` into `android/app/src/main/assets/www/`. Edit web files at the repo root, then rebuild Android to pick them up.
+`preBuild` runs **`copyWebAssets`**, which copies root `index.html`, `js/`, `css/`, `data/`, and `assets/` into `app/src/main/assets/www/`. Edit web files at the repo root, then rebuild Android to pick them up.
 
 **Cloud VM note:** Android SDK **36** (and Build-Tools 36) plus platform-tools are expected under `$HOME/Android/Sdk` with `ANDROID_HOME` set. Accept licenses once with `yes | sdkmanager --licenses` if builds fail on license prompts.
 
@@ -36,7 +36,7 @@ The repo includes **`gradlew`** under `android/` (Gradle 9.4.1).
 There are no configured linters or unit tests. Practical checks:
 
 - Web: `node --check` on `js/*.js`
-- Android: `gradle assembleDebug` in `android/`
+- Android: `./gradlew assembleDebug` from repo root
 
 ### Hello-world verification
 

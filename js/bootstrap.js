@@ -37,16 +37,15 @@ const AndroidBridge = {
 
   hasMethod(name) {
     if (!this.isPresent()) return false;
-    if (this.hasNativeFlag(name)) return true;
     try {
       const bridge = window.Android;
       const method = bridge[name];
       if (method == null) return false;
       const type = typeof method;
-      return type === 'function' || type === 'object';
-    } catch (_) {
-      return false;
-    }
+      if (type === 'function' || type === 'object') return true;
+    } catch (_) {}
+    // 실제 메서드가 없으면 플래그도 무시
+    return false;
   },
 
   call(name, ...args) {

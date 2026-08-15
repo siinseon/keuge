@@ -90,7 +90,7 @@ keuge/
 │   └── speech.js       # 음성 검색·TTS
 ├── data/brands.json    # 브랜드·메뉴 데이터
 ├── assets/             # 로고 등 정적 리소스
-└── android/            # Android WebView 셸
+└── app/                # Android WebView 셸 (로컬 웹 assets 번들)
 ```
 
 ---
@@ -110,14 +110,16 @@ python -m http.server 8080
 
 ### Android
 
-1. Android Studio에서 `android/` 폴더 열기
+1. Android Studio에서 **저장소 루트** 열기
 2. Gradle Sync — `preBuild` 시 `copyWebAssets`가 웹 파일을 `app/src/main/assets/www/`로 복사
 3. Run ▶ (실기기 또는 에뮬레이터)
 
 ```bash
-cd android
-gradle assembleDebug
-# APK: android/app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleDebug
+# APK: app/build/outputs/apk/debug/app-debug.apk
+
+./gradlew assembleRelease
+# APK: app/build/outputs/apk/release/app-release.apk
 ```
 
 웹 파일을 수정한 뒤에는 Android를 **다시 빌드**해야 assets에 반영됩니다.
@@ -158,5 +160,5 @@ node --check js/speech.js
 
 ## 관련 문서
 
-- [android/README.md](android/README.md) — Android WebView·네이티브 브리지 상세
+- [ANDROID.md](ANDROID.md) — Android WebView·네이티브 브리지 상세
 - [AGENTS.md](AGENTS.md) — 개발 환경·빌드·검증 가이드 (에이전트/개발자용)

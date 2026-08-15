@@ -1,72 +1,42 @@
 package com.siinseon.keuge
 
-import android.content.Context
 import android.speech.tts.TextToSpeech
-import android.util.Log
 import java.util.Locale
 
-class NativeTtsManager(context: Context) {
+class NativeTtsManager(
+    private val activity: MainActivity
+) : TextToSpeech.OnInitListener {
 
-    private var engine: TextToSpeech? = null
-    var isReady: Boolean = false
-        private set
+    private var tts: TextToSpeech? = TextToSpeech(activity, this)
+    private var ready = false
 
-    init {
-        engine = TextToSpeech(context) { status ->
-            if (status != TextToSpeech.SUCCESS) {
-                isReady = false
-                Log.e(TAG, "TextToSpeech initialization failed: $status")
-                return@TextToSpeech
-            }
-
-            val tts = engine ?: return@TextToSpeech
-            var langResult = tts.setLanguage(Locale.forLanguageTag("ko-KR"))
-            if (
-                langResult == TextToSpeech.LANG_MISSING_DATA ||
-                langResult == TextToSpeech.LANG_NOT_SUPPORTED
-            ) {
-                langResult = tts.setLanguage(Locale.KOREAN)
-            }
-            if (
-                langResult == TextToSpeech.LANG_MISSING_DATA ||
-                langResult == TextToSpeech.LANG_NOT_SUPPORTED
-            ) {
-                isReady = false
-                Log.e(TAG, "Korean TTS language is not supported")
-                return@TextToSpeech
-            }
-
-            tts.setSpeechRate(0.9f)
-            tts.setPitch(1.0f)
-            isReady = true
+    override fun onInit(status: Int) {
+        ready = status == TextToSpeech.SUCCESS
+        if (ready) {
+            tts?.language = Locale.KOREAN
         }
     }
 
-    fun speak(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty() || !isReady) return
-
-        engine?.stop()
-        engine?.speak(
-            trimmed,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            "keuge_${System.currentTimeMillis()}"
-        )
+    fun speak(text: String?) {
+        if (text.isNullOrBlank()) return
+        activity.runOnUiThread {
+            if (!ready) return@runOnUiThread
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kkeukbom-tts")
+        }
     }
 
     fun stop() {
-        engine?.stop()
+        activity.runOnUiThread {
+            tts?.stop()
+        }
     }
+
+    fun isReady(): Boolean = ready
 
     fun shutdown() {
-        engine?.stop()
-        engine?.shutdown()
-        engine = null
-        isReady = false
-    }
-
-    companion object {
-        private const val TAG = "KeugeTTS"
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
+        ready = false
     }
 }
